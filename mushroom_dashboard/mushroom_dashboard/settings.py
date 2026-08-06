@@ -14,9 +14,13 @@ from pathlib import Path
 import os
 
 import dj_database_url
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load local environment variables from .env when present.
+load_dotenv(BASE_DIR / '.env', override=True)
 
 
 # Quick-start development settings - unsuitable for production
@@ -35,7 +39,7 @@ elif DEBUG:
     # Development default: allow LAN access without extra configuration.
     ALLOWED_HOSTS = ['*']
 else:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.225.73.56']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.8.34']
 
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
@@ -232,8 +236,9 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '').strip()
+# Gmail app passwords are often copied with spaces; normalize to avoid auth failures.
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '').replace(' ', '').strip()
 
 # Default from email address
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'Mushroom Farm <{EMAIL_HOST_USER}>')

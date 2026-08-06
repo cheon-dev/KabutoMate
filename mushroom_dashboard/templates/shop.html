@@ -197,6 +197,74 @@
 
         /* ── PRODUCT GRID ── */
         .content { min-width: 0; }
+        .best-sellers-section {
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, rgba(12,75,51,0.04), rgba(212,242,107,0.14));
+            border: 1px solid rgba(12,75,51,0.08);
+            border-radius: 24px;
+            padding: 1.5rem;
+        }
+        .section-header {
+            display: flex; align-items: end; justify-content: space-between;
+            gap: 1rem; margin-bottom: 1.25rem;
+        }
+        .section-header h2 {
+            font-size: 1.25rem; font-weight: 800; color: var(--text-main);
+            letter-spacing: -0.02em;
+        }
+        .section-header p {
+            font-size: 0.92rem; color: var(--text-muted);
+        }
+        .best-sellers-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 1rem;
+        }
+        .best-seller-card {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 18px;
+            padding: 1rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .best-seller-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 30px rgba(0,0,0,0.08);
+        }
+        .best-seller-media {
+            height: 145px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #f8fafc 0%, #ecfdf5 100%);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        .best-seller-media img {
+            width: 88%; height: 88%; object-fit: contain; mix-blend-mode: multiply;
+        }
+        .best-seller-name {
+            font-size: 1rem; font-weight: 800; color: var(--text-main);
+            line-height: 1.25;
+        }
+        .best-seller-meta {
+            display: flex; justify-content: space-between; gap: 0.75rem;
+            font-size: 0.82rem; color: var(--text-muted);
+        }
+        .best-seller-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            width: fit-content;
+            background: rgba(12,75,51,0.08);
+            color: var(--primary);
+            border-radius: 999px;
+            padding: 0.35rem 0.75rem;
+            font-size: 0.76rem;
+            font-weight: 800;
+        }
         .products-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -228,12 +296,7 @@
             width: 90%; height: 90%; object-fit: contain; mix-blend-mode: multiply;
         }
 
-        .wishlist-icon {
-            position: absolute; top: 10px; right: 10px;
-            background: white; width: 32px; height: 32px;
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.05); z-index: 10;
-        }
+        /* wishlist icon removed - site does not use wishlist */
 
         .badge {
             position: absolute; top: 10px; left: 10px;
@@ -438,6 +501,9 @@
             .sidebar-section:first-child { flex: unset; }
             .filter-group { flex-direction: column; }
             .filter-select { flex: unset; min-width: unset; }
+            .best-sellers-section { padding: 1rem; margin-bottom: 1.25rem; }
+            .best-sellers-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+            .section-header { align-items: start; flex-direction: column; }
 
             /* 2-column product grid on mobile */
             .products-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
@@ -468,6 +534,9 @@
             }
             .logo-circle img { width: 15px !important; }
             .brand-name { font-size: 0.95rem; }
+            .best-seller-media { height: 120px; }
+            .best-seller-name { font-size: 0.82rem; }
+            .best-seller-meta { font-size: 0.72rem; flex-direction: column; gap: 0.2rem; }
             .products-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
             .product-card { padding: 10px; }
             .product-image-container { height: 120px; }
@@ -720,14 +789,7 @@
                             <option value="price-desc">Price: High to Low</option>
                             <option value="stock-desc">Availability</option>
                         </select>
-                        <select id="categoryFilter" class="filter-select">
-                            <option value="">All Types</option>
-                            <option value="oyster">Oyster</option>
-                            <option value="shiitake">Shiitake</option>
-                            <option value="button">Button</option>
-                            <option value="portobello">Portobello</option>
-                            <option value="other">Other</option>
-                        </select>
+                        
                         <select id="productTypeFilter" class="filter-select" style="display:none;">
                             <option value="">All Conditions</option>
                             <option value="fresh">Fresh</option>
@@ -742,6 +804,40 @@
 
             <!-- RIGHT: Products -->
             <main class="content">
+                {% if best_sellers %}
+                <section class="best-sellers-section">
+                    <div class="section-header">
+                        <div>
+                            <h2>Best Selling Products</h2>
+                            <p>Customer favorites based on completed e-commerce sales.</p>
+                        </div>
+                        <div class="best-seller-pill"><i class="fa-solid fa-trophy"></i> Trending now</div>
+                    </div>
+                    <div class="best-sellers-grid">
+                        {% for product in best_sellers %}
+                        <a href="{% url 'product_detail' product.id %}" class="best-seller-card">
+                            <div class="best-seller-media">
+                                {% if product.images.all %}
+                                    {% with primary_image=product.images.all.0 %}
+                                    <img src="{{ primary_image.image.url }}" alt="{{ product.name }}">
+                                    {% endwith %}
+                                {% else %}
+                                    <div class="product-emoji">🍄</div>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div class="best-seller-name">{{ product.name }}</div>
+                                <div class="best-seller-meta">
+                                    <span>₱{{ product.price_per_kg }} / {{ product.unit }}</span>
+                                    <span>{{ product.total_sold|default:0 }} sold</span>
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endif %}
+
                 <!-- Skeleton -->
                 <div class="products-grid" id="skeletonGrid" style="display:none;">
                     {% for i in "123456" %}
@@ -760,7 +856,7 @@
                     <div class="product-card" data-product-id="{{ product.id }}" data-product-type="{{ product.product_type }}" style="cursor:pointer;">
 
                         <div class="product-image-container">
-                            <div class="wishlist-icon"><i class="fa-regular fa-heart"></i></div>
+                            
 
                             <span class="badge">
                                 {% if product.product_type == 'cooked' %}Ready-to-Eat
@@ -1109,7 +1205,7 @@
                 productsGrid.addEventListener('click', function(e) {
                     const productCard = e.target.closest('.product-card');
                     if (!productCard) return;
-                    if (e.target.closest('button') || e.target.closest('form') || e.target.closest('.rating-count') || e.target.closest('input') || e.target.closest('.wishlist-icon') || e.target.closest('.add-btn')) return;
+                    if (e.target.closest('button') || e.target.closest('form') || e.target.closest('.rating-count') || e.target.closest('input') || e.target.closest('.add-btn')) return;
                     const productId = productCard.dataset.productId;
                     if (productId) { trackProductView(productId); window.location.href = `/product/${productId}/`; }
                 });

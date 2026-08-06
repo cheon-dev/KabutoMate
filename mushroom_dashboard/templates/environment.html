@@ -802,6 +802,29 @@
 
         </div> 
         
+        <div class="card ai-recommendations" style="margin-top: 20px;">
+            <h3><i class="fa-solid fa-bell"></i> Email Notification Settings</h3>
+            <div style="display: grid; gap: 14px; margin-top: 12px;">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 600;">
+                    <input type="checkbox" id="email-notifications-enabled">
+                    Enable email notifications
+                </label>
+                <div>
+                    <label for="notification-recipients" style="display: block; margin-bottom: 6px; font-weight: 600;">Recipient Email Addresses</label>
+                    <textarea id="notification-recipients" rows="3" placeholder="admin@example.com, supervisor@example.com" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #d1d5db; resize: vertical;"></textarea>
+                    <small style="display: block; margin-top: 6px; color: #6b7280;">Separate multiple addresses with commas or new lines.</small>
+                </div>
+                <div>
+                    <label for="alert-cooldown-minutes" style="display: block; margin-bottom: 6px; font-weight: 600;">Alert Cooldown (minutes)</label>
+                    <input type="number" id="alert-cooldown-minutes" min="1" step="1" value="60" style="width: 160px; padding: 12px; border-radius: 8px; border: 1px solid #d1d5db;">
+                </div>
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 600;">
+                    <input type="checkbox" id="recovery-email-enabled" checked>
+                    Send recovery emails when conditions return to normal
+                </label>
+            </div>
+        </div>
+
         <div class="card ai-recommendations">
             <h3><i class="fa-solid fa-brain"></i> AI Recommendations</h3>
             <ul id="ai-recommendation-list">
@@ -905,6 +928,10 @@
             lights_auto: document.getElementById('lights-auto-toggle'),
             lights_value: document.getElementById('lights-slider'),
             lights_value_display: document.getElementById('lights-slider-value'),
+            email_notifications_enabled: document.getElementById('email-notifications-enabled'),
+            notification_recipients: document.getElementById('notification-recipients'),
+            alert_cooldown_minutes: document.getElementById('alert-cooldown-minutes'),
+            recovery_email_enabled: document.getElementById('recovery-email-enabled'),
         };
         
         const aiList = document.getElementById('ai-recommendation-list');
@@ -921,6 +948,7 @@
                 const data = await response.json();
                 
                 const settings = data.settings;
+                const notificationSettings = data.notification_settings || {};
                 const recommendations = data.recommendations;
                 
                 // Set all controls
@@ -943,6 +971,11 @@
                 controls.lights_auto.checked = settings.lights_auto;
                 controls.lights_value.value = settings.lights_value;
                 controls.lights_value_display.textContent = `${settings.lights_value}%`;
+
+                controls.email_notifications_enabled.checked = notificationSettings.email_enabled !== false;
+                controls.notification_recipients.value = notificationSettings.recipient_emails || '';
+                controls.alert_cooldown_minutes.value = notificationSettings.alert_cooldown_minutes || 60;
+                controls.recovery_email_enabled.checked = notificationSettings.recovery_email_enabled !== false;
 
                 // Populate AI Recommendations
                 aiList.innerHTML = ''; 
@@ -1057,6 +1090,10 @@
                 lights_on: controls.lights_on.checked,
                 lights_auto: controls.lights_auto.checked,
                 lights_value: parseInt(controls.lights_value.value, 10),
+                    email_enabled: controls.email_notifications_enabled.checked,
+                    recipient_emails: controls.notification_recipients.value,
+                    alert_cooldown_minutes: parseInt(controls.alert_cooldown_minutes.value, 10) || 60,
+                    recovery_email_enabled: controls.recovery_email_enabled.checked,
             };
             
             try {
@@ -1087,6 +1124,9 @@
         linkSlider(controls.humidifier_value, controls.humidifier_value_display, '%');
         linkSlider(controls.heater_value, controls.heater_value_display, '°C');
         linkSlider(controls.lights_value, controls.lights_value_display, '%');
+
+        controls.notification_recipients.addEventListener('change', saveSettings);
+        controls.alert_cooldown_minutes.addEventListener('change', saveSettings);
 
         // --- 4. Add Event Listeners to all Toggles ---
         for (const key in controls) {

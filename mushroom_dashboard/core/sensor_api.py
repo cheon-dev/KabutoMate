@@ -10,6 +10,7 @@ from django.utils import timezone
 from decimal import Decimal
 import json
 from .models import SensorReading, Notification
+from .notification_service import evaluate_environment_notifications
 
 # Optional: Add your API key here for basic authentication
 API_KEY = None  # Change this to a secure key
@@ -62,50 +63,26 @@ def receive_sensor_data(request):
             co2_ppm=None  # DHT22 doesn't measure CO2
         )
         
-        # Check for critical conditions and create notifications
-        alerts = []
-        
+        # Evaluate environmental notifications with cooldown and recovery handling
+        notification_events = evaluate_environment_notifications(reading)
+        alerts = [event['description'] for event in notification_events]
+
         if temperature < 10:
-            create_alert_notification(
-                f"CRITICAL: Temperature too low ({temperature}°C)",
-                "CRITICAL"
-            )
             alerts.append("Temperature critically low")
-            
         elif temperature > 21:
-            create_alert_notification(
-                f"CRITICAL: Temperature too high ({temperature}°C)",
-                "CRITICAL"
-            )
             alerts.append("Temperature critically high")
-            
         elif not reading.is_temperature_optimal:
             alerts.append("Temperature outside optimal range (13-18°C)")
-        
+
         if humidity < 70:
-            create_alert_notification(
-                f"WARNING: Humidity too low ({humidity}%)",
-                "WARNING"
-            )
             alerts.append("Humidity too low")
-            
         elif humidity > 98:
-            create_alert_notification(
-                f"WARNING: Humidity too high ({humidity}%)",
-                "WARNING"
-            )
             alerts.append("Humidity too high")
-            
         elif not reading.is_humidity_optimal:
             alerts.append("Humidity outside optimal range (80-95%)")
-        
-        # Air quality check (if MQ-135 data present)
+
         if air_quality_ppm is not None:
             if air_quality_ppm >= 800:
-                create_alert_notification(
-                    f"WARNING: Poor air quality ({air_quality_ppm} PPM)",
-                    "WARNING"
-                )
                 alerts.append("Air quality is poor - increase ventilation")
             elif air_quality_ppm >= 400:
                 alerts.append("Air quality acceptable")
@@ -138,28 +115,6 @@ def receive_sensor_data(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
-
-
-def create_alert_notification(message, category):
-    """Helper function to create notifications for critical sensor readings"""
-    try:
-        # Map category to level
-        level_mapping = {
-            'CRITICAL': 'warning',
-            'WARNING': 'warning',
-            'INFO': 'info'
-        }
-        level = level_mapping.get(category, 'info')
-        
-        Notification.objects.create(
-            title=f"Sensor Alert: {category}",
-            description=message,
-            category='environmental',
-            level=level,
-            is_read=False
-        )
-    except Exception as e:
-        print(f"Error creating notification: {e}")
 
 
 @require_http_methods(["GET"])

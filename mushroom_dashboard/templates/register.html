@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#2e7d32">
     <title>Register - Kabutomate</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
     
@@ -18,7 +18,16 @@
             --accent-orange: #ff7043;
             --dark-text: #1a202c;
             --light-text: #a0aec0;
-            --bg-gray: #f7fafc;
+            --bg-gray: #f0f4f1;
+
+            /* Design tokens (match Login) */
+            --form-bg: #ffffff;
+            --input-bg: #f7faf7;
+            --input-border: #d4e2d5;
+            --input-focus: var(--primary-green);
+            --card-shadow: 0 24px 64px rgba(46,125,50,0.10), 0 4px 16px rgba(0,0,0,0.06);
+            --radius-input: 12px;
+            --radius-card: 28px;
         }
 
         * {
@@ -26,16 +35,9 @@
             outline: none;
         }
 
-        html, body {
-            height: 100%;
-            margin: 0;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        body {
-            display: flex;
-            background-color: var(--bg-gray);
-        }
+        html, body { height: 100%; }
+        html, body { margin: 0; font-family: 'DM Sans', sans-serif; }
+        body { display: flex; background-color: var(--bg-gray); min-height: 100vh; }
 
         /* --- Left Side (Registration Form) --- */
         .split-left {
@@ -53,10 +55,25 @@
 
         .register-wrapper {
             width: 100%;
-            max-width: 520px;
-            padding: 40px;
+            max-width: 420px;
+            background: var(--form-bg);
+            border-radius: var(--radius-card);
+            padding: 44px 40px 40px;
+            box-shadow: var(--card-shadow);
+            position: relative;
+            animation: slideUpFade 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            border: 1px solid rgba(46,125,50,0.07);
             margin: auto;
-            animation: slideUpFade 0.7s ease-out forwards;
+        }
+
+        /* Top accent bar like login card */
+        .register-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 32px; right: 32px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--light-green), var(--primary-green), var(--accent-orange));
+            border-radius: 0 0 6px 6px;
         }
 
         @keyframes slideUpFade {
@@ -70,11 +87,14 @@
             }
         }
 
-        .header-text {
-            margin-bottom: 35px;
-            margin-top: 20px;
-            text-align: center;
-        }
+        .header-text { margin-bottom: 28px; margin-top: 4px; text-align: left; }
+
+        .form-brand { display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+        .form-brand-icon { width:38px; height:38px; background: linear-gradient(135deg, var(--light-green), var(--primary-green)); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .form-brand-name { font-family: 'DM Serif Display', serif; font-size:1.05rem; color: var(--primary-green); letter-spacing:0.04em; }
+
+        .header-text h1 { font-family: 'DM Serif Display', serif; font-size:2rem; font-weight:400; color:var(--dark-text); margin-bottom:8px; }
+        .header-text p { color: var(--light-text); font-size:0.9rem; }
 
         .header-text h1 {
             font-size: 2.2em;
@@ -107,27 +127,17 @@
             position: relative;
         }
 
-        .input-container i {
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #cbd5e0;
-            transition: color 0.3s ease;
-        }
+        .input-container .field-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#b0bec5; font-size:0.95rem; transition: color 0.25s; pointer-events:none; z-index:1; }
 
         .input-container input,
         .input-container textarea {
-            width: 100%;
-            padding: 14px 15px 14px 48px;
-            border: 2px solid #e2e8f0;
-            border-radius: 14px;
-            font-size: 0.95em;
-            font-family: 'Poppins', sans-serif;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            color: var(--dark-text);
-            background-color: #f8fafc;
+            width: 100%; padding: 13px 14px 13px 42px;
+            border: 1.5px solid var(--input-border); border-radius: var(--radius-input);
+            font-size: 0.95rem; font-family: 'DM Sans', sans-serif; color: var(--dark-text);
+            background: var(--input-bg); transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
         }
+
+        .input-container input::placeholder { color: #c0ccc1; }
         
         /* Password input needs extra right padding for eye icon */
         .input-container:has(.password-toggle) input {
@@ -140,17 +150,9 @@
             resize: vertical;
         }
 
-        .input-container input:focus,
-        .input-container textarea:focus {
-            border-color: var(--primary-green);
-            background-color: #fff;
-            box-shadow: 0 4px 12px rgba(46, 125, 50, 0.15), 0 0 0 4px rgba(46, 125, 50, 0.1);
-            transform: translateY(-2px);
-        }
-
-        .input-container input:focus + i {
-            color: var(--primary-green);
-        }
+        .input-container input:hover { border-color: #a5c9a7; background: #f2f8f2; }
+        .input-container input:focus { border-color: var(--input-focus); background: #fff; box-shadow: 0 0 0 3.5px rgba(46,125,50,0.12); }
+        .input-container:focus-within .field-icon { color: var(--primary-green); }
         
         /* Password toggle */
         .password-toggle {
@@ -184,31 +186,16 @@
         }
 
         .register-btn {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, var(--light-green), var(--primary-green));
-            color: white;
-            border: none;
-            border-radius: 14px;
-            font-weight: 600;
-            font-size: 1.05em;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            margin-top: 15px;
-            box-shadow: 0 6px 16px rgba(46, 125, 50, 0.25);
-            letter-spacing: 0.5px;
+            width: 100%; padding: 14px; border: none; border-radius: var(--radius-input);
+            background: linear-gradient(135deg, var(--light-green) 0%, var(--primary-green) 60%);
+            color: white; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.03em;
+            cursor: pointer; margin-top: 4px; box-shadow: 0 6px 20px rgba(46,125,50,0.28);
+            position: relative; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
         }
-
-        .register-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 20px rgba(46, 125, 50, 0.35);
-            background: linear-gradient(135deg, #43a047, #1b5e20);
-        }
-
-        .register-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 4px 10px rgba(46, 125, 50, 0.2);
-        }
+        .register-btn::after { content: ''; position: absolute; top:0; left:-100%; width:60%; height:100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent); transform: skewX(-20deg); transition:left 0.5s; }
+        .register-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(46,125,50,0.38); filter: brightness(1.06); }
+        .register-btn:hover::after { left: 160%; }
+        .register-btn:active { transform: translateY(0); box-shadow: 0 4px 12px rgba(46,125,50,0.22); }
 
         /* --- Google Sign-Up Button --- */
         .google-btn {
@@ -517,6 +504,20 @@
 
     <div class="split-left">
         <div class="register-wrapper">
+            <div class="form-brand">
+                <div class="form-brand-icon">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;">
+                        <defs>
+                            <radialGradient id="fl-cap2" cx="30%" cy="30%" r="60%">
+                                <stop offset="0%" stop-color="#ff8a65"/>
+                                <stop offset="100%" stop-color="#bf360c"/>
+                            </radialGradient>
+                        </defs>
+                        <path d="M25,100 C25,30 65,15 100,15 C135,15 175,30 175,100 C175,115 135,125 100,125 C65,125 25,115 25,100 Z" fill="url(#fl-cap2)"/>
+                    </svg>
+                </div>
+                <span class="form-brand-name">KABUTOMATE</span>
+            </div>
             <div class="header-text">
                 <h1>Create Account</h1>
                 <p>Join Kabutomate to start shopping fresh mushrooms.</p>
@@ -531,14 +532,14 @@
                         <label for="first_name">First Name</label>
                         <div class="input-container">
                             <input type="text" id="first_name" name="first_name" placeholder="John" required>
-                            <i class="fa-solid fa-user"></i>
+                            <i class="fa-solid fa-user field-icon"></i>
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="last_name">Last Name</label>
                         <div class="input-container">
                             <input type="text" id="last_name" name="last_name" placeholder="Doe" required>
-                            <i class="fa-solid fa-user"></i>
+                            <i class="fa-solid fa-user field-icon"></i>
                         </div>
                     </div>
                 </div>
@@ -547,7 +548,7 @@
                     <label for="username">Username <span style="color: red;">*</span></label>
                     <div class="input-container">
                         <input type="text" id="username" name="username" placeholder="Choose a username" required>
-                        <i class="fa-regular fa-user"></i>
+                        <i class="fa-regular fa-user field-icon"></i>
                     </div>
                 </div>
 
@@ -555,7 +556,7 @@
                     <label for="email">Email <span style="color: red;">*</span></label>
                     <div class="input-container">
                         <input type="email" id="email" name="email" placeholder="your.email@example.com" required>
-                        <i class="fa-regular fa-envelope"></i>
+                        <i class="fa-regular fa-envelope field-icon"></i>
                     </div>
                 </div>
 
@@ -564,7 +565,7 @@
                         <label for="password">Password <span style="color: red;">*</span></label>
                         <div class="input-container">
                             <input type="password" id="password" name="password" placeholder="••••••••" required>
-                            <i class="fa-solid fa-lock"></i>
+                            <i class="fa-solid fa-lock field-icon"></i>
                             <button type="button" class="password-toggle" onclick="togglePassword('password', this)">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
@@ -574,7 +575,7 @@
                         <label for="confirm_password">Confirm Password <span style="color: red;">*</span></label>
                         <div class="input-container">
                             <input type="password" id="confirm_password" name="confirm_password" placeholder="••••••••" required>
-                            <i class="fa-solid fa-lock"></i>
+                            <i class="fa-solid fa-lock field-icon"></i>
                             <button type="button" class="password-toggle" onclick="togglePassword('confirm_password', this)">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
@@ -586,7 +587,7 @@
                     <label for="phone">Phone Number</label>
                     <div class="input-container">
                         <input type="tel" id="phone" name="phone" placeholder="+1 (555) 123-4567">
-                        <i class="fa-solid fa-phone"></i>
+                        <i class="fa-solid fa-phone field-icon"></i>
                     </div>
                 </div>
 
@@ -602,14 +603,14 @@
                         <label for="city">City</label>
                         <div class="input-container">
                             <input type="text" id="city" name="city" placeholder="Your city">
-                            <i class="fa-solid fa-location-dot"></i>
+                            <i class="fa-solid fa-location-dot field-icon"></i>
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="postal_code">Postal Code</label>
                         <div class="input-container">
                             <input type="text" id="postal_code" name="postal_code" placeholder="12345">
-                            <i class="fa-solid fa-location-dot"></i>
+                            <i class="fa-solid fa-location-dot field-icon"></i>
                         </div>
                     </div>
                 </div>

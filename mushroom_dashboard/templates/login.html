@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="theme-color" content="#2e7d32">
     <title>Login - Kabutomate</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
-    
+
     <style>
         :root {
             --primary-green: #2e7d32;
@@ -18,131 +18,196 @@
             --accent-orange: #ff7043;
             --dark-text: #1a202c;
             --light-text: #a0aec0;
-            --bg-gray: #f7fafc;
+            --bg-gray: #f0f4f1;
+
+            /* Design tokens */
+            --form-bg: #ffffff;
+            --input-bg: #f7faf7;
+            --input-border: #d4e2d5;
+            --input-focus: #2e7d32;
+            --card-shadow: 0 24px 64px rgba(46,125,50,0.10), 0 4px 16px rgba(0,0,0,0.06);
+            --radius-input: 12px;
+            --radius-card: 28px;
         }
 
-        * {
-            box-sizing: border-box;
-            outline: none;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
 
         html, body {
             height: 100%;
-            margin: 0;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'DM Sans', sans-serif;
         }
 
         body {
             display: flex;
             background-color: var(--bg-gray);
+            min-height: 100vh;
         }
 
-        /* --- Left Side (Login Form) --- */
+        /* ══════════════════════════════════════
+           LEFT — Form Side
+        ══════════════════════════════════════ */
         .split-left {
             width: 50%;
-            height: 100%;
-            background-color: #ffffff;
+            min-height: 100vh;
+            background: var(--bg-gray);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            padding: 3rem 2rem;
             position: relative;
             z-index: 2;
         }
 
+        /* Subtle dot-grid texture on left panel */
+        .split-left::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle, #c8dfc9 1px, transparent 1px);
+            background-size: 28px 28px;
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
         .login-wrapper {
             width: 100%;
-            max-width: 440px;
-            padding: 40px;
-            animation: slideUpFade 0.7s ease-out forwards;
+            max-width: 420px;
+            background: var(--form-bg);
+            border-radius: var(--radius-card);
+            padding: 44px 40px 40px;
+            box-shadow: var(--card-shadow);
+            position: relative;
+            animation: cardRise 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            border: 1px solid rgba(46,125,50,0.07);
         }
 
-        @keyframes slideUpFade {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* Green top accent bar */
+        .login-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 32px; right: 32px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--light-green), var(--primary-green), var(--accent-orange));
+            border-radius: 0 0 6px 6px;
         }
 
+        @keyframes cardRise {
+            from { opacity: 0; transform: translateY(28px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Brand mini-mark inside form */
+        .form-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 28px;
+        }
+
+        .form-brand-icon {
+            width: 38px; height: 38px;
+            background: linear-gradient(135deg, var(--light-green), var(--primary-green));
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .form-brand-icon svg { width: 22px; height: 22px; }
+
+        .form-brand-name {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.1rem;
+            color: var(--primary-green);
+            letter-spacing: 0.04em;
+        }
+
+        /* Header */
         .header-text {
-            margin-bottom: 40px;
-            text-align: center;
+            margin-bottom: 32px;
         }
 
         .header-text h1 {
-            font-size: 2.4em;
-            font-weight: 700;
+            font-family: 'DM Serif Display', serif;
+            font-size: 2rem;
+            font-weight: 400;
             color: var(--dark-text);
-            margin: 0 0 10px 0;
-            letter-spacing: -0.5px;
+            line-height: 1.15;
+            margin-bottom: 8px;
+        }
+
+        .header-text h1 em {
+            color: var(--primary-green);
+            font-style: italic;
         }
 
         .header-text p {
             color: var(--light-text);
-            margin: 0;
-            font-size: 0.95em;
+            font-size: 0.9rem;
+            font-weight: 400;
         }
 
+        /* Form groups */
         .form-group {
-            margin-bottom: 25px;
-            position: relative;
+            margin-bottom: 20px;
         }
 
         .form-group label {
             display: block;
-            font-weight: 500;
-            color: var(--dark-text);
-            margin-bottom: 8px;
-            font-size: 0.9em;
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: #4a5568;
+            margin-bottom: 7px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
 
         .input-container {
             position: relative;
         }
 
-        .input-container i {
+        .input-container .field-icon {
             position: absolute;
-            left: 15px;
+            left: 14px;
             top: 50%;
             transform: translateY(-50%);
-            color: #cbd5e0;
-            transition: color 0.3s ease;
+            color: #b0bec5;
+            font-size: 0.95rem;
+            transition: color 0.25s;
+            pointer-events: none;
+            z-index: 1;
         }
 
         .form-group input {
             width: 100%;
-            padding: 15px 15px 15px 48px; /* Left padding for icon */
-            border: 2px solid #e2e8f0;
-            border-radius: 14px;
-            font-size: 1em;
+            padding: 13px 14px 13px 42px;
+            border: 1.5px solid var(--input-border);
+            border-radius: var(--radius-input);
+            font-size: 0.95rem;
+            font-family: 'DM Sans', sans-serif;
             color: var(--dark-text);
-            background-color: #f8fafc;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            font-family: 'Poppins', sans-serif;
-        }
-        
-        /* Password input needs extra right padding for eye icon */
-        .form-group input[type="password"],
-        .form-group .input-container:has(.password-toggle) input {
-            padding-right: 50px;
+            background: var(--input-bg);
+            transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
         }
 
-        /* Input Focus Effects */
+        .form-group input::placeholder { color: #c0ccc1; }
+
+        .form-group input:hover {
+            border-color: #a5c9a7;
+            background: #f2f8f2;
+        }
+
         .form-group input:focus {
-            border-color: var(--primary-green);
-            background-color: #fff;
-            box-shadow: 0 4px 12px rgba(46, 125, 50, 0.15), 0 0 0 4px rgba(46, 125, 50, 0.1);
-            transform: translateY(-2px);
+            border-color: var(--input-focus);
+            background: #fff;
+            box-shadow: 0 0 0 3.5px rgba(46,125,50,0.12);
         }
 
-        .form-group input:focus + i {
-            color: var(--light-green);
+        .form-group input:focus ~ .field-icon,
+        .input-container:focus-within .field-icon {
+            color: var(--primary-green);
         }
-        
+
         /* Password toggle */
         .password-toggle {
             position: absolute;
@@ -151,115 +216,196 @@
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: #a0aec0;
+            color: #b0bec5;
             cursor: pointer;
-            font-size: 1.1rem;
-            padding: 8px;
-            transition: color 0.3s ease;
+            font-size: 1rem;
+            padding: 6px;
+            transition: color 0.2s;
+            display: flex; align-items: center; justify-content: center;
             z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
+            min-height: unset; min-width: unset;
+            width: 30px; height: 30px;
         }
-        
-        .password-toggle:hover {
+
+        .password-toggle:hover { color: var(--primary-green); }
+
+        .form-group input[type="password"],
+        .form-group .input-container:has(.password-toggle) input {
+            padding-right: 44px;
+        }
+
+        /* Forgot password */
+        .forgot-link {
+            display: block;
+            text-align: right;
+            font-size: 0.8rem;
             color: var(--primary-green);
+            text-decoration: none;
+            margin-top: -12px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            transition: opacity 0.2s;
         }
-        
+        .forgot-link:hover { opacity: 0.75; }
+
+        /* Login button */
         .login-btn {
             width: 100%;
-            padding: 18px;
+            padding: 14px;
             border: none;
-            border-radius: 14px;
-            background: linear-gradient(135deg, var(--light-green), var(--primary-green));
+            border-radius: var(--radius-input);
+            background: linear-gradient(135deg, var(--light-green) 0%, var(--primary-green) 60%);
             color: white;
-            font-weight: 600;
-            font-size: 1.05em;
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.03em;
             cursor: pointer;
-            margin-top: 15px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 6px 16px rgba(46, 125, 50, 0.25);
-            letter-spacing: 0.5px;
+            margin-top: 4px;
+            transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+            box-shadow: 0 6px 20px rgba(46,125,50,0.28);
+            position: relative;
+            overflow: hidden;
         }
-        
+
+        /* Shimmer sweep on button */
+        .login-btn::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+            transform: skewX(-20deg);
+            transition: left 0.5s;
+        }
+
         .login-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 20px rgba(46, 125, 50, 0.35);
-            background: linear-gradient(135deg, #43a047, #1b5e20);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(46,125,50,0.38);
+            filter: brightness(1.06);
         }
+
+        .login-btn:hover::after { left: 160%; }
 
         .login-btn:active {
             transform: translateY(0);
-            box-shadow: 0 4px 10px rgba(46, 125, 50, 0.2);
+            box-shadow: 0 4px 12px rgba(46,125,50,0.22);
         }
 
-        /* --- Google Sign-In Button --- */
+        /* Divider */
+        .divider {
+            display: flex; align-items: center; gap: 10px;
+            margin: 22px 0;
+        }
+
+        .divider-line {
+            flex: 1; height: 1px;
+            background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+        }
+
+        .divider span {
+            color: #b0bec5;
+            font-size: 0.78rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        /* Google button */
         .google-btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            gap: 10px;
             width: 100%;
-            padding: 16px 20px;
+            padding: 13px 20px;
             background: white;
-            border: 2px solid #e2e8f0;
-            border-radius: 14px;
-            color: #1e293b;
-            font-size: 1rem;
+            border: 1.5px solid var(--input-border);
+            border-radius: var(--radius-input);
+            color: #374151;
+            font-size: 0.9rem;
+            font-family: 'DM Sans', sans-serif;
             font-weight: 600;
             text-decoration: none;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s, background 0.2s;
             cursor: pointer;
         }
 
         .google-btn:hover {
             border-color: #4285F4;
-            background-color: #f8fafc;
-            box-shadow: 0 6px 16px rgba(66, 133, 244, 0.15);
-            transform: translateY(-2px);
-        }
-        
-        .google-btn:active {
-            transform: translateY(0);
+            background: #f8f9ff;
+            box-shadow: 0 4px 14px rgba(66,133,244,0.12);
+            transform: translateY(-1px);
         }
 
-        /* --- Right Side (Branding) --- */
+        .google-btn:active { transform: translateY(0); }
+
+        /* Register link */
+        .register-link {
+            text-align: center;
+            margin-top: 22px;
+            color: var(--light-text);
+            font-size: 0.88rem;
+        }
+
+        .register-link a {
+            color: var(--primary-green);
+            text-decoration: none;
+            font-weight: 700;
+            transition: opacity 0.2s;
+        }
+
+        .register-link a:hover { opacity: 0.75; }
+
+
+        /* ══════════════════════════════════════
+           RIGHT — Branding Side
+        ══════════════════════════════════════ */
         .split-right {
             width: 50%;
-            height: 100%;
+            min-height: 100vh;
             position: relative;
             overflow: hidden;
-            background: linear-gradient(135deg, #1b5e20 0%, var(--primary-green) 50%, var(--light-green) 100%);
+            background: linear-gradient(160deg, #1b5e20 0%, var(--primary-green) 45%, #388e3c 75%, #558b2f 100%);
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        /* Abstract Background shapes */
+        /* Layered organic shapes */
+        .split-right .bg-blob {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .bg-blob-1 {
+            width: 500px; height: 500px;
+            top: -120px; right: -120px;
+            background: radial-gradient(circle, rgba(255,255,255,0.09) 0%, transparent 70%);
+        }
+
+        .bg-blob-2 {
+            width: 380px; height: 380px;
+            bottom: -80px; left: -80px;
+            background: radial-gradient(circle, rgba(255,255,255,0.07) 0%, transparent 70%);
+        }
+
+        .bg-blob-3 {
+            width: 200px; height: 200px;
+            top: 50%; left: 10%;
+            transform: translateY(-50%);
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+        }
+
+        /* Grid pattern overlay */
         .split-right::before {
             content: '';
             position: absolute;
-            top: -20%;
-            left: -10%;
-            width: 70%;
-            height: 70%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 60%);
-            border-radius: 50%;
-            z-index: 1;
-        }
-
-        .split-right::after {
-            content: '';
-            position: absolute;
-            bottom: -20%;
-            right: -10%;
-            width: 80%;
-            height: 80%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 60%);
-            border-radius: 50%;
-            z-index: 1;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 48px 48px;
+            pointer-events: none;
         }
 
         .logo-container {
@@ -267,223 +413,234 @@
             z-index: 2;
             color: white;
             position: relative;
-            animation: fadeInScale 1s ease-out forwards;
+            animation: brandReveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+            padding: 2rem;
         }
 
-        @keyframes fadeInScale {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
+        @keyframes brandReveal {
+            from { opacity: 0; transform: scale(0.92) translateY(16px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
         }
 
-        /* Glassmorphism Effect for Logo Circle */
+        /* Glassy logo circle */
         .logo-circle {
-            width: 240px;
-            height: 240px;
+            width: 200px; height: 200px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            background: rgba(255,255,255,0.09);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.25);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
             margin: 0 auto;
-            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.2);
+            box-shadow:
+                0 30px 60px rgba(0,0,0,0.2),
+                0 0 0 1px rgba(255,255,255,0.08) inset,
+                0 2px 0 rgba(255,255,255,0.3) inset;
             position: relative;
         }
-        
+
+        /* Outer glow ring */
+        .logo-circle::before {
+            content: '';
+            position: absolute;
+            inset: -14px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(255,255,255,0.12);
+            animation: ringPulse 3s ease-in-out infinite;
+        }
+
+        /* Second outer ring */
         .logo-circle::after {
             content: '';
             position: absolute;
-            top: -10px; left: -10px; right: -10px; bottom: -10px;
+            inset: -28px;
             border-radius: 50%;
-            background: linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0));
-            z-index: -1;
-            filter: blur(20px);
-        }
-        
-        .logo-circle .icon {
-            font-size: 80px;
-            color: var(--accent-orange);
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
-            margin-bottom: 10px;
+            border: 1px solid rgba(255,255,255,0.07);
+            animation: ringPulse 3s ease-in-out infinite 0.8s;
         }
 
-        @keyframes float {
-            0% { transform: translateY(0px) rotate(0deg); filter: drop-shadow(0 15px 15px rgba(0,0,0,0.2)); }
-            50% { transform: translateY(-12px) rotate(2deg); filter: drop-shadow(0 25px 20px rgba(0,0,0,0.15)); }
-            100% { transform: translateY(0px) rotate(0deg); filter: drop-shadow(0 15px 15px rgba(0,0,0,0.2)); }
+        @keyframes ringPulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50%       { opacity: 1;   transform: scale(1.02); }
         }
 
         .icon-3d {
-            width: 140px;
-            height: 140px;
-            animation: float 4s ease-in-out infinite;
-            margin-bottom: 10px;
+            width: 120px; height: 120px;
+            animation: float 4.5s ease-in-out infinite;
         }
-        
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg);    filter: drop-shadow(0 16px 12px rgba(0,0,0,0.22)); }
+            50%       { transform: translateY(-10px) rotate(1.5deg); filter: drop-shadow(0 28px 20px rgba(0,0,0,0.15)); }
+        }
+
         .logo-text {
             display: block;
-            font-size: 2em;
-            font-weight: 800;
+            font-family: 'DM Serif Display', serif;
+            font-size: 2.1rem;
+            font-weight: 400;
             color: white;
-            margin-top: 30px;
-            letter-spacing: 4px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 26px;
+            letter-spacing: 0.18em;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.15);
         }
 
         .tagline {
             display: block;
             margin-top: 10px;
-            font-size: 1em;
-            opacity: 0.8;
-            font-weight: 300;
-            letter-spacing: 1px;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.7);
+            font-weight: 400;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
         }
 
-        /* Responsive Design - Enhanced */
+        /* Feature pills below logo */
+        .feature-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 36px;
+        }
+
+        .pill {
+            display: flex; align-items: center; gap: 7px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 50px;
+            padding: 7px 14px;
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            backdrop-filter: blur(6px);
+        }
+
+        .pill i { font-size: 0.75rem; color: var(--accent-orange); }
+
+        /* ══════════════════════════════════════
+           RESPONSIVE
+        ══════════════════════════════════════ */
         @media (max-width: 1024px) {
-            .split-left, .split-right {
-                width: 50%;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-                height: auto;
-                min-height: 100vh;
-            }
-            .split-left, .split-right {
-                width: 100%;
-                height: auto;
-            }
-            .split-right {
-                min-height: 200px;
-                padding: 2rem 1rem;
-                order: -1; /* Put logo on top */
-            }
-            .split-left {
-                flex: 1;
-                border-top-left-radius: 30px;
-                border-top-right-radius: 30px;
-                margin-top: -30px; /* Overlap effect */
-                padding: 1rem 0 2rem 0;
-            }
-            .login-wrapper {
-                padding: 25px 20px;
-                max-width: 100%;
-            }
-            .header-text h1 {
-                font-size: 1.75rem;
-            }
-            .logo-circle {
-                width: 100px;
-                height: 100px;
-            }
-            .logo-circle .icon,
-            .logo-circle img,
-            .logo-circle .icon-3d {
-                font-size: 50px;
-                width: 50px;
-                height: 50px;
-            }
-            .logo-text {
-                font-size: 1.25rem;
-                margin-top: 15px;
-                letter-spacing: 2px;
-            }
-            .tagline {
-                font-size: 0.85rem;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .split-right {
-                min-height: 150px;
-                padding: 1.5rem 1rem;
-            }
-            .logo-circle {
-                width: 80px;
-                height: 80px;
-            }
-            .logo-circle .icon,
-            .logo-circle img,
-            .logo-circle .icon-3d {
-                font-size: 40px;
-                width: 40px;
-                height: 40px;
-            }
-            .login-wrapper {
-                padding: 20px 15px;
-            }
-            .header-text {
-                margin-bottom: 25px;
-            }
-            .header-text h1 {
-                font-size: 1.5rem;
-            }
-            .form-group {
-                margin-bottom: 18px;
-            }
-            .form-group input {
-                padding: 12px 12px 12px 40px;
-                font-size: 0.95rem;
-            }
-            .form-group input[type="password"],
-            .form-group .input-container:has(.password-toggle) input {
-                padding-right: 45px;
-            }
-            .login-btn {
-                padding: 14px;
-                font-size: 0.95rem;
-            }
+            .split-left, .split-right { width: 50%; }
+            .login-wrapper { padding: 36px 32px; }
         }
 
+        @media (max-width: 768px) {
+            body { flex-direction: column; height: auto; }
+
+            .split-right {
+                width: 100%; min-height: 220px;
+                padding: 2.5rem 1.5rem;
+                order: -1;
+            }
+
+            .split-left {
+                width: 100%; min-height: unset;
+                padding: 0 1rem 2.5rem;
+                border-radius: 0;
+            }
+
+            /* Overlap card over the green panel */
+            .login-wrapper {
+                margin-top: -32px;
+                border-radius: 24px;
+                padding: 32px 24px;
+                max-width: 420px;
+            }
+
+            .logo-circle { width: 100px; height: 100px; }
+            .icon-3d { width: 60px; height: 60px; }
+            .logo-text { font-size: 1.4rem; margin-top: 18px; }
+            .feature-pills { margin-top: 20px; }
+            .header-text h1 { font-size: 1.65rem; }
+        }
+
+        @media (max-width: 480px) {
+            .split-right { min-height: 180px; padding: 2rem 1rem; }
+            .logo-circle { width: 80px; height: 80px; }
+            .icon-3d { width: 48px; height: 48px; }
+            .logo-text { font-size: 1.15rem; letter-spacing: 0.12em; }
+            .tagline { font-size: 0.72rem; }
+            .feature-pills { gap: 7px; }
+            .pill { font-size: 0.72rem; padding: 5px 10px; }
+
+            .login-wrapper { padding: 28px 18px; margin-top: -28px; }
+            .header-text { margin-bottom: 22px; }
+            .header-text h1 { font-size: 1.4rem; }
+            .form-group input { padding: 11px 12px 11px 38px; font-size: 0.9rem; }
+            .login-btn { padding: 13px; font-size: 0.9rem; }
+        }
     </style>
 </head>
 <body class="auth-page">
 
+    <!-- ── LEFT: Login Form ── -->
     <div class="split-left">
         <div class="login-wrapper">
-            <div class="header-text">
-                <h1>Welcome Back</h1>
-                <p>Please enter your details to sign in.</p>
+
+            <!-- Mini brand in card -->
+            <div class="form-brand">
+                <div class="form-brand-icon">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <radialGradient id="fl-cap" cx="30%" cy="30%" r="60%">
+                                <stop offset="0%" stop-color="#ff8a65"/>
+                                <stop offset="100%" stop-color="#bf360c"/>
+                            </radialGradient>
+                        </defs>
+                        <ellipse cx="100" cy="180" rx="55" ry="10" fill="rgba(0,0,0,0.2)"/>
+                        <path d="M85,100 C80,140 75,170 85,175 C95,180 110,180 115,175 C125,170 120,140 115,100 Z" fill="#f5f5f5"/>
+                        <path d="M25,100 C25,30 65,15 100,15 C135,15 175,30 175,100 C175,115 135,125 100,125 C65,125 25,115 25,100 Z" fill="url(#fl-cap)"/>
+                        <ellipse cx="68" cy="54" rx="13" ry="8" fill="#fff" opacity="0.85" transform="rotate(-15 68 54)"/>
+                        <ellipse cx="128" cy="64" rx="14" ry="9" fill="#fff" opacity="0.8" transform="rotate(20 128 64)"/>
+                    </svg>
+                </div>
+                <span class="form-brand-name">KABUTOMATE</span>
             </div>
-            
+
+            <div class="header-text">
+                <h1>Welcome <em>back</em></h1>
+                <p>Sign in to your account to continue.</p>
+            </div>
+
             <form id="login-form">
                 <div class="form-group">
                     <label for="username">Username</label>
                     <div class="input-container">
+                        <i class="fa-regular fa-user field-icon"></i>
                         <input type="text" id="username" name="username" placeholder="Enter your username" required>
-                        <i class="fa-regular fa-user"></i>
                     </div>
                 </div>
+
                 <div class="form-group">
                     <label for="password">Password</label>
                     <div class="input-container">
+                        <i class="fa-solid fa-lock field-icon"></i>
                         <input type="password" id="password" name="password" placeholder="••••••••" required>
-                        <i class="fa-solid fa-lock"></i>
                         <button type="button" class="password-toggle" onclick="togglePassword('password', this)">
                             <i class="fa-solid fa-eye"></i>
                         </button>
                     </div>
                 </div>
-                
-                <button type="submit" class="login-btn">Login</button>
+
+                <a href="#" class="forgot-link">Forgot password?</a>
+
+                <button type="submit" class="login-btn">Sign In</button>
             </form>
-            
+
             <!-- Divider -->
-            <div style="display: flex; align-items: center; margin: 20px 0; gap: 10px;">
-                <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
-                <span style="color: #94a3b8; font-size: 0.85rem;">or continue with</span>
-                <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+            <div class="divider">
+                <div class="divider-line"></div>
+                <span>or continue with</span>
+                <div class="divider-line"></div>
             </div>
-            
-            <!-- Google Sign-In Button -->
+
+            <!-- Google Sign-In -->
             <a href="/accounts/google/login/?process=login" class="google-btn">
-                <svg width="20" height="20" viewBox="0 0 24 24">
+                <svg width="18" height="18" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -491,114 +648,103 @@
                 </svg>
                 Sign in with Google
             </a>
-            
-            <div class="login-link" style="text-align: center; margin-top: 25px; color: var(--light-text); font-size: 0.95em;">
-                Don't have an account? <a href="{% url 'register' %}" style="color: var(--primary-green); text-decoration: none; font-weight: 600; transition: color 0.3s ease;">Register here</a>
+
+            <div class="register-link">
+                Don't have an account?
+                <a href="{% url 'register' %}">Register here</a>
             </div>
-            
         </div>
     </div>
 
+    <!-- ── RIGHT: Branding ── -->
     <div class="split-right">
+        <div class="bg-blob bg-blob-1"></div>
+        <div class="bg-blob bg-blob-2"></div>
+        <div class="bg-blob bg-blob-3"></div>
+
         <div class="logo-container">
             <div class="logo-circle">
-                <svg class="icon-3d" viewBox="0 0 200 200" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <svg class="icon-3d" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
                     <defs>
                         <radialGradient id="cap-light" cx="30%" cy="30%" r="60%">
-                            <stop offset="0%" stop-color="#ff8a65" />
-                            <stop offset="50%" stop-color="#f4511e" />
-                            <stop offset="100%" stop-color="#bf360c" />
+                            <stop offset="0%" stop-color="#ff8a65"/>
+                            <stop offset="50%" stop-color="#f4511e"/>
+                            <stop offset="100%" stop-color="#bf360c"/>
                         </radialGradient>
-                        <linearGradient id="cap-bottom" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stop-color="#872204" />
-                            <stop offset="100%" stop-color="#3e1002" />
-                        </linearGradient>
                         <linearGradient id="stem-shade" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stop-color="#fdfbfb" />
-                            <stop offset="25%" stop-color="#f1f2f6" />
-                            <stop offset="80%" stop-color="#dcdde1" />
-                            <stop offset="100%" stop-color="#7f8fa6" />
-                        </linearGradient>
-                        <linearGradient id="stem-drop" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stop-color="rgba(0,0,0,0.6)" />
-                            <stop offset="100%" stop-color="transparent" />
+                            <stop offset="0%" stop-color="#fdfbfb"/>
+                            <stop offset="80%" stop-color="#dcdde1"/>
+                            <stop offset="100%" stop-color="#7f8fa6"/>
                         </linearGradient>
                         <radialGradient id="cast-shadow" cx="50%" cy="50%" r="50%">
-                            <stop offset="0%" stop-color="rgba(0,0,0,0.4)" />
-                            <stop offset="100%" stop-color="transparent" />
+                            <stop offset="0%" stop-color="rgba(0,0,0,0.4)"/>
+                            <stop offset="100%" stop-color="transparent"/>
                         </radialGradient>
                     </defs>
-                    <ellipse cx="100" cy="180" rx="60" ry="12" fill="url(#cast-shadow)" />
-                    <path d="M85,100 C80,140 75,170 85,175 C95,180 110,180 115,175 C125,170 120,140 115,100 Z" fill="url(#stem-shade)" />
-                    <path d="M85,100 C95,110 110,110 115,100 C115,115 85,115 85,100 Z" fill="url(#stem-drop)" />
-                    <ellipse cx="100" cy="100" rx="75" ry="25" fill="url(#cap-bottom)" />
-                    <path d="M25,100 C25,30 65,15 100,15 C135,15 175,30 175,100 C175,115 135,125 100,125 C65,125 25,115 25,100 Z" fill="url(#cap-light)" />
-                    <ellipse cx="65" cy="55" rx="14" ry="9" fill="#fff" opacity="0.9" transform="rotate(-15 65 55)" />
-                    <ellipse cx="130" cy="65" rx="16" ry="10" fill="#fff" opacity="0.85" transform="rotate(20 130 65)" />
-                    <ellipse cx="95" cy="35" rx="9" ry="6" fill="#fff" opacity="0.9" />
-                    <ellipse cx="45" cy="85" rx="8" ry="14" fill="#fff" opacity="0.75" transform="rotate(-25 45 85)" />
-                    <ellipse cx="155" cy="95" rx="7" ry="12" fill="#fff" opacity="0.8" transform="rotate(25 155 95)" />
-                    <path d="M50,65 C60,40 90,25 110,25 C90,30 65,45 55,70 Z" fill="#fff" opacity="0.3" />
+                    <ellipse cx="100" cy="180" rx="60" ry="12" fill="url(#cast-shadow)"/>
+                    <path d="M85,100 C80,140 75,170 85,175 C95,180 110,180 115,175 C125,170 120,140 115,100 Z" fill="url(#stem-shade)"/>
+                    <ellipse cx="100" cy="100" rx="75" ry="25" fill="#bf360c"/>
+                    <path d="M25,100 C25,30 65,15 100,15 C135,15 175,30 175,100 C175,115 135,125 100,125 C65,125 25,115 25,100 Z" fill="url(#cap-light)"/>
+                    <ellipse cx="65" cy="55" rx="14" ry="9" fill="#fff" opacity="0.9" transform="rotate(-15 65 55)"/>
+                    <ellipse cx="130" cy="65" rx="16" ry="10" fill="#fff" opacity="0.85" transform="rotate(20 130 65)"/>
+                    <ellipse cx="95" cy="35" rx="9" ry="6" fill="#fff" opacity="0.9"/>
+                    <path d="M50,65 C60,40 90,25 110,25 C90,30 65,45 55,70 Z" fill="#fff" opacity="0.3"/>
                 </svg>
             </div>
+
             <span class="logo-text">KABUTOMATE</span>
             <span class="tagline">Smart Farming Solutions</span>
+
+            <div class="feature-pills">
+                <div class="pill"><i class="fa-solid fa-seedling"></i> Smart Grow Monitoring</div>
+                <div class="pill"><i class="fa-solid fa-chart-line"></i> Real-Time Analytics</div>
+                <div class="pill"><i class="fa-solid fa-shield-halved"></i> Secure &amp; Reliable</div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Toggle password visibility
         function togglePassword(inputId, button) {
             const input = document.getElementById(inputId);
             const icon = button.querySelector('i');
-            
             if (input.type === 'password') {
                 input.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
             } else {
                 input.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
             }
         }
-        
+
         document.addEventListener("DOMContentLoaded", () => {
             const loginForm = document.getElementById("login-form");
-            
+
             loginForm.addEventListener("submit", async (event) => {
-                event.preventDefault(); // Stop the form from reloading the page
-                
+                event.preventDefault();
+
                 const username = document.getElementById("username").value;
                 const password = document.getElementById("password").value;
-                
-                // Get the CSRF token from the cookie (Django requires this)
+
                 const csrfToken = document.cookie
                     .split('; ')
                     .find(row => row.startsWith('csrftoken='))
                     ?.split('=')[1];
 
                 try {
-                    // Send the data to our Django API
                     const response = await fetch('/login/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-CSRFToken': csrfToken  // Send the CSRF token
+                            'X-CSRFToken': csrfToken
                         },
-                        body: JSON.stringify({
-                            username: username,
-                            password: password
-                        })
+                        body: JSON.stringify({ username, password })
                     });
 
                     const data = await response.json();
 
                     if (data.success) {
-                        // If login is successful, redirect to the dashboard
                         window.location.href = data.redirect_url;
                     } else {
-                        // If login fails, show the error from the server
                         alert(data.error);
                     }
                 } catch (error) {
@@ -608,6 +754,5 @@
             });
         });
     </script>
-
 </body>
 </html>

@@ -9,8 +9,9 @@ from django.db.models import Sum, Count, F, Q, DecimalField, Avg, DateField
 from django.db.models.functions import Coalesce, TruncMonth, Cast
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from .models import SensorReading, Product, Sale, ProductionBatch, Notification, EnvironmentSettings, UserProfile, Cart, CartItem, CustomerAdminMessage
+from .models import SensorReading, Product, Sale, ProductionBatch, Notification, EnvironmentSettings, NotificationSettings, UserProfile, Cart, CartItem, CustomerAdminMessage
 from .email_service import send_verification_email, send_email_async, resend_verification_email
+from .notification_service import evaluate_environment_notifications
 import json
 from decimal import Decimal, InvalidOperation
 from django.utils import timezone
@@ -21,6 +22,7 @@ import pandas as pd
 import os
 from django.conf import settings
 from functools import wraps
+from .yield_model import calculate_predicted_yield as calculate_history_predicted_yield
 
 
 # Helper function to merge session cart into user cart
@@ -79,93 +81,18 @@ def admin_required(view_func):
     return wrapper
 
 # --- ML Prediction Function ---
-def predict_yield(temperature=None, humidity=None, co2=None, growth_days=None):
-    """
-    Predicts mushroom yield using the trained ML model.
-    If parameters are None, uses current sensor averages and estimates growth days.
-    """
-    try:
-        # Get default values from current conditions if not provided
-        if any(param is None for param in [temperature, humidity, co2]):
-            latest = SensorReading.objects.order_by('-timestamp').first()
-
-            if latest:
-                latest_co2 = latest.co2_ppm if latest.co2_ppm is not None else latest.air_quality_ppm
-                if temperature is None and latest.temperature is not None:
-                    temperature = float(latest.temperature)
-                if humidity is None and latest.humidity is not None:
-                    humidity = float(latest.humidity)
-                if co2 is None and latest_co2 is not None:
-                    co2 = float(latest_co2)
-
-            # Fill any still-missing fields from recent averages.
-            if any(param is None for param in [temperature, humidity, co2]):
-                recent_readings = list(SensorReading.objects.order_by('-timestamp')[:20])
-                if recent_readings:
-                    temperature_values = [float(r.temperature) for r in recent_readings if r.temperature is not None]
-                    humidity_values = [float(r.humidity) for r in recent_readings if r.humidity is not None]
-                    co2_values = [
-                        float(r.co2_ppm if r.co2_ppm is not None else r.air_quality_ppm)
-                        for r in recent_readings
-                        if (r.co2_ppm is not None or r.air_quality_ppm is not None)
-                    ]
-
-                    if temperature is None:
-                        temperature = (sum(temperature_values) / len(temperature_values)) if temperature_values else 23.0
-                    if humidity is None:
-                        humidity = (sum(humidity_values) / len(humidity_values)) if humidity_values else 85.0
-                    if co2 is None:
-                        co2 = (sum(co2_values) / len(co2_values)) if co2_values else 900
-                else:
-                    # Fallback to defaults if no sensor data exists.
-                    temperature = temperature if temperature is not None else 23.0
-                    humidity = humidity if humidity is not None else 85.0
-                    co2 = co2 if co2 is not None else 900
-        
-        # Default growth days to optimal if not provided
-        growth_days = growth_days or 33
-        
-        # Load the ML model
-        model_path = os.path.join(settings.BASE_DIR, 'mushroom_yield_model.pkl')
-        
-        if not os.path.exists(model_path):
-            return None  # Model not found
-        
-        with open(model_path, 'rb') as file:
-            model = pickle.load(file)
-        
-        # Prepare input data
-        input_data = pd.DataFrame({
-            'temperature': [float(temperature)],
-            'humidity': [float(humidity)],
-            'co2_ppm': [int(co2)],
-            'growth_days': [int(growth_days)]
-        })
-        
-        # Make prediction
-        prediction = model.predict(input_data)
-        return round(float(prediction[0]), 2)
-        
-    except Exception as e:
-        print(f"Prediction error: {e}")
-        return None
+def predict_yield(product_id=None, start_date=None, cost=None):
+    """Predict mushroom yield from harvested batch history."""
+    return calculate_history_predicted_yield(
+        product_id=product_id,
+        start_date=start_date,
+        cost=cost,
+    )
 
 
-def calculate_predicted_yield(start_date=None):
-    """Calculate predicted yield using ML prediction."""
-    parsed_start_date = None
-    if isinstance(start_date, str) and start_date:
-        parsed_start_date = date.fromisoformat(start_date)
-    elif isinstance(start_date, date):
-        parsed_start_date = start_date
-
-    growth_days = None
-    if parsed_start_date:
-        elapsed_days = max((timezone.now().date() - parsed_start_date).days + 1, 1)
-        # For newly-created batches, estimate yield at typical harvest maturity.
-        growth_days = elapsed_days if elapsed_days > 1 else 33
-
-    predicted = predict_yield(growth_days=growth_days)
+def calculate_predicted_yield(product_id=None, start_date=None, cost=None):
+    """Calculate predicted yield from farmer harvest history."""
+    predicted = predict_yield(product_id=product_id, start_date=start_date, cost=cost)
     if predicted is None:
         return None
 
@@ -1482,7 +1409,9 @@ def production_api(request):
                 return JsonResponse({'success': False, 'error': 'Only fresh products can be used for production batches.'}, status=400)
 
             predicted = calculate_predicted_yield(
-                start_date=data.get('start_date')
+                product_id=product_id,
+                start_date=data.get('start_date'),
+                cost=data.get('cost')
             )
 
             ProductionBatch.objects.create(
@@ -1528,11 +1457,30 @@ def production_predict_api(request):
         data = json.loads(request.body)
         growth_days = calculate_growth_days(data.get('start_date'))
         predicted = calculate_predicted_yield(
-            start_date=data.get('start_date')
+            product_id=data.get('product_id'),
+            start_date=data.get('start_date'),
+            cost=data.get('cost')
         )
-        return JsonResponse({'success': True, 'predicted_yield': predicted, 'growth_days': growth_days})
+        response = {
+            'success': True,
+            'predicted_yield': predicted,
+            'growth_days': growth_days,
+        }
+        if predicted is None:
+            response['debug'] = {
+                'product_id': data.get('product_id'),
+                'start_date': data.get('start_date'),
+                'cost': data.get('cost'),
+            }
+        return JsonResponse(response)
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'debug': {
+                'raw_body': request.body.decode('utf-8', errors='replace')
+            }
+        }, status=400)
 
 
 @login_required(login_url='login')
@@ -2008,6 +1956,7 @@ def mark_all_notifications_read(request):
 @login_required(login_url='login')
 def environment_api(request):
     settings_obj = EnvironmentSettings.load()
+    notification_settings = NotificationSettings.load()
     
     if request.method == 'POST':
         try:
@@ -2048,6 +1997,15 @@ def environment_api(request):
                 settings_obj.hysteresis_margin = data['hysteresis_margin']
             
             settings_obj.save()
+            
+            notification_settings.email_enabled = data.get('email_enabled', notification_settings.email_enabled)
+            notification_settings.recipient_emails = data.get('recipient_emails', notification_settings.recipient_emails)
+            if 'alert_cooldown_minutes' in data:
+                notification_settings.alert_cooldown_minutes = data['alert_cooldown_minutes']
+            if 'recovery_email_enabled' in data:
+                notification_settings.recovery_email_enabled = data['recovery_email_enabled']
+            notification_settings.save()
+
             return JsonResponse({'success': True, 'message': 'Settings updated'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -2127,36 +2085,19 @@ def environment_api(request):
     
     # Traditional reactive recommendations (still included as fallback)
     if latest_reading:
+        notification_events = evaluate_environment_notifications(latest_reading, settings_obj)
+        for event in notification_events:
+            recommendations.append(event['description'])
+
         # Check CO2 only if sensor provides CO2 data (DHT22 doesn't measure CO2)
         if latest_reading.co2_ppm is not None and latest_reading.co2_ppm > (settings_obj.co2_value + 100):
             recommendations.append(f"CO₂ is high ({latest_reading.co2_ppm} ppm). Increase ventilation.")
-            if not Notification.objects.filter(title="High CO₂ Alert", is_read=False).exists():
-                Notification.objects.create(
-                    title="High CO₂ Alert",
-                    description=f"CO₂ levels are at {latest_reading.co2_ppm} ppm. Check ventilation.",
-                    category="environmental",
-                    level="warning"
-                )
         
         if latest_reading.humidity < (settings_obj.humidifier_value - 10):
             recommendations.append(f"Humidity is low ({latest_reading.humidity}%). Increase humidifier.")
-            if not Notification.objects.filter(title="Low Humidity Alert", is_read=False).exists():
-                Notification.objects.create(
-                    title="Low Humidity Alert",
-                    description=f"Humidity is at {latest_reading.humidity}%. Check humidifier.",
-                    category="environmental",
-                    level="warning"
-                )
         
         if latest_reading.temperature < (settings_obj.heater_value - 2):
             recommendations.append(f"Temperature is low ({latest_reading.temperature}°C). Increase heater target.")
-            if not Notification.objects.filter(title="Low Temperature Alert", is_read=False).exists():
-                Notification.objects.create(
-                    title="Low Temperature Alert",
-                    description=f"Temperature is at {latest_reading.temperature}°C. Check heater.",
-                    category="environmental",
-                    level="warning"
-                )
 
     if not recommendations:
         recommendations.append("System is stable. All sensors within optimal range.")
@@ -2178,6 +2119,12 @@ def environment_api(request):
             'heater_low_threshold': float(settings_obj.heater_low_threshold),
             'heater_high_threshold': float(settings_obj.heater_high_threshold),
             'hysteresis_margin': float(settings_obj.hysteresis_margin),
+        },
+        'notification_settings': {
+            'email_enabled': notification_settings.email_enabled,
+            'recipient_emails': notification_settings.recipient_emails,
+            'alert_cooldown_minutes': notification_settings.alert_cooldown_minutes,
+            'recovery_email_enabled': notification_settings.recovery_email_enabled,
         },
         'recommendations': recommendations,
         'ml_predictions': predictions  # Include predictions in response

@@ -13,8 +13,31 @@ from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
 from threading import Thread
+from .models import NotificationLog, NotificationSettings
 
 logger = logging.getLogger(__name__)
+
+
+def _log_notification_email(notification_type, recipient, subject, status, error_message='', metadata=None):
+    try:
+        NotificationLog.objects.create(
+            notification_type=notification_type,
+            recipient=recipient or '',
+            subject=subject,
+            channel='email',
+            status=status,
+            error_message=error_message or '',
+            metadata=metadata or {},
+        )
+    except Exception as exc:
+        logger.error(f"Failed to write notification log: {exc}")
+
+
+def _email_notifications_enabled():
+    try:
+        return NotificationSettings.load().email_enabled
+    except Exception:
+        return True
 
 
 def send_email_async(email_function, *args, **kwargs):
@@ -44,6 +67,10 @@ def send_verification_email(user, request=None):
         bool: True if email sent successfully, False otherwise
     """
     try:
+        if not _email_notifications_enabled():
+            logger.info("Email notifications are disabled; skipping verification email")
+            return False
+
         profile = user.profile
         token = profile.generate_verification_token()
         
@@ -124,11 +151,13 @@ Mushroom Farm Team
         )
         email.attach_alternative(html_content, "text/html")
         email.send(fail_silently=False)
+        _log_notification_email('email_verification', user.email, subject, 'SUCCESS', metadata={'user_id': user.id})
         
         logger.info(f"Verification email sent to {user.email}")
         return True
         
     except Exception as e:
+        _log_notification_email('email_verification', user.email, 'Verify Your Email - Mushroom Farm', 'FAILED', error_message=str(e), metadata={'user_id': getattr(user, 'id', None)})
         logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
         return False
 
@@ -145,6 +174,10 @@ def send_order_status_email(order, old_status=None):
         bool: True if email sent successfully, False otherwise
     """
     try:
+        if not _email_notifications_enabled():
+            logger.info("Email notifications are disabled; skipping order status email")
+            return False
+
         # Status display names and colors
         status_info = {
             'PENDING': {'name': 'Pending', 'color': '#ff9800', 'icon': '⏳'},
@@ -263,11 +296,13 @@ Mushroom Farm Team
         )
         email.attach_alternative(html_content, "text/html")
         email.send(fail_silently=False)
+        _log_notification_email('order_status_update', order.customer_email, subject, 'SUCCESS', metadata={'order_number': order.order_number, 'old_status': old_status, 'new_status': order.status})
         
         logger.info(f"Order status email sent to {order.customer_email} for order {order.order_number}")
         return True
         
     except Exception as e:
+        _log_notification_email('order_status_update', order.customer_email, f"Order {order.order_number} Status Update", 'FAILED', error_message=str(e), metadata={'order_number': order.order_number, 'old_status': old_status, 'new_status': getattr(order, 'status', None)})
         logger.error(f"Failed to send order status email for {order.order_number}: {str(e)}")
         return False
 
@@ -283,6 +318,10 @@ def send_new_order_admin_notification(order):
         bool: True if email sent successfully, False otherwise
     """
     try:
+        if not _email_notifications_enabled():
+            logger.info("Email notifications are disabled; skipping admin order notification")
+            return False
+
         admin_email = getattr(settings, 'ADMIN_EMAIL', None)
         if not admin_email:
             logger.warning("ADMIN_EMAIL not configured in settings, skipping admin notification")
@@ -398,11 +437,13 @@ Please log in to the admin dashboard to process this order.
         )
         email.attach_alternative(html_content, "text/html")
         email.send(fail_silently=False)
+        _log_notification_email('new_order_admin', admin_email, subject, 'SUCCESS', metadata={'order_number': order.order_number})
         
         logger.info(f"Admin notification sent for new order {order.order_number}")
         return True
         
     except Exception as e:
+        _log_notification_email('new_order_admin', admin_email if 'admin_email' in locals() else '', subject if 'subject' in locals() else f'New Order {getattr(order, "order_number", "")}', 'FAILED', error_message=str(e), metadata={'order_number': getattr(order, 'order_number', None)})
         logger.error(f"Failed to send admin notification for order {order.order_number}: {str(e)}")
         return False
 
@@ -418,6 +459,10 @@ def send_order_confirmation_email(order):
         bool: True if email sent successfully, False otherwise
     """
     try:
+        if not _email_notifications_enabled():
+            logger.info("Email notifications are disabled; skipping order confirmation email")
+            return False
+
         # Get order items
         order_items = order.items.select_related('product').all()
         items_html = ""
@@ -524,11 +569,13 @@ Mushroom Farm Team
         )
         email.attach_alternative(html_content, "text/html")
         email.send(fail_silently=False)
+        _log_notification_email('order_confirmation', order.customer_email, subject, 'SUCCESS', metadata={'order_number': order.order_number})
         
         logger.info(f"Order confirmation email sent to {order.customer_email} for order {order.order_number}")
         return True
         
     except Exception as e:
+        _log_notification_email('order_confirmation', order.customer_email, subject if 'subject' in locals() else f'Order Confirmed: {getattr(order, "order_number", "")}', 'FAILED', error_message=str(e), metadata={'order_number': getattr(order, 'order_number', None)})
         logger.error(f"Failed to send order confirmation email for {order.order_number}: {str(e)}")
         return False
 

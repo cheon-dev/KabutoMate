@@ -296,6 +296,88 @@ class Notification(models.Model):
     def __str__(self):
         return self.title
 
+
+class NotificationSettings(models.Model):
+    """Singleton notification configuration for email alerts."""
+
+    id = models.AutoField(primary_key=True)
+    email_enabled = models.BooleanField(default=True, help_text="Enable or disable email notifications")
+    recipient_emails = models.TextField(blank=True, default='', help_text="Comma-separated recipient email addresses")
+    alert_cooldown_minutes = models.PositiveIntegerField(default=60, help_text="Cooldown in minutes for repeated environmental alerts")
+    recovery_email_enabled = models.BooleanField(default=True, help_text="Send recovery emails when conditions return to normal")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    @classmethod
+    def load(cls):
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def get_recipient_list(self):
+        import re
+
+        raw_emails = re.split(r'[;,\n]+', self.recipient_emails or '')
+        return [email.strip() for email in raw_emails if email.strip()]
+
+
+class NotificationLog(models.Model):
+    """Audit log for outbound notification attempts."""
+
+    STATUS_CHOICES = [
+        ('SUCCESS', 'Success'),
+        ('FAILED', 'Failed'),
+    ]
+
+    CHANNEL_CHOICES = [
+        ('email', 'Email'),
+        ('sms', 'SMS'),
+        ('push', 'Push'),
+    ]
+
+    notification_type = models.CharField(max_length=80, help_text="Notification type, such as environmental_alert or order_confirmation")
+    recipient = models.EmailField(blank=True, default='', help_text="Primary recipient for the notification")
+    subject = models.CharField(max_length=255)
+    channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default='email')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='SUCCESS')
+    sent_at = models.DateTimeField(auto_now_add=True)
+    error_message = models.TextField(blank=True, default='')
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        return f"{self.notification_type} -> {self.recipient or 'n/a'} ({self.status})"
+
+
+class EnvironmentalAlertState(models.Model):
+    """Tracks alert state so repeated sensor readings do not spam notifications."""
+
+    alert_key = models.CharField(max_length=80, unique=True)
+    alert_name = models.CharField(max_length=120)
+    is_active = models.BooleanField(default=False)
+    last_alert_sent_at = models.DateTimeField(null=True, blank=True)
+    last_recovery_sent_at = models.DateTimeField(null=True, blank=True)
+    last_observed_value = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.alert_name
+
+    @classmethod
+    def get_or_create_state(cls, alert_key, alert_name):
+        obj, _ = cls.objects.get_or_create(alert_key=alert_key, defaults={'alert_name': alert_name})
+        if obj.alert_name != alert_name:
+            obj.alert_name = alert_name
+            obj.save(update_fields=['alert_name'])
+        return obj
+
 class EnvironmentSettings(models.Model):
     """
     Singleton model for environment control settings.

@@ -2,7 +2,8 @@ from django.contrib import admin
 from .models import (
     Product, SensorReading, Sale, ProductionBatch, Notification, 
     EnvironmentSettings, DiseaseDetection, ProductReview, Wishlist,
-    ProductImage, RecentlyViewed, ReviewMedia
+    ProductImage, RecentlyViewed, ReviewMedia, NotificationSettings,
+    NotificationLog, EnvironmentalAlertState
 )
 
 
@@ -108,6 +109,31 @@ admin.site.register(ProductReview)
 admin.site.register(Wishlist)
 # ProductImage is now an inline in ProductAdmin
 admin.site.register(RecentlyViewed)
+
+
+@admin.register(NotificationSettings)
+class NotificationSettingsAdmin(admin.ModelAdmin):
+    list_display = ('email_enabled', 'alert_cooldown_minutes', 'updated_at')
+    fieldsets = (
+        ('Email Notifications', {
+            'fields': ('email_enabled', 'recipient_emails', 'alert_cooldown_minutes', 'recovery_email_enabled')
+        }),
+    )
+
+
+@admin.register(NotificationLog)
+class NotificationLogAdmin(admin.ModelAdmin):
+    list_display = ('sent_at', 'notification_type', 'recipient', 'channel', 'status', 'subject')
+    list_filter = ('channel', 'status', 'notification_type', 'sent_at')
+    search_fields = ('recipient', 'subject', 'notification_type', 'error_message')
+    readonly_fields = ('notification_type', 'recipient', 'subject', 'channel', 'status', 'sent_at', 'error_message', 'metadata')
+
+
+@admin.register(EnvironmentalAlertState)
+class EnvironmentalAlertStateAdmin(admin.ModelAdmin):
+    list_display = ('alert_key', 'alert_name', 'is_active', 'last_alert_sent_at', 'last_recovery_sent_at', 'updated_at')
+    list_filter = ('is_active', 'updated_at')
+    search_fields = ('alert_key', 'alert_name')
 
 
 # Review Media Admin for moderation

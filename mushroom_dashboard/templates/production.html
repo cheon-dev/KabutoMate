@@ -945,6 +945,7 @@
         const addProductInput = document.getElementById('product');
         const addBatchNumberInput = document.getElementById('batch_number');
         const addStartDateInput = document.getElementById('start_date');
+        const addCostInput = document.getElementById('cost');
         const growthDaysDisplay = document.getElementById('growth_days_display');
         const predictedYieldDisplay = document.getElementById('predicted_yield_display');
         
@@ -1107,7 +1108,9 @@
             predictedYieldDisplay.value = 'Calculating...';
             growthDaysDisplay.value = '-';
             const payload = {
-                start_date: addStartDateInput.value || null
+                product_id: addProductInput.value || null,
+                start_date: addStartDateInput.value || null,
+                cost: addCostInput.value || null
             };
 
             try {
@@ -1258,6 +1261,7 @@
             refreshPredictedYield();
         });
         addProductInput.addEventListener('change', refreshPredictedYield);
+        addCostInput.addEventListener('input', refreshPredictedYield);
 
         reloadAllData();
         updateSidebarStatus();

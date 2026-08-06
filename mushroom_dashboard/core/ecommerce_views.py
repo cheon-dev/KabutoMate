@@ -43,6 +43,13 @@ def product_detail(request, product_id):
 def shop(request):
     """Customer-facing shop page"""
     products = Product.objects.filter(is_active=True, stock_kg__gt=0).prefetch_related('images').order_by('name')
+    best_sellers = (
+        Product.objects.filter(is_active=True)
+        .prefetch_related('images')
+        .annotate(total_sold=Sum('sale__quantity_kg', filter=Q(sale__sale_type='ECOMMERCE')))
+        .filter(total_sold__gt=0)
+        .order_by('-total_sold', 'name')[:4]
+    )
     
     # Get product type filter from query params (optional server-side filter)
     product_type_filter = request.GET.get('type')
@@ -68,6 +75,7 @@ def shop(request):
     
     context = {
         'products': products,
+        'best_sellers': best_sellers,
         'cart_count': cart_count,
     }
     return render(request, 'shop.html', context)

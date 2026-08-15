@@ -12,31 +12,27 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunSQL(
             """
-            CREATE TABLE IF NOT EXISTS `core_orderitem` (
-                `id` bigint AUTO_INCREMENT NOT NULL PRIMARY KEY,
-                `order_id` bigint NOT NULL,
-                `product_id` bigint NOT NULL,
-                `quantity_kg` decimal(5,1) NOT NULL,
-                `price_per_kg` decimal(6,2) NOT NULL,
-                `subtotal` decimal(10,2) NOT NULL,
-                FOREIGN KEY (`order_id`) REFERENCES `core_order` (`id`),
-                FOREIGN KEY (`product_id`) REFERENCES `core_product` (`id`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            CREATE TABLE IF NOT EXISTS core_orderitem (
+                id BIGSERIAL PRIMARY KEY,
+                order_id BIGINT NOT NULL REFERENCES core_order (id),
+                product_id BIGINT NOT NULL REFERENCES core_product (id),
+                quantity_kg NUMERIC(5,1) NOT NULL,
+                price_per_kg NUMERIC(6,2) NOT NULL,
+                subtotal NUMERIC(10,2) NOT NULL
+            );
             """,
-            reverse_sql="DROP TABLE IF EXISTS `core_orderitem`;"
+            reverse_sql="DROP TABLE IF EXISTS core_orderitem;"
         ),
         migrations.RunSQL(
             """
-            CREATE TABLE IF NOT EXISTS `core_cartitem` (
-                `id` bigint AUTO_INCREMENT NOT NULL PRIMARY KEY,
-                `cart_id` bigint NOT NULL,
-                `product_id` bigint NOT NULL,
-                `quantity_kg` decimal(5,1) NOT NULL,
-                UNIQUE KEY `core_cartitem_cart_id_product_id_unique` (`cart_id`, `product_id`),
-                FOREIGN KEY (`cart_id`) REFERENCES `core_cart` (`id`),
-                FOREIGN KEY (`product_id`) REFERENCES `core_product` (`id`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            CREATE TABLE IF NOT EXISTS core_cartitem (
+                id BIGSERIAL PRIMARY KEY,
+                cart_id BIGINT NOT NULL REFERENCES core_cart (id),
+                product_id BIGINT NOT NULL REFERENCES core_product (id),
+                quantity_kg NUMERIC(5,1) NOT NULL,
+                CONSTRAINT core_cartitem_cart_id_product_id_unique UNIQUE (cart_id, product_id)
+            );
             """,
-            reverse_sql="DROP TABLE IF EXISTS `core_cartitem`;"
+            reverse_sql="DROP TABLE IF EXISTS core_cartitem;"
         ),
     ]

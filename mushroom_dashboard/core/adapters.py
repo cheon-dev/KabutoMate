@@ -60,6 +60,10 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         """
         user = request.user
         
+        # Check if user is a Django superuser or staff member
+        if user.is_superuser or user.is_staff:
+            return '/dashboard/'
+        
         # Check if user has a profile and determine role
         try:
             if hasattr(user, 'profile'):

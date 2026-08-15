@@ -70,7 +70,7 @@ INSTALLED_APPS = [
 ]
 
 # Site ID for allauth
-SITE_ID = 1
+SITE_ID = 2
 
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
@@ -154,7 +154,7 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.getenv('MYSQL_DB_NAME', 'mushroom_db'),
+            'NAME': os.getenv('MYSQL_DB_NAME', 'mushroom'),
             'USER': os.getenv('MYSQL_DB_USER', 'root'),
             'PASSWORD': os.getenv('MYSQL_DB_PASSWORD', ''),
             'HOST': os.getenv('MYSQL_DB_HOST', '127.0.0.1'),

@@ -18,3 +18,5 @@ venv/
 
 # Database dumps
 *.sql
+
+media/

@@ -68,7 +68,11 @@ def admin_required(view_func):
         if not request.user.is_authenticated:
             return redirect('login')
         
-        # Check if user has admin role
+        # Check if user is a Django superuser or staff member
+        if request.user.is_superuser or request.user.is_staff:
+            return view_func(request, *args, **kwargs)
+        
+        # Check if user has admin role in profile
         try:
             if not request.user.profile.is_admin:
                 # Redirect customers to shop
@@ -701,14 +705,18 @@ def login_view(request):
                 print(f"Cart merge error: {e}")
             
             # Role-based redirect
-            try:
-                if user.profile.is_admin:
-                    redirect_url = '/'  # Dashboard for admin
-                else:
-                    redirect_url = '/shop/'  # Shop for customers
-            except UserProfile.DoesNotExist:
-                # Default to shop if no profile
-                redirect_url = '/shop/'
+            # Check if user is a Django superuser or staff member first
+            if user.is_superuser or user.is_staff:
+                redirect_url = '/'  # Dashboard for admin
+            else:
+                try:
+                    if user.profile.is_admin:
+                        redirect_url = '/'  # Dashboard for admin
+                    else:
+                        redirect_url = '/shop/'  # Shop for customers
+                except UserProfile.DoesNotExist:
+                    # Default to shop if no profile
+                    redirect_url = '/shop/'
             
             return JsonResponse({'success': True, 'redirect_url': redirect_url})
         else:

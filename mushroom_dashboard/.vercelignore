@@ -1,0 +1,5 @@
+@"
+.env
+.env.local
+mushroom*.sql
+"@ | Out-File -Encoding utf8 .vercelignore

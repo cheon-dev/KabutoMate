@@ -20,3 +20,4 @@ venv/
 *.sql
 
 media/
+.vercel

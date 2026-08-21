@@ -671,16 +671,39 @@ def admin_chat_api(request):
     return JsonResponse({'conversations': conversations})
 
 # --- Login / Logout Views ---
+
+def _authenticate_user_by_identifier(request, identifier, password):
+    """Authenticate using either a username or an email address."""
+    if not identifier or not password:
+        return None
+
+    identifier = identifier.strip()
+    user = authenticate(request, username=identifier, password=password)
+    if user is not None:
+        return user
+
+    user_by_email = User.objects.filter(email__iexact=identifier).order_by('id').first()
+    if user_by_email and user_by_email.is_active and user_by_email.check_password(password):
+        return user_by_email
+
+    user_by_username = User.objects.filter(username__iexact=identifier).order_by('id').first()
+    if user_by_username and user_by_username.is_active and user_by_username.check_password(password):
+        return user_by_username
+
+    return None
+
+
 @csrf_exempt
 def login_view(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            username = data.get('username')
+            identifier = data.get('username') or data.get('email') or data.get('identifier')
             password = data.get('password')
         except json.JSONDecodeError:
             return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
-        user = authenticate(request, username=username, password=password)
+
+        user = _authenticate_user_by_identifier(request, identifier, password)
         if user is not None:
             # Check email verification for customers
             try:

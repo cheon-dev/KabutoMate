@@ -12,3 +12,6 @@ reportlab==4.2.2
 requests==2.32.3
 PyJWT==2.10.1
 cryptography==43.0.3
+
+cloudinary==1.41.0
+django-cloudinary-storage==0.3.0

@@ -608,10 +608,10 @@
 
             <form id="login-form">
                 <div class="form-group">
-                    <label for="username">Username</label>
+                    <label for="username">Username or Email</label>
                     <div class="input-container">
                         <i class="fa-regular fa-user field-icon"></i>
-                        <input type="text" id="username" name="username" placeholder="Enter your username" required>
+                        <input type="text" id="username" name="username" placeholder="Enter your username or email" required>
                     </div>
                 </div>
 
@@ -722,7 +722,7 @@
             loginForm.addEventListener("submit", async (event) => {
                 event.preventDefault();
 
-                const username = document.getElementById("username").value;
+                const identifier = document.getElementById("username").value.trim();
                 const password = document.getElementById("password").value;
 
                 const csrfToken = document.cookie
@@ -737,7 +737,7 @@
                             'Content-Type': 'application/json',
                             'X-CSRFToken': csrfToken
                         },
-                        body: JSON.stringify({ username, password })
+                        body: JSON.stringify({ username: identifier, email: identifier, identifier, password })
                     });
 
                     const data = await response.json();

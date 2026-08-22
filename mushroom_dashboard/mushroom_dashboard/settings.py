@@ -214,14 +214,23 @@ STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+cloudinary_cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME', '').strip()
+cloudinary_api_key = os.getenv('CLOUDINARY_API_KEY', '').strip()
+cloudinary_api_secret = os.getenv('CLOUDINARY_API_SECRET', '').strip()
+
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
-    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+    'CLOUD_NAME': cloudinary_cloud_name,
+    'API_KEY': cloudinary_api_key,
+    'API_SECRET': cloudinary_api_secret,
 }
+
+media_storage_backend = 'django.core.files.storage.FileSystemStorage'
+if all([cloudinary_cloud_name, cloudinary_api_key, cloudinary_api_secret]):
+    media_storage_backend = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
 STORAGES = {
     'default': {
-        'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage',
+        'BACKEND': media_storage_backend,
     },
     'staticfiles': {
         'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',

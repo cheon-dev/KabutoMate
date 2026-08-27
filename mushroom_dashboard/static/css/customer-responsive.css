@@ -1,0 +1,675 @@
+/* Customer-facing responsive adjustments.
+   Loaded after each page's local styles so shared mobile behavior stays consistent. */
+
+html,
+body {
+    max-width: 100%;
+    overflow-x: clip;
+}
+
+img,
+video,
+svg {
+    max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+    max-width: 100%;
+}
+
+button,
+a.btn,
+a.btn-primary,
+a.btn-danger,
+a.btn-checkout,
+.shop-btn,
+.btn-primary,
+.place-order-btn,
+.test-btn {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+/* Keep long order numbers, email addresses, and user-entered text inside cards. */
+.order-badge,
+.order-info-value,
+.detail-value,
+.info-block p,
+.item-name,
+.item-details,
+.payment-description,
+.payment-proof-help,
+.message,
+.step span {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.customer-messages {
+    width: 100%;
+    margin-bottom: 1.25rem;
+}
+
+.customer-message {
+    padding: 0.85rem 1rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #1e3a8a;
+    overflow-wrap: anywhere;
+}
+
+.customer-message.error {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.customer-message.success {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.customer-message.warning {
+    border-color: #fde68a;
+    background: #fffbeb;
+    color: #92400e;
+}
+
+/* The customer navigation pages use two different toggle class names. */
+@media (max-width: 768px) {
+    .navbar:has(.nav-toggle),
+    .navbar:has(.nav-hamburger) {
+        flex-wrap: wrap;
+    }
+
+    .navbar:has(.nav-toggle) .nav-toggle,
+    .navbar:has(.nav-hamburger) .nav-hamburger {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 44px;
+    }
+
+    .navbar:has(.nav-toggle) .nav-links {
+        flex-basis: 100%;
+        width: 100%;
+        min-width: 0;
+        display: none;
+        margin-top: 0.65rem;
+        padding: 0.5rem 0;
+    }
+
+    .navbar:has(.nav-toggle) .nav-links.active {
+        display: flex;
+    }
+
+    .navbar:has(.nav-toggle) .nav-links a {
+        width: 100%;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 0;
+        margin-left: 0;
+    }
+
+    /* The shop has an absolute drawer; only tighten its width and tap targets. */
+    .navbar:has(.nav-hamburger) .nav-links a {
+        min-height: 48px;
+    }
+
+    .navbar .logo-section {
+        min-width: 0;
+    }
+
+    .navbar .brand-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .navbar .nav-links span,
+    .navbar .nav-links a {
+        overflow-wrap: anywhere;
+    }
+
+    /* Do not let full-width panels become wider than the viewport. */
+    .container,
+    .main-container,
+    .page-wrapper,
+    .content,
+    .checkout-grid,
+    .cart-grid,
+    .product-detail-card,
+    .confirmation-card,
+    .payment-container,
+    .verification-container {
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+
+/* Shop */
+.product-card,
+.best-seller-card,
+.best-sellers-section,
+.sidebar {
+    min-width: 0;
+}
+
+.product-card .product-image-container img,
+.best-seller-card .best-seller-media img {
+    max-width: 100%;
+}
+
+.add-to-cart-form {
+    max-width: 100%;
+}
+
+/* Product detail */
+.product-detail-card {
+    width: 100%;
+    min-width: 0;
+}
+
+.product-main-image > img {
+    object-fit: contain !important;
+}
+
+.product-info-section,
+.product-image-section,
+.product-description,
+.nutrition-facts {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.nutrition-facts {
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .product-detail-card {
+        gap: 1.5rem;
+    }
+
+    .product-main-image {
+        width: 100%;
+    }
+
+    .product-title {
+        overflow-wrap: anywhere;
+    }
+
+    .action-buttons,
+    .quantity-selector {
+        width: 100%;
+    }
+
+    .btn-primary {
+        min-height: 48px;
+    }
+
+    .review-header,
+    .reviews-header {
+        align-items: flex-start;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .review-date {
+        margin-left: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .product-meta {
+        gap: 0.75rem;
+    }
+
+    .meta-item {
+        min-width: 0;
+    }
+
+    .quantity-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
+/* Cart */
+.cart-item,
+.item-info,
+.summary-card,
+.summary-line,
+.total-line {
+    min-width: 0;
+}
+
+.item-preview img {
+    max-width: 100%;
+}
+
+@media (max-width: 768px) {
+    .cart-item {
+        display: grid;
+        grid-template-columns: 72px minmax(0, 1fr);
+        align-items: start;
+        gap: 0.85rem;
+    }
+
+    .item-preview {
+        width: 72px;
+        height: 72px;
+    }
+
+    .item-info {
+        width: 100%;
+    }
+
+    .item-subtotal {
+        grid-column: 2;
+        width: 100%;
+        padding-top: 0;
+        text-align: right;
+        border-top: 0;
+    }
+
+    .item-controls {
+        flex-wrap: wrap;
+    }
+
+    .btn-icon {
+        width: 44px;
+        height: 44px;
+    }
+
+    .qty-input {
+        min-height: 44px;
+    }
+
+    .summary-line {
+        gap: 1rem;
+    }
+
+    .summary-line > span:last-child {
+        text-align: right;
+    }
+}
+
+@media (max-width: 380px) {
+    .cart-item {
+        grid-template-columns: 60px minmax(0, 1fr);
+    }
+
+    .item-preview {
+        width: 60px;
+        height: 60px;
+    }
+
+    .item-name {
+        font-size: 1rem;
+    }
+
+    .item-price {
+        font-size: 0.85rem;
+    }
+}
+
+/* Checkout */
+.checkout-card,
+.summary-sidebar,
+.payment-option,
+.payment-details,
+.gcash-manual-panel,
+.shipping-info {
+    min-width: 0;
+}
+
+.payment-option {
+    align-items: flex-start;
+}
+
+.payment-details {
+    overflow-wrap: anywhere;
+}
+
+.payment-name {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.manual-badge {
+    margin-left: 0;
+}
+
+.gcash-steps {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        gap: 0;
+    }
+
+    .map-instructions {
+        align-items: flex-start;
+    }
+
+    #deliveryMap {
+        height: 260px;
+    }
+
+    .gps-btn {
+        width: 100%;
+        justify-content: center;
+        min-height: 48px;
+    }
+
+    .distance-badge {
+        margin-left: 0;
+        margin-top: 0.35rem;
+    }
+
+    .total-box {
+        align-items: flex-start;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .total-box span {
+        margin-left: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .payment-option {
+        padding: 0.85rem;
+    }
+
+    .payment-icon {
+        flex: 0 0 36px;
+        width: 36px;
+        height: 36px;
+        margin-right: 0.6rem;
+    }
+
+    .payment-description {
+        font-size: 0.75rem;
+    }
+
+    #deliveryMap {
+        height: 220px;
+    }
+}
+
+/* Customer profile and orders */
+.profile-header,
+.profile-info,
+.card,
+.order-card,
+.order-header,
+.order-header-right,
+.order-item,
+.order-footer,
+.review-modal-content,
+.chat-panel {
+    min-width: 0;
+}
+
+.profile-meta-item {
+    min-width: 0;
+}
+
+.profile-meta-item span {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+    .profile-info {
+        width: 100%;
+    }
+
+    .card-title {
+        gap: 0.75rem;
+    }
+
+    .order-header-right {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .order-item {
+        align-items: flex-start;
+    }
+
+    .order-footer {
+        gap: 0.85rem;
+        flex-wrap: wrap;
+    }
+
+    .order-footer > strong {
+        width: 100%;
+        text-align: right;
+    }
+
+    .order-footer-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .review-action-buttons {
+        width: 100%;
+    }
+
+    .chat-input-wrap input {
+        min-width: 0;
+    }
+
+    .review-modal-content {
+        width: min(600px, calc(100vw - 24px));
+        max-height: calc(100vh - 24px);
+        margin: 0;
+    }
+
+    .logout-modal-content {
+        width: min(400px, calc(100vw - 24px));
+        max-width: none;
+        margin: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .profile-header {
+        gap: 1rem;
+    }
+
+    .profile-meta {
+        width: 100%;
+        gap: 0.65rem;
+        text-align: left;
+    }
+
+    .card-title {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .btn-edit-profile {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .order-status-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .order-tab-btn {
+        min-width: 0;
+        min-height: 46px;
+        padding: 0.55rem 0.5rem;
+    }
+
+    .order-header-right,
+    .order-footer-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .payment-status,
+    .status-badge {
+        align-self: flex-start;
+    }
+
+    .btn-review,
+    .btn-view-rating,
+    .btn-buy-again,
+    .btn-view-order,
+    .btn-cancel-order {
+        width: 100%;
+        justify-content: center;
+        min-height: 44px;
+    }
+
+    .review-modal-header h2 {
+        font-size: 1.15rem;
+        padding-right: 0.5rem;
+    }
+
+    .stars-input {
+        justify-content: space-between;
+    }
+}
+
+/* Authentication pages */
+.login-wrapper,
+.register-wrapper,
+.split-left,
+.split-right {
+    min-width: 0;
+}
+
+@media (max-width: 768px) {
+    .login-wrapper,
+    .register-wrapper {
+        width: 100%;
+    }
+
+    .split-left,
+    .split-right {
+        overflow-x: clip;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-wrapper,
+    .register-wrapper {
+        width: calc(100% - 0.5rem);
+        max-width: none;
+    }
+
+    .form-group input,
+    .input-container input,
+    .input-container textarea {
+        font-size: 16px;
+    }
+}
+
+/* Confirmation and payment pages */
+.info-grid,
+.item-row,
+.total-display,
+.order-info-row,
+.security-note,
+.sandbox-notice {
+    min-width: 0;
+}
+
+@media (max-width: 600px) {
+    .item-row,
+    .total-display,
+    .order-info-row {
+        gap: 0.75rem;
+    }
+
+    .item-row > div:first-child {
+        min-width: 0;
+    }
+
+    .total-display {
+        flex-wrap: wrap;
+    }
+
+    .total-display span:last-child {
+        margin-left: auto;
+    }
+
+    .item-row > div:last-child,
+    .order-info-value {
+        text-align: right;
+    }
+
+    .modal-buttons {
+        flex-direction: column;
+    }
+
+    .modal-buttons .btn {
+        width: 100%;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .sandbox-notice {
+        width: 100%;
+        align-items: flex-start;
+        padding: 0.75rem 1rem;
+        font-size: 0.78rem;
+    }
+
+    .payment-container {
+        border-radius: 18px;
+    }
+
+    .order-info-row {
+        align-items: flex-start;
+    }
+
+    .security-note {
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    .verification-container {
+        padding: 2rem 1.25rem;
+        border-radius: 16px;
+    }
+
+    .verification-icon {
+        width: 76px;
+        height: 76px;
+        font-size: 2.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .verification-container h1 {
+        font-size: 1.5rem;
+    }
+
+    .btn-secondary {
+        margin-left: 0;
+    }
+}

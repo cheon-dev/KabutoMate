@@ -356,12 +356,23 @@ def process_checkout(request, cart, cart_items, total):
     from .models import StoreSettings
     
     # Get customer info
-    customer_name = request.POST.get('customer_name')
-    customer_email = request.POST.get('customer_email')
-    customer_phone = request.POST.get('customer_phone')
-    shipping_address = request.POST.get('shipping_address')
-    shipping_city = request.POST.get('shipping_city')
-    shipping_postal_code = request.POST.get('shipping_postal_code')
+    profile = getattr(request.user, 'profile', None) if request.user.is_authenticated else None
+    customer_name = request.POST.get('customer_name', '').strip()
+    customer_email = request.POST.get('customer_email', '').strip()
+    customer_phone = request.POST.get('customer_phone', '').strip()
+    shipping_address = request.POST.get('shipping_address', '').strip()
+    shipping_city = request.POST.get('shipping_city', '').strip()
+    shipping_postal_code = request.POST.get('shipping_postal_code', '').strip()
+
+    # Authenticated customer fields are read-only in the form, so use the
+    # saved profile if a browser omits one of them from the POST payload.
+    if profile:
+        customer_name = customer_name or request.user.get_full_name() or request.user.username
+        customer_email = customer_email or request.user.email
+        customer_phone = customer_phone or profile.phone.strip()
+        shipping_address = shipping_address or profile.address.strip()
+        shipping_city = shipping_city or profile.city.strip()
+        shipping_postal_code = shipping_postal_code or profile.postal_code.strip()
     customer_notes = request.POST.get('customer_notes', '')
     payment_method = request.POST.get('payment_method', 'COD')
     payment_proof_image = request.FILES.get('payment_proof_image')
@@ -400,8 +411,17 @@ def process_checkout(request, cart, cart_items, total):
         customer_longitude = None
     
     # Validate
-    if not all([customer_name, customer_email, customer_phone, shipping_address, shipping_city]):
-        messages.error(request, 'Please fill in all required fields')
+    required_fields = {
+        'Full Name': customer_name,
+        'Email Address': customer_email,
+        'Phone Number': customer_phone,
+        'Delivery Address': shipping_address,
+        'City / Municipality': shipping_city,
+        'Postal Code': shipping_postal_code,
+    }
+    missing_fields = [label for label, value in required_fields.items() if not value]
+    if missing_fields:
+        messages.error(request, f'Please fill in: {", ".join(missing_fields)}')
         return redirect('checkout')
 
     if payment_method == 'GCASH':
@@ -421,6 +441,8 @@ def process_checkout(request, cart, cart_items, total):
         product = Product.objects.select_for_update().get(id=cart_item.product.id)
         
         if cart_item.quantity_kg > product.stock_kg:
+            # Roll back deductions already made for earlier cart items.
+            transaction.set_rollback(True)
             messages.error(request, f'Sorry, only {product.stock_kg}{" kg" if product.unit == "kg" else ""} of {product.name} available')
             return redirect('view_cart')
         
@@ -431,6 +453,8 @@ def process_checkout(request, cart, cart_items, total):
         ).update(stock_kg=F('stock_kg') - cart_item.quantity_kg)
         
         if updated == 0:
+            # Roll back the whole checkout if stock changed during this request.
+            transaction.set_rollback(True)
             messages.error(request, f'Sorry, {product.name} is no longer available')
             return redirect('view_cart')
     

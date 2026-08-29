@@ -662,8 +662,11 @@
         .load-more-btn:hover { background: var(--primary); color: white; }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body data-user-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
+    {% include 'includes/toast_notifications.html' %}
 
     <!-- ── LOGOUT MODAL ── -->
     <div class="logout-modal" id="logoutModal">
@@ -1020,15 +1023,15 @@
             const productId = document.getElementById('reviewProductId').value;
             const rating = document.getElementById('ratingValue').value;
             const comment = document.getElementById('reviewComment').value;
-            if (rating == 0) { alert('Please select a rating'); return; }
+            if (rating == 0) { showToast('Please select a rating', 'warning'); return; }
             const formData = new FormData();
             formData.append('rating', rating); formData.append('comment', comment);
             fetch(`/submit-review/${productId}/`, { method: 'POST', headers: { 'X-CSRFToken': getCsrfToken() }, body: formData })
             .then(r => r.json())
             .then(data => {
-                if (data.success) { alert('Review submitted successfully!'); closeReviewModal(); location.reload(); }
-                else { alert('Error: ' + data.error); }
-            }).catch(err => { console.error(err); alert('Failed to submit review'); });
+                if (data.success) { showToast('Review submitted successfully!', 'success'); closeReviewModal(); location.reload(); }
+                else { showToast('Error: ' + data.error, 'error'); }
+            }).catch(err => { console.error(err); showToast('Failed to submit review', 'error'); });
         });
 
         function loadProductReviews(productId) {

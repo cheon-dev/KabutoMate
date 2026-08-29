@@ -589,8 +589,11 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <!-- Mobile Menu Toggle Button -->
     <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu">
         <i class="fa-solid fa-bars" id="menuIcon"></i>
@@ -869,13 +872,14 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('Profile updated successfully!');
+                    showToast('Profile updated successfully!', 'success');
                     loadProfile(); // Reload data to show changes
                 } else {
-                    alert('Error: ' + (result.error || 'Could not update profile.'));
+                    showToast('Error: ' + (result.error || 'Could not update profile.'), 'error');
                 }
             } catch (error) {
                 console.error('Failed to update profile:', error);
+                showToast('Unable to update your profile. Please try again.', 'error');
             }
         });
 
@@ -900,7 +904,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('Password changed successfully!');
+                    showToast('Password changed successfully!', 'success');
                     passwordForm.reset();
                 } else {
                     // Handle complex form errors from Django
@@ -912,10 +916,11 @@
                     } else if (result.error) {
                         errorMsg = result.error;
                     }
-                    alert(errorMsg);
+                    showToast(errorMsg, 'error');
                 }
             } catch (error) {
                 console.error('Failed to change password:', error);
+                showToast('Unable to change your password. Please try again.', 'error');
             }
         });
 

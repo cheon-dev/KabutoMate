@@ -598,8 +598,11 @@
             .card { padding: 18px; }
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <!-- Mobile Menu Toggle Button -->
     <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu">
         <i class="fa-solid fa-bars" id="menuIcon"></i>
@@ -1176,12 +1179,12 @@
                 
                 if (result.success) {
                     emergencyModal.style.display = 'none';
-                    alert('Emergency Stop Activated! All systems shut down.');
+                    showToast('Emergency Stop Activated! All systems shut down.', 'success');
                     loadData(); // Reload to update UI
                 }
             } catch (error) {
                 console.error('Emergency stop failed:', error);
-                alert('Failed to execute emergency stop.');
+                showToast('Failed to execute emergency stop.', 'error');
             }
         });
         

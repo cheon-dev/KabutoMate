@@ -3,7 +3,7 @@ from .models import (
     Product, SensorReading, Sale, ProductionBatch, Notification, 
     EnvironmentSettings, DiseaseDetection, ProductReview, Wishlist,
     ProductImage, RecentlyViewed, ReviewMedia, NotificationSettings,
-    NotificationLog, EnvironmentalAlertState
+    NotificationLog, EnvironmentalAlertState, CustomerAddress
 )
 
 
@@ -109,6 +109,7 @@ admin.site.register(ProductReview)
 admin.site.register(Wishlist)
 # ProductImage is now an inline in ProductAdmin
 admin.site.register(RecentlyViewed)
+admin.site.register(CustomerAddress)
 
 
 @admin.register(NotificationSettings)

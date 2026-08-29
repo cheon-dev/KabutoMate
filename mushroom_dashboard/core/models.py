@@ -52,6 +52,32 @@ class UserProfile(models.Model):
         return self.email_verification_token
 
 
+class CustomerAddress(models.Model):
+    """A saved delivery location belonging to one customer."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='delivery_addresses')
+    label = models.CharField(max_length=100)
+    address = models.TextField()
+    city = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=20)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_default', '-updated_at']
+
+    def save(self, *args, **kwargs):
+        # A customer may have only one default address.
+        if self.is_default:
+            CustomerAddress.objects.filter(user=self.user).exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.label}"
+
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     """Automatically create UserProfile when User is created"""
@@ -710,6 +736,8 @@ class Order(models.Model):
     shipping_address = models.TextField()
     shipping_city = models.CharField(max_length=100)
     shipping_postal_code = models.CharField(max_length=20)
+    shipping_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    delivery_distance_km = models.DecimalField(max_digits=8, decimal_places=1, null=True, blank=True)
     
     # Customer GPS coordinates for accurate delivery
     customer_latitude = models.DecimalField(
@@ -1077,33 +1105,29 @@ class StoreSettings(models.Model):
         import math
         from decimal import Decimal
         
-        # Free shipping for orders above threshold
+        distance_km = None
+        if self.store_latitude and self.store_longitude and customer_lat and customer_lng:
+            # Haversine distance is the existing delivery-distance calculation.
+            R = 6371
+            lat1 = math.radians(float(self.store_latitude))
+            lat2 = math.radians(float(customer_lat))
+            dlat = math.radians(float(customer_lat) - float(self.store_latitude))
+            dlng = math.radians(float(customer_lng) - float(self.store_longitude))
+            a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng/2)**2
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+            distance_km = R * c
+
+            # Check the range before free-shipping logic so every delivery is restricted.
+            if distance_km > float(self.max_delivery_distance_km):
+                return None, distance_km, 'Delivery not available for this location (beyond {} km)'.format(self.max_delivery_distance_km)
+
+        # Free shipping for orders above threshold, after distance validation.
         if order_total >= float(self.free_shipping_threshold):
-            return Decimal('0.00'), 0, 'Free shipping on orders ₱{:,.0f}+'.format(float(self.free_shipping_threshold))
-        
-        # If store coordinates not set, return minimum base fee
-        if not self.store_latitude or not self.store_longitude:
+            return Decimal('0.00'), round(distance_km, 1) if distance_km is not None else 0, 'Free shipping on orders ₱{:,.0f}+'.format(float(self.free_shipping_threshold))
+
+        # If store or customer coordinates are unavailable, retain the existing base-fee behavior.
+        if distance_km is None:
             return self.minimum_base_fee, None, 'Standard delivery fee'
-        
-        # If customer coordinates not provided, return minimum base fee
-        if not customer_lat or not customer_lng:
-            return self.minimum_base_fee, None, 'Standard delivery fee'
-        
-        # Haversine formula to calculate distance
-        R = 6371  # Earth's radius in kilometers
-        
-        lat1 = math.radians(float(self.store_latitude))
-        lat2 = math.radians(float(customer_lat))
-        dlat = math.radians(float(customer_lat) - float(self.store_latitude))
-        dlng = math.radians(float(customer_lng) - float(self.store_longitude))
-        
-        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng/2)**2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-        distance_km = R * c
-        
-        # Check if within delivery range
-        if distance_km > float(self.max_delivery_distance_km):
-            return None, distance_km, 'Delivery not available for this location (beyond {} km)'.format(self.max_delivery_distance_km)
         
         # Calculate fee based on distance
         base_distance = float(self.minimum_base_distance_km)

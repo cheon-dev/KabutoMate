@@ -296,8 +296,11 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <nav class="navbar">
         <div class="logo-section">
             <div class="logo-circle">
@@ -415,8 +418,8 @@
             updateCartDisplay();
         }
 
-        function clearCart() {
-            if(confirm('Discard current sale?')) { cart = []; updateCartDisplay(); }
+        async function clearCart() {
+            if (await showConfirm('Discard current sale?')) { cart = []; updateCartDisplay(); }
         }
 
         function updateCartDisplay() {

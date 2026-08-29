@@ -555,8 +555,11 @@
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <!-- CSRF Token for AJAX requests -->
     {% csrf_token %}
     
@@ -807,6 +810,7 @@
                 })
                 .then(data => {
                     if (data.success) {
+                        showToast('Product added to cart.', 'success');
                         // Update cart count in navbar if exists
                         const cartCount = document.querySelector('.cart-count');
                         if (cartCount) {
@@ -825,7 +829,7 @@
                     } else {
                         addToCartBtn.innerHTML = originalContent;
                         addToCartBtn.disabled = false;
-                        alert(data.message || 'Failed to add to cart');
+                        showToast(data.message || 'Failed to add to cart', 'error');
                     }
                 })
                 .catch(error => {

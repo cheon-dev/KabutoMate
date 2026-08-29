@@ -9,7 +9,7 @@ from django.db.models import Sum, Count, F, Q, DecimalField, Avg, DateField
 from django.db.models.functions import Coalesce, TruncMonth, Cast
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from .models import SensorReading, Product, Sale, ProductionBatch, Notification, EnvironmentSettings, NotificationSettings, UserProfile, Cart, CartItem, CustomerAdminMessage
+from .models import SensorReading, Product, Sale, ProductionBatch, Notification, EnvironmentSettings, NotificationSettings, UserProfile, Cart, CartItem, CustomerAdminMessage, CustomerAddress, StoreSettings
 from .email_service import send_verification_email, send_email_async, resend_verification_email
 from .notification_service import evaluate_environment_notifications
 import json
@@ -83,6 +83,16 @@ def admin_required(view_func):
         
         return view_func(request, *args, **kwargs)
     return wrapper
+
+
+def is_admin_chat_sender(user):
+    """Return whether a chat sender has any role accepted by admin_required."""
+    if user.is_superuser or user.is_staff:
+        return True
+    try:
+        return user.profile.is_admin
+    except UserProfile.DoesNotExist:
+        return False
 
 # --- ML Prediction Function ---
 def predict_yield(product_id=None, start_date=None, cost=None):
@@ -476,11 +486,25 @@ def profile_view(request):
 
                 if has_pending_review:
                     pending_review_order_ids.add(order.id)
+
+            store_settings = StoreSettings.load()
+            addresses = list(CustomerAddress.objects.filter(user=request.user))
+            for address in addresses:
+                fee, distance, message = store_settings.calculate_shipping_fee(
+                    address.latitude, address.longitude, 0
+                )
+                address.is_valid_for_delivery = fee is not None
+                address.delivery_distance = distance
+                address.delivery_error = message if fee is None else ''
             
             context = {
                 'orders': orders,
                 'reviewed_items': reviewed_items,
                 'pending_review_order_ids': pending_review_order_ids,
+                'addresses': addresses,
+                'max_delivery_distance_km': store_settings.max_delivery_distance_km,
+                'store_lat': float(store_settings.store_latitude) if store_settings.store_latitude else None,
+                'store_lng': float(store_settings.store_longitude) if store_settings.store_longitude else None,
             }
             return render(request, 'customer_profile.html', context)
     except UserProfile.DoesNotExist:
@@ -491,6 +515,8 @@ def profile_view(request):
             'orders': orders,
             'reviewed_items': set(),
             'pending_review_order_ids': set(),
+            'addresses': [],
+            'max_delivery_distance_km': StoreSettings.load().max_delivery_distance_km,
         }
         return render(request, 'customer_profile.html', context)
 
@@ -559,10 +585,7 @@ def customer_chat_api(request):
 
     messages_list = []
     for msg in messages_qs:
-        try:
-            is_admin_sender = msg.sender.profile.is_admin
-        except UserProfile.DoesNotExist:
-            is_admin_sender = False
+        is_admin_sender = is_admin_chat_sender(msg.sender)
 
         messages_list.append({
             'id': msg.id,
@@ -618,10 +641,7 @@ def admin_chat_api(request):
 
         messages_list = []
         for msg in thread:
-            try:
-                is_admin_sender = msg.sender.profile.is_admin
-            except UserProfile.DoesNotExist:
-                is_admin_sender = False
+            is_admin_sender = is_admin_chat_sender(msg.sender)
 
             messages_list.append({
                 'id': msg.id,

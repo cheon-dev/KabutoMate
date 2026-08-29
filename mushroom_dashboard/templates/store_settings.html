@@ -542,8 +542,11 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <!-- Hamburger Menu Toggle Button -->
     <button class="hamburger-toggle" id="hamburgerToggle" aria-label="Toggle navigation menu">
         <i class="fa-solid fa-bars" id="hamburgerIcon"></i>
@@ -992,19 +995,7 @@
         });
         
         function showAlert(type, message) {
-            const alertEl = document.getElementById('alert-' + type);
-            const messageEl = document.getElementById(type + '-message');
-            
-            // Hide all alerts first
-            document.querySelectorAll('.alert').forEach(a => a.style.display = 'none');
-            
-            messageEl.textContent = message;
-            alertEl.style.display = 'flex';
-            
-            // Auto-hide after 5 seconds
-            setTimeout(() => {
-                alertEl.style.display = 'none';
-            }, 5000);
+            showToast(message, type);
         }
         
         function resetForm() {

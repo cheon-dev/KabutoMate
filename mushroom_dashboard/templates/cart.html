@@ -369,8 +369,11 @@
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <nav class="navbar">
         <div class="logo-section">
             <div class="logo-circle">
@@ -396,14 +399,6 @@
     </nav>
 
     <div class="container">
-        {% if messages %}
-        <div class="customer-messages" role="status" aria-live="polite">
-            {% for message in messages %}
-            <div class="customer-message {{ message.tags|default:'info' }}">{{ message }}</div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
         <div class="page-header">
             <h1>Your <span style="color: var(--primary-light)">Basket</span></h1>
             <span style="background: var(--primary); color: white; padding: 5px 15px; border-radius: 50px; font-weight: 700;">{{ cart_items|length }} Items</span>

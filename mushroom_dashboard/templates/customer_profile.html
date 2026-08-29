@@ -1054,6 +1054,72 @@
             box-shadow: 0 4px 12px rgba(12, 75, 51, 0.3);
         }
 
+        .address-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1rem;
+        }
+
+        .address-card {
+            border: 1px solid #dbe5df;
+            border-radius: 14px;
+            padding: 1.1rem;
+            min-width: 0;
+            background: #fbfdfc;
+        }
+
+        .address-card.invalid {
+            border-color: #fecaca;
+            background: #fffafa;
+        }
+
+        .address-card-header,
+        .address-card-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+        }
+
+        .address-label { color: var(--primary); font-weight: 800; overflow-wrap: anywhere; }
+        .address-badge {
+            border-radius: 999px;
+            padding: 0.25rem 0.55rem;
+            font-size: 0.7rem;
+            font-weight: 800;
+            white-space: nowrap;
+            background: #dff7e9;
+            color: #166534;
+        }
+        .address-badge.invalid { background: #fee2e2; color: #991b1b; }
+        .address-text { margin: 0.8rem 0; color: #475569; line-height: 1.5; overflow-wrap: anywhere; }
+        .address-distance { color: #64748b; font-size: 0.82rem; min-height: 1.2rem; }
+        .address-card-actions { justify-content: flex-start; flex-wrap: wrap; margin-top: 0.9rem; }
+        .address-action {
+            border: 0;
+            border-radius: 8px;
+            padding: 0.55rem 0.7rem;
+            min-height: 40px;
+            cursor: pointer;
+            font-weight: 700;
+            background: #e8f2ec;
+            color: var(--primary);
+        }
+        .address-action.delete { background: #fee2e2; color: #991b1b; }
+        .address-empty { color: #64748b; padding: 0.5rem 0; }
+        #addressMap { height: 240px; width: 100%; border-radius: 10px; border: 1px solid #d1d5db; }
+        .address-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+        .address-form-group { margin-bottom: 0.9rem; }
+        .address-form-group.full { grid-column: 1 / -1; }
+        .address-form-group label { display: block; margin-bottom: 0.35rem; font-weight: 700; color: #374151; }
+        .address-form-group input,
+        .address-form-group textarea { width: 100%; padding: 0.7rem; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; }
+        .address-form-help { margin: 0.5rem 0 0.8rem; color: #0369a1; font-size: 0.85rem; }
+        .address-modal-actions { display: flex; gap: 0.7rem; margin-top: 1rem; }
+        .address-modal-actions button { flex: 1; min-height: 44px; border: 0; border-radius: 8px; cursor: pointer; font-weight: 800; }
+        .address-save-btn { background: var(--primary); color: white; }
+        .address-cancel-btn { background: #e5e7eb; color: #374151; }
+
         #locationMap {
             height: 350px;
             width: 100%;
@@ -1199,6 +1265,9 @@
             #locationMap {
                 height: 250px;
             }
+
+            .address-form-grid { grid-template-columns: 1fr; gap: 0; }
+            .address-form-group.full { grid-column: auto; }
         }
         
         @media (max-width: 480px) {
@@ -1242,6 +1311,11 @@
             #locationMap {
                 height: 200px;
             }
+
+            .address-list { grid-template-columns: 1fr; }
+            .address-card-actions { flex-direction: column; align-items: stretch; }
+            .address-action { width: 100%; }
+            .address-modal-actions { flex-direction: column; }
             
             .review-action-buttons {
                 flex-direction: column;
@@ -1273,8 +1347,11 @@
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
 
     <!-- Logout Confirmation Modal -->
     <div class="logout-modal" id="logoutModal">
@@ -1373,6 +1450,43 @@
                 <div class="detail-label">Full Address</div>
                 <div class="detail-value">{{ user.profile.address }}, {{ user.profile.city|default:"" }} {{ user.profile.postal_code|default:"" }}</div>
             </div>
+            {% endif %}
+        </div>
+
+        <div class="card" id="saved-addresses">
+            <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                <span><i class="fa-solid fa-location-dot"></i> Saved Delivery Addresses</span>
+                <button type="button" class="btn-edit-profile" id="addAddressBtn">
+                    <i class="fa-solid fa-plus"></i> Add Address
+                </button>
+            </div>
+            <p style="color: #64748b; margin: -0.7rem 0 1.2rem;">Only addresses within {{ max_delivery_distance_km|floatformat:"-2" }} km of the store can be used for delivery.</p>
+            {% if addresses %}
+            <div class="address-list">
+                {% for address in addresses %}
+                <div class="address-card {% if not address.is_valid_for_delivery %}invalid{% endif %}" data-address-id="{{ address.id }}">
+                    <div class="address-card-header">
+                        <span class="address-label"><i class="fa-solid fa-tag"></i> {{ address.label }}</span>
+                        {% if address.is_default %}<span class="address-badge">Default</span>{% endif %}
+                    </div>
+                    <div class="address-text">{{ address.address }}<br>{{ address.city }} {{ address.postal_code }}</div>
+                    {% if address.is_valid_for_delivery %}
+                    <div class="address-distance"><i class="fa-solid fa-route"></i> {{ address.delivery_distance|floatformat:"1" }} km from store</div>
+                    {% else %}
+                    <div class="address-distance" style="color: #991b1b;"><i class="fa-solid fa-triangle-exclamation"></i> Outside the current delivery area</div>
+                    {% endif %}
+                    <div class="address-card-actions">
+                        <button type="button" class="address-action edit-address-btn"><i class="fa-solid fa-pen"></i> Edit</button>
+                        {% if not address.is_default and address.is_valid_for_delivery %}
+                        <button type="button" class="address-action default-address-btn"><i class="fa-solid fa-star"></i> Set Default</button>
+                        {% endif %}
+                        <button type="button" class="address-action delete delete-address-btn"><i class="fa-solid fa-trash"></i> Delete</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="address-empty">No saved addresses yet. Add one to select it quickly during checkout.</div>
             {% endif %}
         </div>
 
@@ -1609,6 +1723,50 @@
                     <button type="submit" class="submit-review-btn" style="background: linear-gradient(135deg, var(--primary) 0%, #1a5e45 100%);">
                         <i class="fa-solid fa-floppy-disk"></i> Save Changes
                     </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="review-modal" id="addressModal">
+        <div class="review-modal-content">
+            <div class="review-modal-header">
+                <h2><i class="fa-solid fa-location-dot"></i> <span id="addressModalTitle">Add Delivery Address</span></h2>
+                <span class="close-review-modal" id="closeAddressModal">&times;</span>
+            </div>
+            <div class="review-modal-body">
+                <form id="addressForm">
+                    <div class="address-form-grid">
+                        <div class="address-form-group">
+                            <label for="address-label">Address Label</label>
+                            <input type="text" id="address-label" maxlength="100" placeholder="Home, Work, Parent's House" required>
+                        </div>
+                        <div class="address-form-group">
+                            <label for="address-city">City / Municipality</label>
+                            <input type="text" id="address-city" required>
+                        </div>
+                        <div class="address-form-group full">
+                            <label for="address-street">Street Address</label>
+                            <textarea id="address-street" rows="2" placeholder="Street, barangay, landmark" required></textarea>
+                        </div>
+                        <div class="address-form-group">
+                            <label for="address-postal-code">Postal Code</label>
+                            <input type="text" id="address-postal-code" required>
+                        </div>
+                        <div class="address-form-group" style="display: flex; align-items: center; gap: 0.5rem; padding-top: 1.6rem;">
+                            <input type="checkbox" id="address-is-default" style="width: auto;">
+                            <label for="address-is-default" style="margin: 0; text-transform: none;">Set as default address</label>
+                        </div>
+                    </div>
+                    <p class="address-form-help"><i class="fa-solid fa-circle-info"></i> Pin the exact delivery location. The address is checked against the current maximum delivery distance before it is saved.</p>
+                    <button type="button" class="address-action" id="addressCurrentLocationBtn" style="margin-bottom: 0.7rem;"><i class="fa-solid fa-location-crosshairs"></i> Use My Current Location</button>
+                    <div id="addressMap"></div>
+                    <input type="hidden" id="address-latitude">
+                    <input type="hidden" id="address-longitude">
+                    <div class="address-modal-actions">
+                        <button type="button" class="address-cancel-btn" id="cancelAddressBtn">Cancel</button>
+                        <button type="submit" class="address-save-btn" id="saveAddressBtn">Save Address</button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -1943,17 +2101,18 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
+                        showToast('Item added to cart.', 'success');
                         // Redirect to cart
-                        window.location.href = '/cart/';
+                        setTimeout(() => { window.location.href = '/cart/'; }, 450);
                     } else {
-                        alert(data.message || 'Failed to add to cart');
+                        showToast(data.message || 'Failed to add to cart', 'error');
                         button.disabled = false;
                         button.innerHTML = '<i class="fa-solid fa-cart-plus"></i> Buy Again';
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('An error occurred. Please try again.');
+                    showToast('An error occurred. Please try again.', 'error');
                     button.disabled = false;
                     button.innerHTML = '<i class="fa-solid fa-cart-plus"></i> Buy Again';
                 });
@@ -2163,14 +2322,14 @@
                         if (data.success) {
                             window.location.href = '/cart/';
                         } else {
-                            alert(data.message || 'Failed to add to cart');
+                            showToast(data.message || 'Failed to add to cart', 'error');
                             button.disabled = false;
                             button.innerHTML = '<i class="fa-solid fa-cart-plus"></i> Buy Again';
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('An error occurred. Please try again.');
+                        showToast('An error occurred. Please try again.', 'error');
                         button.disabled = false;
                         button.innerHTML = '<i class="fa-solid fa-cart-plus"></i> Buy Again';
                     });
@@ -2179,8 +2338,7 @@
         }
 
         function showMessage(message, type) {
-            reviewMessage.textContent = message;
-            reviewMessage.className = `review-message ${type}`;
+            showToast(message, type);
         }
 
         function loadReviews(productId, highlightUserReview = false) {
@@ -2431,12 +2589,12 @@
                         btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> Use My Current Location';
                     },
                     function(error) {
-                        alert('Unable to get your location. Please pin manually on the map.');
+                        showToast('Unable to get your location. Please pin manually on the map.', 'error');
                         btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> Use My Current Location';
                     }
                 );
             } else {
-                alert('Geolocation is not supported by your browser');
+                showToast('Geolocation is not supported by your browser', 'warning');
             }
         });
 
@@ -2479,16 +2637,172 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    alert('Profile updated successfully!');
+                    showToast('Profile updated successfully!', 'success');
                     editProfileModal.classList.remove('show');
                     location.reload(); // Reload to show updated information
                 } else {
-                    alert('Error: ' + (data.error || 'Failed to update profile'));
+                    showToast('Error: ' + (data.error || 'Failed to update profile'), 'error');
                 }
             } catch (error) {
                 console.error('Error updating profile:', error);
-                alert('An error occurred while updating your profile');
+                showToast('An error occurred while updating your profile', 'error');
             }
+        });
+
+        // Saved delivery address management
+        const addressModal = document.getElementById('addressModal');
+        const addressForm = document.getElementById('addressForm');
+        const addressApiUrl = '{% url "customer-addresses-api" %}';
+        const storeLat = {{ store_lat|default:"null" }};
+        const storeLng = {{ store_lng|default:"null" }};
+        let addressMap = null;
+        let addressMarker = null;
+        let editingAddressId = null;
+
+        function getCsrfToken() {
+            return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+        }
+
+        function setAddressLocation(lat, lng) {
+            document.getElementById('address-latitude').value = Number(lat).toFixed(6);
+            document.getElementById('address-longitude').value = Number(lng).toFixed(6);
+            if (addressMarker) {
+                addressMarker.setLatLng([lat, lng]);
+            } else {
+                addressMarker = L.marker([lat, lng], {draggable: true}).addTo(addressMap);
+                addressMarker.on('dragend', function(event) {
+                    const position = event.target.getLatLng();
+                    setAddressLocation(position.lat, position.lng);
+                });
+            }
+        }
+
+        function initializeAddressMap(lat, lng) {
+            const fallbackLat = storeLat || 14.5995;
+            const fallbackLng = storeLng || 120.9842;
+            if (!addressMap) {
+                addressMap = L.map('addressMap').setView([lat || fallbackLat, lng || fallbackLng], lat ? 15 : 10);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+                }).addTo(addressMap);
+                addressMap.on('click', event => setAddressLocation(event.latlng.lat, event.latlng.lng));
+            }
+            setTimeout(() => addressMap.invalidateSize(), 50);
+            if (lat && lng) {
+                setAddressLocation(lat, lng);
+                addressMap.setView([lat, lng], 15);
+            }
+        }
+
+        function openAddressModal(address) {
+            editingAddressId = address ? address.id : null;
+            document.getElementById('addressModalTitle').textContent = address ? 'Edit Delivery Address' : 'Add Delivery Address';
+            document.getElementById('address-label').value = address?.label || '';
+            document.getElementById('address-street').value = address?.address || '';
+            document.getElementById('address-city').value = address?.city || '';
+            document.getElementById('address-postal-code').value = address?.postal_code || '';
+            document.getElementById('address-is-default').checked = Boolean(address?.is_default);
+            document.getElementById('address-latitude').value = address?.latitude || '';
+            document.getElementById('address-longitude').value = address?.longitude || '';
+            if (addressMarker) addressMarker.remove();
+            addressMarker = null;
+            addressModal.classList.add('show');
+            setTimeout(() => initializeAddressMap(address?.latitude, address?.longitude), 100);
+        }
+
+        document.getElementById('addAddressBtn').addEventListener('click', () => openAddressModal(null));
+        document.getElementById('closeAddressModal').addEventListener('click', () => addressModal.classList.remove('show'));
+        document.getElementById('cancelAddressBtn').addEventListener('click', () => addressModal.classList.remove('show'));
+        document.getElementById('addressCurrentLocationBtn').addEventListener('click', function() {
+            if (!navigator.geolocation) {
+                showToast('Geolocation is not supported by your browser. Pin the location on the map instead.', 'warning');
+                return;
+            }
+            const button = this;
+            button.disabled = true;
+            if (!addressMap) initializeAddressMap();
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    setAddressLocation(position.coords.latitude, position.coords.longitude);
+                    addressMap.setView([position.coords.latitude, position.coords.longitude], 16);
+                    button.disabled = false;
+                },
+                () => {
+                    button.disabled = false;
+                    showToast('Unable to get your location. Pin the address manually on the map.', 'error');
+                },
+                {enableHighAccuracy: true, timeout: 10000, maximumAge: 0}
+            );
+        });
+
+        document.querySelectorAll('.edit-address-btn').forEach(button => {
+            button.addEventListener('click', async function() {
+                const response = await fetch(`${addressApiUrl}${this.closest('.address-card').dataset.addressId}/`);
+                const data = await response.json();
+                if (data.address) openAddressModal(data.address);
+            });
+        });
+
+        document.querySelectorAll('.default-address-btn').forEach(button => {
+            button.addEventListener('click', async function() {
+                const id = this.closest('.address-card').dataset.addressId;
+                const response = await fetch(`${addressApiUrl}${id}/default/`, {
+                    method: 'POST', headers: {'X-CSRFToken': getCsrfToken()}
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) showToast(data.error || 'Unable to update the default address.', 'error');
+                else location.reload();
+            });
+        });
+
+        document.querySelectorAll('.delete-address-btn').forEach(button => {
+            button.addEventListener('click', async function() {
+                if (!await showConfirm('Delete this saved address?')) return;
+                const id = this.closest('.address-card').dataset.addressId;
+                const response = await fetch(`${addressApiUrl}${id}/`, {
+                    method: 'DELETE', headers: {'X-CSRFToken': getCsrfToken()}
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) showToast(data.error || 'Unable to delete the address.', 'error');
+                else location.reload();
+            });
+        });
+
+        addressForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const id = editingAddressId ? `${editingAddressId}/` : '';
+            const payload = {
+                label: document.getElementById('address-label').value.trim(),
+                address: document.getElementById('address-street').value.trim(),
+                city: document.getElementById('address-city').value.trim(),
+                postal_code: document.getElementById('address-postal-code').value.trim(),
+                latitude: document.getElementById('address-latitude').value,
+                longitude: document.getElementById('address-longitude').value,
+                is_default: document.getElementById('address-is-default').checked
+            };
+            const saveButton = document.getElementById('saveAddressBtn');
+            saveButton.disabled = true;
+            try {
+                const response = await fetch(`${addressApiUrl}${id}`, {
+                    method: editingAddressId ? 'PATCH' : 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    showToast(data.error || 'Unable to save the address.', 'error');
+                } else {
+                    location.reload();
+                }
+            } catch (error) {
+                showToast('Unable to save the address. Please try again.', 'error');
+            } finally {
+                saveButton.disabled = false;
+            }
+        });
+
+        window.addEventListener('click', event => {
+            if (event.target === addressModal) addressModal.classList.remove('show');
         });
 
         // Mobile Navigation Toggle

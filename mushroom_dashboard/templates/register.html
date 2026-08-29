@@ -500,8 +500,11 @@
 
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body class="auth-page">
+    {% include 'includes/toast_notifications.html' %}
 
     <div class="split-left">
         <div class="register-wrapper">
@@ -752,21 +755,18 @@
                     const data = await response.json();
 
                     if (data.success) {
-                        successMessage.textContent = data.message;
-                        successMessage.style.display = 'block';
+                        showToast(data.message, 'success');
                         
                         // Redirect to shop after a short delay
                         setTimeout(() => {
                             window.location.href = data.redirect_url;
                         }, 1500);
                     } else {
-                        errorMessage.textContent = data.error;
-                        errorMessage.style.display = 'block';
+                        showToast(data.error, 'error');
                     }
                 } catch (error) {
                     console.error("Registration error:", error);
-                    errorMessage.textContent = "An error occurred. Please try again.";
-                    errorMessage.style.display = 'block';
+                    showToast("An error occurred. Please try again.", 'error');
                 }
             });
         });

@@ -575,8 +575,11 @@
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body class="auth-page">
+    {% include 'includes/toast_notifications.html' %}
 
     <!-- ── LEFT: Login Form ── -->
     <div class="split-left">
@@ -746,11 +749,11 @@
                     if (data.success) {
                         window.location.href = data.redirect_url;
                     } else {
-                        alert(data.error);
+                        showToast(data.error, 'error');
                     }
                 } catch (error) {
                     console.error("Login error:", error);
-                    alert("An error occurred. Please try again.");
+                    showToast("An error occurred. Please try again.", 'error');
                 }
             });
         });

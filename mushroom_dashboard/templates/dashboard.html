@@ -104,6 +104,7 @@
 
         .admin-chat-bubble.from-admin {
             align-self: flex-end;
+            margin-left: auto;
             background: #0c4b33;
             color: #fff;
             border-bottom-right-radius: 4px;
@@ -111,6 +112,7 @@
 
         .admin-chat-bubble.from-customer {
             align-self: flex-start;
+            margin-right: auto;
             background: #fff;
             border: 1px solid #e2e8f0;
             color: #111827;
@@ -154,8 +156,11 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <!-- Mobile Menu Toggle Button -->
     <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu">
         <i class="fa-solid fa-bars" id="menuIcon"></i>
@@ -491,7 +496,7 @@
                         await loadAdminThread(selectedCustomerId);
                         await loadAdminConversations();
                     } catch (error) {
-                        alert(error.message || 'Failed to send reply');
+                        showToast(error.message || 'Failed to send reply', 'error');
                     }
                 });
             }

@@ -319,8 +319,11 @@
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <!-- Navbar -->
     <nav class="navbar">
         <div class="logo-section">
@@ -434,6 +437,7 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
+                        showToast('Item removed from wishlist.', 'success');
                         // Fade out and remove card
                         card.style.opacity = '0';
                         card.style.transform = 'scale(0.8)';
@@ -450,7 +454,7 @@
                 })
                 .catch(error => {
                     console.error('Error removing from wishlist:', error);
-                    alert('Failed to remove item from wishlist');
+                    showToast('Failed to remove item from wishlist', 'error');
                 });
             });
         });

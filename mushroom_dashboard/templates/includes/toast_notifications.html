@@ -1,0 +1,11 @@
+<div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true">
+    {% if messages %}
+        {% for message in messages %}
+        <div class="toast {% if 'success' in message.tags %}toast-success{% elif 'error' in message.tags %}toast-error{% elif 'warning' in message.tags %}toast-warning{% else %}toast-info{% endif %}" role="{% if 'error' in message.tags %}alert{% else %}status{% endif %}">
+            <i class="toast-icon fa-solid {% if 'success' in message.tags %}fa-circle-check{% elif 'error' in message.tags %}fa-circle-exclamation{% elif 'warning' in message.tags %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
+            <div class="toast-message">{{ message }}</div>
+            <button type="button" class="toast-close" aria-label="Dismiss notification">&times;</button>
+        </div>
+        {% endfor %}
+    {% endif %}
+</div>

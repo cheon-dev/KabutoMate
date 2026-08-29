@@ -746,8 +746,11 @@
             margin: 0 10px;
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <!-- Mobile Menu Toggle Button -->
     <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu">
         <i class="fa-solid fa-bars" id="menuIcon"></i>
@@ -1292,12 +1295,14 @@
                 if (result.success) {
                     addModal.style.display = 'none';
                     addRecordForm.reset();
+                    showToast('Production record saved successfully.', 'success');
                     reloadAllData();
                 } else {
-                    alert('Error: ' + result.error);
+                    showToast('Error: ' + result.error, 'error');
                 }
             } catch (error) {
                 console.error('Failed to submit form:', error);
+                showToast('Unable to save the production record. Please try again.', 'error');
             }
         });
 
@@ -1308,15 +1313,17 @@
             
             if (deleteBtn) {
                 const batchId = deleteBtn.dataset.id;
-                if (confirm(`Are you sure you want to delete this batch?`)) {
+                if (await showConfirm('Are you sure you want to delete this batch?')) {
                     try {
                         await fetch(`/api/production/${batchId}/`, {
                             method: 'DELETE',
                             headers: { 'X-CSRFToken': csrfToken }
                         });
+                        showToast('Production record deleted successfully.', 'success');
                         reloadAllData();
                     } catch (error) {
                         console.error('Failed to delete:', error);
+                        showToast('Unable to delete the production record. Please try again.', 'error');
                     }
                 }
             }
@@ -1366,12 +1373,14 @@
                 
                 if (result.success) {
                     editModal.style.display = 'none';
+                    showToast('Production record updated successfully.', 'success');
                     reloadAllData();
                 } else {
-                    alert('Error: ' + result.error);
+                    showToast('Error: ' + result.error, 'error');
                 }
             } catch (error) {
                 console.error('Failed to update form:', error);
+                showToast('Unable to update the production record. Please try again.', 'error');
             }
         });
 

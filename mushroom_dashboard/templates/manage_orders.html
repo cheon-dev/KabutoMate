@@ -695,8 +695,11 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <!-- Logout Confirmation Modal -->
     <div class="logout-modal" id="logoutModal">
         <div class="logout-modal-content">

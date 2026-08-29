@@ -295,8 +295,11 @@
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <nav class="navbar">
         <div class="logo-section">
             <div class="logo-circle">
@@ -369,6 +372,11 @@
                     <div style="font-weight: 800;">₱{{ item.subtotal }}</div>
                 </div>
                 {% endfor %}
+
+                <div class="item-row">
+                    <div class="item-meta">Delivery{% if order.delivery_distance_km %} ({{ order.delivery_distance_km }} km){% endif %}</div>
+                    <div style="font-weight: 800;">{% if order.shipping_fee %}₱{{ order.shipping_fee }}{% else %}FREE{% endif %}</div>
+                </div>
 
                 <div class="total-display">
                     <span style="font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">

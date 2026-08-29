@@ -789,8 +789,11 @@
             margin: 0 10px;
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <!-- Mobile Menu Toggle Button -->
     <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu">
         <i class="fa-solid fa-bars" id="menuIcon"></i>
@@ -1367,7 +1370,7 @@
                 document.querySelectorAll('.btn-publish').forEach(btn => {
                     btn.addEventListener('click', async function() {
                         const productId = this.dataset.id;
-                        if (confirm('Publish this product to the shop?')) {
+                        if (await showConfirm('Publish this product to the shop?')) {
                             await toggleProductPublish(productId, true);
                         }
                     });
@@ -1377,7 +1380,7 @@
                 document.querySelectorAll('.btn-unpublish').forEach(btn => {
                     btn.addEventListener('click', async function() {
                         const productId = this.dataset.id;
-                        if (confirm('Remove this product from the shop?')) {
+                        if (await showConfirm('Remove this product from the shop?')) {
                             await toggleProductPublish(productId, false);
                         }
                     });
@@ -1398,14 +1401,14 @@
                     const result = await response.json();
                     
                     if (result.success) {
-                        alert(result.message);
+                        showToast(result.message, 'success');
                         loadInventory(); // Reload inventory to show updated status
                     } else {
-                        alert('Failed to update product: ' + (result.error || result.message));
+                        showToast('Failed to update product: ' + (result.error || result.message), 'error');
                     }
                 } catch (error) {
                     console.error('Error toggling publish status:', error);
-                    alert('An error occurred. Please try again.');
+                    showToast('An error occurred. Please try again.', 'error');
                 }
             }
             
@@ -1560,12 +1563,14 @@
                     if (result.success) {
                         addModal.style.display = 'none';
                         addStockForm.reset();
+                        showToast('Product saved successfully.', 'success');
                         reloadAllData();
                     } else {
-                        alert('Error: ' + result.error);
+                        showToast('Error: ' + result.error, 'error');
                     }
                 } catch (error) {
                     console.error('Failed to submit form:', error);
+                    showToast('Unable to save the product. Please try again.', 'error');
                 }
             });
 
@@ -1577,15 +1582,17 @@
                 // --- Handle DELETE ---
                 if (deleteBtn) {
                     const productId = deleteBtn.dataset.id;
-                    if (confirm(`Are you sure you want to delete this product?`)) {
+                    if (await showConfirm('Are you sure you want to delete this product?')) {
                         try {
                             await fetch(`/api/inventory/${productId}/`, {
                                 method: 'DELETE',
                                 headers: { 'X-CSRFToken': csrfToken }
                             });
+                            showToast('Product deleted successfully.', 'success');
                             reloadAllData(); // Refresh data
                         } catch (error) {
                             console.error('Failed to delete:', error);
+                            showToast('Unable to delete the product. Please try again.', 'error');
                         }
                     }
                 }
@@ -1645,12 +1652,14 @@
                     
                     if (result.success) {
                         editModal.style.display = 'none';
+                        showToast('Product updated successfully.', 'success');
                         reloadAllData();
                     } else {
-                        alert('Error: ' + result.error);
+                        showToast('Error: ' + result.error, 'error');
                     }
                 } catch (error) {
                     console.error('Failed to update form:', error);
+                    showToast('Unable to update the product. Please try again.', 'error');
                 }
             });
             
@@ -1676,12 +1685,14 @@
                     if (result.success) {
                         saleModal.style.display = 'none';
                         saleForm.reset();
+                        showToast('Sale recorded successfully.', 'success');
                         reloadAllData(); // Reload all cards and tables
                     } else {
-                        alert('Error: ' + result.error);
+                        showToast('Error: ' + result.error, 'error');
                     }
                 } catch (error) {
                     console.error('Failed to submit form:', error);
+                    showToast('Unable to record the sale. Please try again.', 'error');
                 }
             });
             

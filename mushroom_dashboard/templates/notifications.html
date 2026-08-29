@@ -459,8 +459,11 @@
             .card { padding: 18px; }
         }
     </style>
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <!-- Mobile Menu Toggle Button -->
     <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu">
         <i class="fa-solid fa-bars" id="menuIcon"></i>
@@ -715,15 +718,17 @@
                     
                     const result = await response.json();
                     if (result.success) {
+                        showToast('Notification marked as read.', 'success');
                         // Remove the notification card from the UI
                         const cardToRemove = document.getElementById(`notification-${notifId}`);
                         cardToRemove.style.opacity = '0';
                         setTimeout(() => cardToRemove.remove(), 300);
                     } else {
-                        alert('Could not mark as read. Please try again.');
+                        showToast('Could not mark as read. Please try again.', 'error');
                     }
                 } catch (error) {
                     console.error("Failed to mark as read:", error);
+                    showToast('Could not mark the notification as read. Please try again.', 'error');
                 }
             }
         });
@@ -760,6 +765,7 @@
             
             const result = await response.json();
             if (result.success) {
+                showToast('All notifications marked as read.', 'success');
                 // Remove all notification cards with fade effect
                 const cards = document.querySelectorAll('.notification-card');
                 cards.forEach((card, index) => {
@@ -785,13 +791,13 @@
             } else {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
-                alert('Could not mark all as read. Please try again.');
+                showToast('Could not mark all as read. Please try again.', 'error');
             }
         } catch (error) {
             console.error("Failed to mark all as read:", error);
             btn.innerHTML = originalText;
             btn.disabled = false;
-            alert('An error occurred. Please try again.');
+            showToast('An error occurred. Please try again.', 'error');
         }
     }
 

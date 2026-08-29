@@ -15,7 +15,7 @@ from django.utils import timezone
 from decimal import Decimal, InvalidOperation
 import os
 import logging
-from .models import Product, Sale, Order, OrderItem, Cart, CartItem, Notification
+from .models import Product, Sale, Order, OrderItem, Cart, CartItem, Notification, CustomerAddress
 from .views import admin_required  # Import the admin_required decorator
 from .email_service import (
     send_new_order_admin_notification, 
@@ -26,6 +26,42 @@ from .email_service import (
 import json
 
 logger = logging.getLogger(__name__)
+
+
+def _outside_delivery_area_message(store_settings):
+    return (
+        f'This address is outside our maximum delivery area of '
+        f'{store_settings.max_delivery_distance_km:g} km. '
+        'Please select or add another address.'
+    )
+
+
+def _calculate_address_delivery(address, store_settings, order_total=0):
+    if address.latitude is None or address.longitude is None:
+        return None, None, 'Please edit this address and pin its exact location before using it.'
+    fee, distance, message = store_settings.calculate_shipping_fee(
+        address.latitude, address.longitude, order_total
+    )
+    if fee is None:
+        message = _outside_delivery_area_message(store_settings)
+    return fee, distance, message
+
+
+def _address_json(address, store_settings):
+    fee, distance, message = _calculate_address_delivery(address, store_settings)
+    return {
+        'id': address.id,
+        'label': address.label,
+        'address': address.address,
+        'city': address.city,
+        'postal_code': address.postal_code,
+        'latitude': float(address.latitude) if address.latitude is not None else None,
+        'longitude': float(address.longitude) if address.longitude is not None else None,
+        'is_default': address.is_default,
+        'is_valid': fee is not None,
+        'distance_km': distance,
+        'error': None if fee is not None else message,
+    }
 
 
 # ==================== E-COMMERCE VIEWS ====================
@@ -279,6 +315,119 @@ def remove_from_cart(request, item_id):
     return redirect('view_cart')
 
 
+@login_required(login_url='login')
+def customer_addresses_api(request, address_id=None):
+    """List and manage the authenticated customer's saved delivery addresses."""
+    from .models import StoreSettings
+
+    store_settings = StoreSettings.load()
+    if request.method == 'GET':
+        if address_id is not None:
+            address = get_object_or_404(CustomerAddress, id=address_id, user=request.user)
+            return JsonResponse({'success': True, 'address': _address_json(address, store_settings)})
+        addresses = CustomerAddress.objects.filter(user=request.user)
+        return JsonResponse({
+            'success': True,
+            'addresses': [_address_json(address, store_settings) for address in addresses],
+        })
+
+    if request.method == 'DELETE':
+        address = get_object_or_404(CustomerAddress, id=address_id, user=request.user)
+        was_default = address.is_default
+        address.delete()
+        if was_default:
+            replacement = CustomerAddress.objects.filter(user=request.user).order_by('-updated_at').first()
+            if replacement:
+                replacement.is_default = True
+                replacement.save(update_fields=['is_default', 'updated_at'])
+        return JsonResponse({'success': True, 'message': 'Address deleted successfully.'})
+
+    if request.method not in ('POST', 'PUT', 'PATCH'):
+        return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
+
+    try:
+        data = json.loads(request.body or '{}')
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid address data.'}, status=400)
+
+    values = {
+        'label': str(data.get('label', '')).strip(),
+        'address': str(data.get('address', '')).strip(),
+        'city': str(data.get('city', '')).strip(),
+        'postal_code': str(data.get('postal_code', '')).strip(),
+    }
+    missing = [label for label, value in {
+        'Label': values['label'],
+        'Street address': values['address'],
+        'City / Municipality': values['city'],
+        'Postal code': values['postal_code'],
+    }.items() if not value]
+    if missing:
+        return JsonResponse({'success': False, 'error': f"Please fill in: {', '.join(missing)}"}, status=400)
+
+    try:
+        latitude = Decimal(str(data.get('latitude', '')))
+        longitude = Decimal(str(data.get('longitude', '')))
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            raise InvalidOperation
+    except (InvalidOperation, TypeError, ValueError):
+        return JsonResponse({
+            'success': False,
+            'error': 'Please pin the address on the map before saving it.',
+        }, status=400)
+
+    fee, distance, message = store_settings.calculate_shipping_fee(latitude, longitude, 0)
+    if fee is None:
+        return JsonResponse({'success': False, 'error': _outside_delivery_area_message(store_settings)}, status=400)
+
+    address = None
+    if address_id is not None:
+        address = get_object_or_404(CustomerAddress, id=address_id, user=request.user)
+
+    make_default = bool(data.get('is_default'))
+    if address is None and not CustomerAddress.objects.filter(user=request.user).exists():
+        make_default = True
+    if address is not None and address.is_default:
+        make_default = True
+    if address is not None and not make_default and not CustomerAddress.objects.filter(
+        user=request.user, is_default=True
+    ).exclude(pk=address.pk).exists():
+        make_default = True
+
+    if address is None:
+        address = CustomerAddress(user=request.user)
+    for field, value in values.items():
+        setattr(address, field, value)
+    address.latitude = latitude
+    address.longitude = longitude
+    address.is_default = make_default
+    address.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Address saved successfully.',
+        'address': _address_json(address, store_settings),
+    })
+
+
+@login_required(login_url='login')
+def set_default_customer_address(request, address_id):
+    from .models import StoreSettings
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
+
+    address = get_object_or_404(CustomerAddress, id=address_id, user=request.user)
+    store_settings = StoreSettings.load()
+    fee, distance, message = _calculate_address_delivery(address, store_settings)
+    if fee is None:
+        return JsonResponse({'success': False, 'error': message}, status=400)
+
+    address.is_default = True
+    address.save(update_fields=['is_default', 'updated_at'])
+    return JsonResponse({'success': True, 'message': 'Default address updated.'})
+
+
 def checkout(request):
     """Checkout page"""
     from .models import StoreSettings
@@ -324,24 +473,51 @@ def checkout(request):
     user_data = {}
     customer_lat = None
     customer_lng = None
+    saved_addresses = []
+    selected_address_id = None
     if request.user.is_authenticated:
+        profile = getattr(request.user, 'profile', None)
         user_data = {
             'customer_name': request.user.get_full_name() or request.user.username,
             'customer_email': request.user.email,
-            'customer_phone': request.user.profile.phone if hasattr(request.user, 'profile') else '',
-            'shipping_address': request.user.profile.address if hasattr(request.user, 'profile') else '',
-            'shipping_city': request.user.profile.city if hasattr(request.user, 'profile') else '',
-            'shipping_postal_code': request.user.profile.postal_code if hasattr(request.user, 'profile') else '',
+            'customer_phone': profile.phone if profile else '',
+            'shipping_address': profile.address if profile else '',
+            'shipping_city': profile.city if profile else '',
+            'shipping_postal_code': profile.postal_code if profile else '',
         }
-        if hasattr(request.user, 'profile'):
-            customer_lat = request.user.profile.latitude
-            customer_lng = request.user.profile.longitude
+        if profile:
+            customer_lat = profile.latitude
+            customer_lng = profile.longitude
+
+        for address in CustomerAddress.objects.filter(user=request.user):
+            fee, distance, message = _calculate_address_delivery(address, store_settings, total)
+            address.is_valid_for_delivery = fee is not None
+            address.delivery_distance = distance
+            address.delivery_error = None if fee is not None else message
+            saved_addresses.append(address)
+
+        selected_address = next(
+            (address for address in saved_addresses if address.is_default and address.is_valid_for_delivery),
+            next((address for address in saved_addresses if address.is_valid_for_delivery), None),
+        )
+        if selected_address:
+            selected_address_id = selected_address.id
+            user_data.update({
+                'shipping_address': selected_address.address,
+                'shipping_city': selected_address.city,
+                'shipping_postal_code': selected_address.postal_code,
+            })
+            customer_lat = selected_address.latitude
+            customer_lng = selected_address.longitude
     
     context = {
         'cart_items': cart_items,
         'total': total,
         'user_data': user_data,
         'store_settings': store_settings,
+        'saved_addresses': saved_addresses,
+        'selected_address_id': selected_address_id,
+        'max_delivery_distance_km': store_settings.max_delivery_distance_km,
         'customer_lat': float(customer_lat) if customer_lat else None,
         'customer_lng': float(customer_lng) if customer_lng else None,
         'store_lat': float(store_settings.store_latitude) if store_settings.store_latitude else None,
@@ -355,6 +531,8 @@ def process_checkout(request, cart, cart_items, total):
     """Process checkout with atomic inventory deduction"""
     from .models import StoreSettings
     
+    store_settings = StoreSettings.load()
+
     # Get customer info
     profile = getattr(request.user, 'profile', None) if request.user.is_authenticated else None
     customer_name = request.POST.get('customer_name', '').strip()
@@ -409,6 +587,27 @@ def process_checkout(request, cart, cart_items, total):
         customer_longitude = float(customer_longitude) if customer_longitude else None
     except (ValueError, TypeError):
         customer_longitude = None
+
+    # Authenticated customers may check out with any of their saved addresses.
+    selected_address_id = request.POST.get('address_id', '').strip()
+    if selected_address_id and request.user.is_authenticated:
+        try:
+            selected_address = CustomerAddress.objects.get(
+                id=int(selected_address_id), user=request.user
+            )
+        except (CustomerAddress.DoesNotExist, ValueError, TypeError):
+            messages.error(request, 'Please select a valid saved delivery address.')
+            return redirect('checkout')
+
+        shipping_address = selected_address.address
+        shipping_city = selected_address.city
+        shipping_postal_code = selected_address.postal_code
+        customer_latitude = float(selected_address.latitude)
+        customer_longitude = float(selected_address.longitude)
+
+    shipping_fee, delivery_distance, shipping_message = store_settings.calculate_shipping_fee(
+        customer_latitude, customer_longitude, total
+    )
     
     # Validate
     required_fields = {
@@ -424,9 +623,11 @@ def process_checkout(request, cart, cart_items, total):
         messages.error(request, f'Please fill in: {", ".join(missing_fields)}')
         return redirect('checkout')
 
-    if payment_method == 'GCASH':
-        store_settings = StoreSettings.load()
+    if shipping_fee is None:
+        messages.error(request, _outside_delivery_area_message(store_settings))
+        return redirect('checkout')
 
+    if payment_method == 'GCASH':
         if not store_settings.gcash_qr_code:
             messages.error(request, 'GCash payment is temporarily unavailable. Please choose another payment method.')
             return redirect('checkout')
@@ -468,7 +669,9 @@ def process_checkout(request, cart, cart_items, total):
         shipping_postal_code=shipping_postal_code,
         customer_latitude=customer_latitude,
         customer_longitude=customer_longitude,
-        total_amount=total,
+        total_amount=total + shipping_fee,
+        shipping_fee=shipping_fee,
+        delivery_distance_km=delivery_distance,
         customer_notes=customer_notes,
         payment_method=payment_method,
         payment_status='UNPAID' if payment_method == 'COD' else 'PENDING',
@@ -1274,7 +1477,7 @@ def calculate_shipping_api(request):
             if shipping_fee is None:
                 return JsonResponse({
                     'success': False,
-                    'error': message,
+                    'error': _outside_delivery_area_message(store_settings),
                     'distance_km': distance
                 })
             

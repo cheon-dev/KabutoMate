@@ -152,6 +152,35 @@
             box-shadow: none;
         }
 
+        .saved-addresses-picker { margin-bottom: 1.5rem; }
+        .saved-addresses-picker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .saved-addresses-picker-header strong { color: var(--primary); }
+        .saved-addresses-picker-header a { color: var(--primary); font-size: 0.85rem; font-weight: 700; }
+        .address-choice-list { display: grid; gap: 0.65rem; }
+        .address-choice {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.85rem;
+            border: 1px solid #dbe5df;
+            border-radius: 12px;
+            cursor: pointer;
+            min-width: 0;
+        }
+        .address-choice:has(input:checked) { border-color: var(--primary); background: #f0fdf4; }
+        .address-choice.invalid { cursor: not-allowed; border-color: #fecaca; background: #fffafa; }
+        .address-choice input { width: auto; margin-top: 0.2rem; flex: 0 0 auto; }
+        .address-choice-content { min-width: 0; overflow-wrap: anywhere; }
+        .address-choice-title { color: var(--primary); font-weight: 800; }
+        .address-choice-detail { color: #64748b; font-size: 0.88rem; line-height: 1.45; margin-top: 0.2rem; }
+        .address-choice-warning { color: #991b1b; font-size: 0.8rem; margin-top: 0.25rem; }
+
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -579,8 +608,11 @@
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
 </head>
 <body>
+    {% include 'includes/toast_notifications.html' %}
     <nav class="navbar">
         <div class="logo-section">
             <div class="logo-circle">
@@ -591,14 +623,6 @@
     </nav>
 
     <div class="container">
-        {% if messages %}
-        <div class="customer-messages" role="status" aria-live="polite">
-            {% for message in messages %}
-            <div class="customer-message {{ message.tags|default:'info' }}">{{ message }}</div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
         <a href="{% url 'view_cart' %}" class="back-link">
             <i class="fa-solid fa-chevron-left"></i>
             Review Cart
@@ -632,6 +656,33 @@
                             <input type="tel" name="customer_phone" value="{{ user_data.customer_phone }}" placeholder="0912 345 6789" {% if user.is_authenticated %}readonly{% endif %} required>
                         </div>
                     </div>
+
+                    {% if user.is_authenticated %}
+                    <div class="saved-addresses-picker">
+                        <div class="saved-addresses-picker-header">
+                            <strong><i class="fa-solid fa-bookmark"></i> Saved Addresses</strong>
+                            <a href="{% url 'profile' %}#saved-addresses">Manage addresses</a>
+                        </div>
+                        {% if saved_addresses %}
+                        <div class="address-choice-list">
+                            {% for address in saved_addresses %}
+                            <label class="address-choice {% if not address.is_valid_for_delivery %}invalid{% endif %}">
+                                <input type="radio" name="address_choice" value="{{ address.id }}" data-address-id="{{ address.id }}" data-address="{{ address.address|escape }}" data-city="{{ address.city|escape }}" data-postal-code="{{ address.postal_code|escape }}" data-latitude="{{ address.latitude }}" data-longitude="{{ address.longitude }}" {% if address.id == selected_address_id %}checked{% endif %} {% if not address.is_valid_for_delivery %}disabled{% endif %}>
+                                <span class="address-choice-content">
+                                    <span class="address-choice-title">{{ address.label }}{% if address.is_default %} <small>(Default)</small>{% endif %}</span>
+                                    <span class="address-choice-detail">{{ address.address }}, {{ address.city }} {{ address.postal_code }}</span>
+                                    {% if not address.is_valid_for_delivery %}<span class="address-choice-warning">Outside the current delivery area of {{ max_delivery_distance_km|floatformat:"-2" }} km</span>{% endif %}
+                                </span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">No saved addresses yet. Add one from your <a href="{% url 'profile' %}#saved-addresses">profile</a>.</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <input type="hidden" name="address_id" id="address_id" value="{{ selected_address_id|default:'' }}">
 
                     <div class="form-group">
                         <label>Delivery Address</label>
@@ -941,6 +992,28 @@
                 console.error('Shipping calculation error:', error);
             }
         }
+
+        function selectSavedAddress(input) {
+            document.getElementById('address_id').value = input.dataset.addressId;
+            document.querySelector('textarea[name="shipping_address"]').value = input.dataset.address;
+            document.querySelector('input[name="shipping_city"]').value = input.dataset.city;
+            document.querySelector('input[name="shipping_postal_code"]').value = input.dataset.postalCode;
+            const lat = parseFloat(input.dataset.latitude);
+            const lng = parseFloat(input.dataset.longitude);
+            updateCustomerCoordinates(lat, lng);
+            if (customerMarker) {
+                customerMarker.setLatLng([lat, lng]);
+            } else {
+                customerMarker = L.marker([lat, lng], {icon: customerIcon, draggable: true}).addTo(map);
+                customerMarker.on('dragend', onMarkerDrag);
+            }
+            map.setView([lat, lng], 16);
+            calculateShipping(lat, lng);
+        }
+
+        document.querySelectorAll('input[name="address_choice"]').forEach(input => {
+            input.addEventListener('change', () => selectSavedAddress(input));
+        });
         
         // Use device GPS location
         function useMyLocation() {
@@ -1143,7 +1216,7 @@
 
             if (!gcashQrAvailable) {
                 e.preventDefault();
-                alert('GCash manual payment is not available right now. Please choose another payment method.');
+                showToast('GCash manual payment is not available right now. Please choose another payment method.', 'error');
                 return;
             }
 
@@ -1151,20 +1224,20 @@
             const paymentProofFile = paymentProofInput && paymentProofInput.files ? paymentProofInput.files[0] : null;
             if (!paymentProofFile) {
                 e.preventDefault();
-                alert('Please upload your payment confirmation screenshot for GCash checkout.');
+                showToast('Please upload your payment confirmation screenshot for GCash checkout.', 'warning');
                 return;
             }
 
             if (!paymentProofFile.type.startsWith('image/')) {
                 e.preventDefault();
-                alert('Payment proof must be an image file.');
+                showToast('Payment proof must be an image file.', 'error');
                 paymentProofInput.value = '';
                 return;
             }
 
             if (paymentProofFile.size > 5 * 1024 * 1024) {
                 e.preventDefault();
-                alert('Payment proof image must be 5MB or smaller.');
+                showToast('Payment proof image must be 5MB or smaller.', 'error');
                 paymentProofInput.value = '';
             }
         });

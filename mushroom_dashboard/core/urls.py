@@ -35,6 +35,9 @@ urlpatterns = [
     path('cart/update/<int:item_id>/', ecommerce_views.update_cart_item, name='update_cart_item'),
     path('cart/remove/<int:item_id>/', ecommerce_views.remove_from_cart, name='remove_from_cart'),
     path('checkout/', ecommerce_views.checkout, name='checkout'),
+    path('api/addresses/', ecommerce_views.customer_addresses_api, name='customer-addresses-api'),
+    path('api/addresses/<int:address_id>/', ecommerce_views.customer_addresses_api, name='customer-address-api'),
+    path('api/addresses/<int:address_id>/default/', ecommerce_views.set_default_customer_address, name='set-default-address'),
     path('order/<str:order_number>/', ecommerce_views.order_confirmation, name='order_confirmation'),
     
     # Order Cancellation

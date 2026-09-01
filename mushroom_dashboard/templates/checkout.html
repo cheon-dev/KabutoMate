@@ -608,8 +608,10 @@
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/address-selector.css' %}">
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
     <script src="{% static 'js/toast-notifications.js' %}"></script>
+    <script src="{% static 'js/philippine-addresses.js' %}"></script>
 </head>
 <body>
     {% include 'includes/toast_notifications.html' %}
@@ -667,10 +669,10 @@
                         <div class="address-choice-list">
                             {% for address in saved_addresses %}
                             <label class="address-choice {% if not address.is_valid_for_delivery %}invalid{% endif %}">
-                                <input type="radio" name="address_choice" value="{{ address.id }}" data-address-id="{{ address.id }}" data-address="{{ address.address|escape }}" data-city="{{ address.city|escape }}" data-postal-code="{{ address.postal_code|escape }}" data-latitude="{{ address.latitude }}" data-longitude="{{ address.longitude }}" {% if address.id == selected_address_id %}checked{% endif %} {% if not address.is_valid_for_delivery %}disabled{% endif %}>
+                                <input type="radio" name="address_choice" value="{{ address.id }}" data-address-id="{{ address.id }}" data-address="{{ address.address|escape }}" data-city="{{ address.city|escape }}" data-postal-code="{{ address.postal_code|escape }}" data-region-code="{{ address.region_code }}" data-province-code="{{ address.province_code }}" data-city-code="{{ address.city_code }}" data-barangay-code="{{ address.barangay_code }}" data-barangay="{{ address.barangay|escape }}" data-latitude="{{ address.latitude }}" data-longitude="{{ address.longitude }}" {% if address.id == selected_address_id %}checked{% endif %} {% if not address.is_valid_for_delivery %}disabled{% endif %}>
                                 <span class="address-choice-content">
                                     <span class="address-choice-title">{{ address.label }}{% if address.is_default %} <small>(Default)</small>{% endif %}</span>
-                                    <span class="address-choice-detail">{{ address.address }}, {{ address.city }} {{ address.postal_code }}</span>
+                                    <span class="address-choice-detail">{{ address.address }}{% if address.barangay %}, {{ address.barangay }}{% endif %}, {{ address.city }}{% if address.province %}, {{ address.province }}{% endif %} {{ address.postal_code }}</span>
                                     {% if not address.is_valid_for_delivery %}<span class="address-choice-warning">Outside the current delivery area of {{ max_delivery_distance_km|floatformat:"-2" }} km</span>{% endif %}
                                 </span>
                             </label>
@@ -685,18 +687,39 @@
                     <input type="hidden" name="address_id" id="address_id" value="{{ selected_address_id|default:'' }}">
 
                     <div class="form-group">
-                        <label>Delivery Address</label>
-                        <textarea name="shipping_address" rows="3" placeholder="Street Name, Barangay, Landmark" {% if user.is_authenticated %}readonly{% endif %} required>{{ user_data.shipping_address }}</textarea>
+                        <label>Street / House No. / Building / Landmark</label>
+                        <textarea name="shipping_address" rows="3" placeholder="Street name, house number, building or landmark" required>{{ user_data.shipping_address }}</textarea>
                     </div>
 
+                    <div class="ph-address-selector" id="checkout-address-location" data-ph-address
+                         data-region-code="{{ user_data.shipping_region_code|default:'' }}"
+                         data-province-code="{{ user_data.shipping_province_code|default:'' }}"
+                         data-city-code="{{ user_data.shipping_city_code|default:'' }}"
+                         data-barangay-code="{{ user_data.shipping_barangay_code|default:'' }}">
+                        <div class="ph-address-field">
+                            <label for="checkout-region">Region</label>
+                            <select id="checkout-region" name="shipping_region_code" data-location-level="regions" data-placeholder="Select a region"><option value="">Loading regions...</option></select>
+                        </div>
+                        <div class="ph-address-field">
+                            <label for="checkout-province">Province</label>
+                            <select id="checkout-province" name="shipping_province_code" data-location-level="provinces" data-placeholder="Select a region first"><option value="">Select a region first</option></select>
+                        </div>
+                        <div class="ph-address-field">
+                            <label for="checkout-city">City / Municipality</label>
+                            <select id="checkout-city" name="shipping_city_code" data-location-level="cities" data-placeholder="Select a province first"><option value="">Select a province first</option></select>
+                        </div>
+                        <div class="ph-address-field">
+                            <label for="checkout-barangay">Barangay</label>
+                            <select id="checkout-barangay" data-location-level="barangays" data-placeholder="Select a city/municipality first"><option value="">Select a city/municipality first</option></select>
+                        </div>
+                    </div>
+                    <input type="hidden" name="shipping_city" id="shipping-city-name" value="{{ user_data.shipping_city }}">
+                    <input type="hidden" name="shipping_barangay" id="shipping-barangay-name" value="{{ user_data.shipping_barangay|default:'' }}">
+                    <input type="hidden" name="shipping_barangay_code" id="shipping-barangay-code" value="{{ user_data.shipping_barangay_code|default:'' }}">
                     <div class="form-row">
                         <div class="form-group">
-                            <label>City / Municipality</label>
-                            <input type="text" name="shipping_city" value="{{ user_data.shipping_city }}" {% if user.is_authenticated %}readonly{% endif %} required>
-                        </div>
-                        <div class="form-group">
-                            <label>Postal Code</label>
-                            <input type="text" name="shipping_postal_code" value="{{ user_data.shipping_postal_code }}" {% if user.is_authenticated %}readonly{% endif %} required>
+                            <label for="shipping_postal_code">Postal Code</label>
+                            <input type="text" name="shipping_postal_code" id="shipping_postal_code" value="{{ user_data.shipping_postal_code }}" required>
                         </div>
                     </div>
 
@@ -987,6 +1010,7 @@
                     shippingFeeSummary.style.color = '#991b1b';
                     grandTotal.textContent = '₱{{ total }}';
                     confirmBtn.disabled = true;
+                    if (typeof showToast === 'function') showToast(data.error || 'Delivery is not available at this location.', 'error');
                 }
             } catch (error) {
                 console.error('Shipping calculation error:', error);
@@ -996,8 +1020,16 @@
         function selectSavedAddress(input) {
             document.getElementById('address_id').value = input.dataset.addressId;
             document.querySelector('textarea[name="shipping_address"]').value = input.dataset.address;
-            document.querySelector('input[name="shipping_city"]').value = input.dataset.city;
-            document.querySelector('input[name="shipping_postal_code"]').value = input.dataset.postalCode;
+            document.getElementById('shipping-city-name').value = input.dataset.city;
+            document.getElementById('shipping-barangay-name').value = input.dataset.barangay || '';
+            document.getElementById('shipping-barangay-code').value = input.dataset.barangayCode || '';
+            document.getElementById('shipping_postal_code').value = input.dataset.postalCode;
+            setPhilippineAddressSelection(document.getElementById('checkout-address-location'), {
+                region_code: input.dataset.regionCode,
+                province_code: input.dataset.provinceCode,
+                city_code: input.dataset.cityCode,
+                barangay_code: input.dataset.barangayCode
+            });
             const lat = parseFloat(input.dataset.latitude);
             const lng = parseFloat(input.dataset.longitude);
             updateCustomerCoordinates(lat, lng);
@@ -1014,6 +1046,20 @@
         document.querySelectorAll('input[name="address_choice"]').forEach(input => {
             input.addEventListener('change', () => selectSavedAddress(input));
         });
+
+        const checkoutLocation = document.getElementById('checkout-address-location');
+        function syncCheckoutLocation() {
+            const city = document.getElementById('checkout-city');
+            const barangay = document.getElementById('checkout-barangay');
+            document.getElementById('shipping-city-name').value = city.selectedOptions[0]?.textContent || '';
+            document.getElementById('shipping-barangay-name').value = barangay.selectedOptions[0]?.textContent || '';
+            document.getElementById('shipping-barangay-code').value = barangay.value || '';
+        }
+        checkoutLocation.addEventListener('phAddressChange', () => {
+            document.getElementById('address_id').value = '';
+            syncCheckoutLocation();
+        });
+        checkoutLocation.addEventListener('phAddressReady', syncCheckoutLocation);
         
         // Use device GPS location
         function useMyLocation() {
@@ -1209,6 +1255,16 @@
         }
 
         document.getElementById('checkout-form').addEventListener('submit', function(e) {
+            const hasSavedAddress = Boolean(document.getElementById('address_id').value);
+            const locationComplete = document.getElementById('checkout-region').value &&
+                document.getElementById('checkout-province').value &&
+                document.getElementById('checkout-city').value &&
+                document.getElementById('checkout-barangay').value;
+            if (!hasSavedAddress && !locationComplete && !{{ user.is_authenticated|yesno:"true,false" }}) {
+                e.preventDefault();
+                showToast('Please select your complete Philippine delivery location.', 'error');
+                return;
+            }
             const selectedPayment = document.querySelector('input[name="payment_method"]:checked')?.value;
             if (selectedPayment !== 'GCASH') {
                 return;

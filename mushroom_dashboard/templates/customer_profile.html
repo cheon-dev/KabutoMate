@@ -1347,8 +1347,10 @@
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/address-selector.css' %}">
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
     <script src="{% static 'js/toast-notifications.js' %}"></script>
+    <script src="{% static 'js/philippine-addresses.js' %}"></script>
 </head>
 <body>
     {% include 'includes/toast_notifications.html' %}
@@ -1448,7 +1450,7 @@
             {% if user.profile.address %}
             <div style="margin-top: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 12px;">
                 <div class="detail-label">Full Address</div>
-                <div class="detail-value">{{ user.profile.address }}, {{ user.profile.city|default:"" }} {{ user.profile.postal_code|default:"" }}</div>
+                <div class="detail-value">{{ user.profile.address }}{% if user.profile.barangay %}, {{ user.profile.barangay }}{% endif %}, {{ user.profile.city|default:"" }}{% if user.profile.province %}, {{ user.profile.province }}{% endif %} {{ user.profile.postal_code|default:"" }}</div>
             </div>
             {% endif %}
         </div>
@@ -1469,7 +1471,7 @@
                         <span class="address-label"><i class="fa-solid fa-tag"></i> {{ address.label }}</span>
                         {% if address.is_default %}<span class="address-badge">Default</span>{% endif %}
                     </div>
-                    <div class="address-text">{{ address.address }}<br>{{ address.city }} {{ address.postal_code }}</div>
+                    <div class="address-text">{{ address.address }}{% if address.barangay %}, {{ address.barangay }}{% endif %}<br>{{ address.city }}{% if address.province %}, {{ address.province }}{% endif %}{% if address.region %}, {{ address.region }}{% endif %} {{ address.postal_code }}</div>
                     {% if address.is_valid_for_delivery %}
                     <div class="address-distance"><i class="fa-solid fa-route"></i> {{ address.delivery_distance|floatformat:"1" }} km from store</div>
                     {% else %}
@@ -1693,13 +1695,32 @@
                         <input type="text" id="edit-phone" value="{{ user.profile.phone }}" placeholder="e.g., +63 912 345 6789" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem;">
                     </div>
                     <div class="review-input-section">
-                        <label for="edit-address">Street Address</label>
+                        <label for="edit-address">Street / House No. / Building / Landmark</label>
                         <textarea id="edit-address" rows="2" placeholder="Enter your street address" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; resize: vertical;">{{ user.profile.address }}</textarea>
                     </div>
-                    <div class="review-input-section">
-                        <label for="edit-city">City</label>
-                        <input type="text" id="edit-city" value="{{ user.profile.city }}" placeholder="Enter your city" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem;">
+                    <div class="ph-address-selector" id="profile-address" data-ph-address
+                         data-region-code="{{ user.profile.region_code }}"
+                         data-province-code="{{ user.profile.province_code }}"
+                         data-city-code="{{ user.profile.city_code }}"
+                         data-barangay-code="{{ user.profile.barangay_code }}">
+                        <div class="ph-address-field">
+                            <label for="edit-region">Region</label>
+                            <select id="edit-region" data-location-level="regions" data-placeholder="Select a region"><option value="">Loading regions...</option></select>
+                        </div>
+                        <div class="ph-address-field">
+                            <label for="edit-province">Province</label>
+                            <select id="edit-province" data-location-level="provinces" data-placeholder="Select a region first"><option value="">Select a region first</option></select>
+                        </div>
+                        <div class="ph-address-field">
+                            <label for="edit-city">City / Municipality</label>
+                            <select id="edit-city" data-location-level="cities" data-placeholder="Select a province first"><option value="">Select a province first</option></select>
+                        </div>
+                        <div class="ph-address-field">
+                            <label for="edit-barangay">Barangay</label>
+                            <select id="edit-barangay" data-location-level="barangays" data-placeholder="Select a city/municipality first"><option value="">Select a city/municipality first</option></select>
+                        </div>
                     </div>
+                    {% if user.profile.city and not user.profile.city_code %}<p class="ph-address-legacy">Existing location: {{ user.profile.city }}. Select the structured location above to update this address.</p>{% endif %}
                     <div class="review-input-section">
                         <label for="edit-postal-code">Postal Code</label>
                         <input type="text" id="edit-postal-code" value="{{ user.profile.postal_code }}" placeholder="Enter postal code" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem;">
@@ -1741,9 +1762,28 @@
                             <label for="address-label">Address Label</label>
                             <input type="text" id="address-label" maxlength="100" placeholder="Home, Work, Parent's House" required>
                         </div>
-                        <div class="address-form-group">
-                            <label for="address-city">City / Municipality</label>
-                            <input type="text" id="address-city" required>
+                        <div class="address-form-group full">
+                            <div class="ph-address-selector" id="saved-address-location" data-ph-address>
+                                <div class="ph-address-field">
+                                    <label for="address-region">Region</label>
+                                    <select id="address-region" data-location-level="regions" data-placeholder="Select a region"><option value="">Loading regions...</option></select>
+                                </div>
+                                <div class="ph-address-field">
+                                    <label for="address-province">Province</label>
+                                    <select id="address-province" data-location-level="provinces" data-placeholder="Select a region first"><option value="">Select a region first</option></select>
+                                </div>
+                                <div class="ph-address-field">
+                                    <label for="address-city">City / Municipality</label>
+                                    <select id="address-city" data-location-level="cities" data-placeholder="Select a province first"><option value="">Select a province first</option></select>
+                                </div>
+                                <div class="ph-address-field">
+                                    <label for="address-barangay">Barangay</label>
+                                    <select id="address-barangay" data-location-level="barangays" data-placeholder="Select a city/municipality first"><option value="">Select a city/municipality first</option></select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="address-form-group full" id="addressLegacyLocation" style="display: none;">
+                            <p class="ph-address-legacy"></p>
                         </div>
                         <div class="address-form-group full">
                             <label for="address-street">Street Address</label>
@@ -2564,11 +2604,13 @@
             if (navigator.geolocation) {
                 this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Getting location...';
                 const btn = this;
+                if (!map) initializeMap();
                 
                 navigator.geolocation.getCurrentPosition(
                     function(position) {
                         const lat = position.coords.latitude;
                         const lng = position.coords.longitude;
+                        const accuracy = Math.round(position.coords.accuracy);
                         
                         map.setView([lat, lng], 15);
                         
@@ -2586,11 +2628,21 @@
                         }
                         
                         updateLocationInfo(lat, lng);
+                        document.getElementById('locationInfo').innerHTML +=
+                            ` <span style="color: #64748b;">(reported accuracy: ~${accuracy}m)</span>`;
+                        if (accuracy > 5000) {
+                            showToast('Your browser reported low location accuracy. Please verify the pin or adjust it on the map before saving.', 'warning');
+                        }
                         btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> Use My Current Location';
                     },
                     function(error) {
                         showToast('Unable to get your location. Please pin manually on the map.', 'error');
                         btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> Use My Current Location';
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 15000,
+                        maximumAge: 0
                     }
                 );
             } else {
@@ -2613,11 +2665,23 @@
                 email: document.getElementById('edit-email').value.trim(),
                 phone: document.getElementById('edit-phone').value.trim(),
                 address: document.getElementById('edit-address').value.trim(),
-                city: document.getElementById('edit-city').value.trim(),
+                city: document.getElementById('edit-city').selectedOptions[0]?.textContent || '',
                 postal_code: document.getElementById('edit-postal-code').value.trim(),
+                region_code: document.getElementById('edit-region').value,
+                region: document.getElementById('edit-region').selectedOptions[0]?.textContent || '',
+                province_code: document.getElementById('edit-province').value,
+                province: document.getElementById('edit-province').selectedOptions[0]?.textContent || '',
+                city_code: document.getElementById('edit-city').value,
+                barangay_code: document.getElementById('edit-barangay').value,
+                barangay: document.getElementById('edit-barangay').selectedOptions[0]?.textContent || '',
                 latitude: document.getElementById('edit-latitude').value || null,
                 longitude: document.getElementById('edit-longitude').value || null
             };
+
+            if (formData.address && (!formData.region_code || !formData.province_code || !formData.city_code || !formData.barangay_code)) {
+                showToast('Please select your Region, Province, City / Municipality, and Barangay.', 'error');
+                return;
+            }
 
             const csrfToken = document.cookie
                 .split('; ')
@@ -2655,9 +2719,10 @@
         const addressApiUrl = '{% url "customer-addresses-api" %}';
         const storeLat = {{ store_lat|default:"null" }};
         const storeLng = {{ store_lng|default:"null" }};
-        let addressMap = null;
-        let addressMarker = null;
-        let editingAddressId = null;
+         let addressMap = null;
+         let addressMarker = null;
+         let editingAddressId = null;
+         let legacyAddressCity = '';
 
         function getCsrfToken() {
             return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
@@ -2695,15 +2760,24 @@
         }
 
         function openAddressModal(address) {
-            editingAddressId = address ? address.id : null;
+             editingAddressId = address ? address.id : null;
+             legacyAddressCity = address && !address.region_code ? (address.city || '') : '';
             document.getElementById('addressModalTitle').textContent = address ? 'Edit Delivery Address' : 'Add Delivery Address';
             document.getElementById('address-label').value = address?.label || '';
             document.getElementById('address-street').value = address?.address || '';
-            document.getElementById('address-city').value = address?.city || '';
             document.getElementById('address-postal-code').value = address?.postal_code || '';
             document.getElementById('address-is-default').checked = Boolean(address?.is_default);
             document.getElementById('address-latitude').value = address?.latitude || '';
             document.getElementById('address-longitude').value = address?.longitude || '';
+            const locationSelector = document.getElementById('saved-address-location');
+            setPhilippineAddressSelection(locationSelector, address || {});
+            const legacyLocation = document.getElementById('addressLegacyLocation');
+            if (address && !address.region_code) {
+                legacyLocation.style.display = 'block';
+                legacyLocation.querySelector('p').textContent = `Existing location: ${address.city || 'Not specified'}. Select the structured location above to update this address.`;
+            } else {
+                legacyLocation.style.display = 'none';
+            }
             if (addressMarker) addressMarker.remove();
             addressMarker = null;
             addressModal.classList.add('show');
@@ -2774,12 +2848,23 @@
             const payload = {
                 label: document.getElementById('address-label').value.trim(),
                 address: document.getElementById('address-street').value.trim(),
-                city: document.getElementById('address-city').value.trim(),
+                city: document.getElementById('address-city').selectedOptions[0]?.textContent || legacyAddressCity,
                 postal_code: document.getElementById('address-postal-code').value.trim(),
+                region_code: document.getElementById('address-region').value,
+                region: document.getElementById('address-region').selectedOptions[0]?.textContent || '',
+                province_code: document.getElementById('address-province').value,
+                province: document.getElementById('address-province').selectedOptions[0]?.textContent || '',
+                city_code: document.getElementById('address-city').value,
+                barangay_code: document.getElementById('address-barangay').value,
+                barangay: document.getElementById('address-barangay').selectedOptions[0]?.textContent || '',
                 latitude: document.getElementById('address-latitude').value,
                 longitude: document.getElementById('address-longitude').value,
                 is_default: document.getElementById('address-is-default').checked
             };
+            if (!payload.region_code || !payload.province_code || !payload.city_code || !payload.barangay_code) {
+                showToast('Please select your Region, Province, City / Municipality, and Barangay.', 'error');
+                return;
+            }
             const saveButton = document.getElementById('saveAddressBtn');
             saveButton.disabled = true;
             try {

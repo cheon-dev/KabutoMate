@@ -500,8 +500,10 @@
 
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/address-selector.css' %}">
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
     <script src="{% static 'js/toast-notifications.js' %}"></script>
+    <script src="{% static 'js/philippine-addresses.js' %}"></script>
 </head>
 <body class="auth-page">
     {% include 'includes/toast_notifications.html' %}
@@ -596,24 +598,45 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="address">Address</label>
+                    <label for="address">Street / House No. / Building / Landmark</label>
                     <div class="input-container">
-                        <textarea id="address" name="address" placeholder="Street address"></textarea>
+                        <textarea id="address" name="address" placeholder="Street address, house number, building or landmark"></textarea>
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="city">City</label>
-                        <div class="input-container">
-                            <input type="text" id="city" name="city" placeholder="Your city">
-                            <i class="fa-solid fa-location-dot field-icon"></i>
-                        </div>
+                <div class="ph-address-selector" id="registration-address" data-ph-address>
+                    <div class="ph-address-field">
+                        <label for="registration-region">Region</label>
+                        <select id="registration-region" data-location-level="regions" data-placeholder="Select a region">
+                            <option value="">Loading regions...</option>
+                        </select>
                     </div>
+                    <div class="ph-address-field">
+                        <label for="registration-province">Province</label>
+                        <select id="registration-province" data-location-level="provinces" data-placeholder="Select a region first">
+                            <option value="">Select a region first</option>
+                        </select>
+                    </div>
+                    <div class="ph-address-field">
+                        <label for="registration-city">City / Municipality</label>
+                        <select id="registration-city" data-location-level="cities" data-placeholder="Select a province first">
+                            <option value="">Select a province first</option>
+                        </select>
+                    </div>
+                    <div class="ph-address-field">
+                        <label for="registration-barangay">Barangay</label>
+                        <select id="registration-barangay" data-location-level="barangays" data-placeholder="Select a city/municipality first">
+                            <option value="">Select a city/municipality first</option>
+                        </select>
+                    </div>
+                </div>
+                <p class="ph-address-help">Select your Philippine location above. Only the street or house details need to be typed.</p>
+
+                <div class="form-row">
                     <div class="form-group">
                         <label for="postal_code">Postal Code</label>
                         <div class="input-container">
-                            <input type="text" id="postal_code" name="postal_code" placeholder="12345">
+                            <input type="text" id="postal_code" name="postal_code" placeholder="1234">
                             <i class="fa-solid fa-location-dot field-icon"></i>
                         </div>
                     </div>
@@ -730,11 +753,23 @@
                     confirm_password: document.getElementById("confirm_password").value,
                     first_name: document.getElementById("first_name").value,
                     last_name: document.getElementById("last_name").value,
-                    phone: document.getElementById("phone").value,
-                    address: document.getElementById("address").value,
-                    city: document.getElementById("city").value,
-                    postal_code: document.getElementById("postal_code").value,
-                };
+                     phone: document.getElementById("phone").value,
+                     address: document.getElementById("address").value,
+                     city: document.getElementById("registration-city").selectedOptions[0]?.textContent || '',
+                     postal_code: document.getElementById("postal_code").value,
+                     region_code: document.getElementById("registration-region").value,
+                     region: document.getElementById("registration-region").selectedOptions[0]?.textContent || '',
+                     province_code: document.getElementById("registration-province").value,
+                     province: document.getElementById("registration-province").selectedOptions[0]?.textContent || '',
+                     city_code: document.getElementById("registration-city").value,
+                     barangay_code: document.getElementById("registration-barangay").value,
+                     barangay: document.getElementById("registration-barangay").selectedOptions[0]?.textContent || '',
+                 };
+
+                 if (formData.address.trim() && (!formData.region_code || !formData.province_code || !formData.city_code || !formData.barangay_code)) {
+                     showToast('Please select your Region, Province, City / Municipality, and Barangay.', 'error');
+                     return;
+                 }
                 
                 // Get CSRF token
                 const csrfToken = document.cookie

@@ -55,6 +55,13 @@ def _address_json(address, store_settings):
         'address': address.address,
         'city': address.city,
         'postal_code': address.postal_code,
+        'region_code': address.region_code,
+        'region': address.region,
+        'province_code': address.province_code,
+        'province': address.province,
+        'city_code': address.city_code,
+        'barangay_code': address.barangay_code,
+        'barangay': address.barangay,
         'latitude': float(address.latitude) if address.latitude is not None else None,
         'longitude': float(address.longitude) if address.longitude is not None else None,
         'is_default': address.is_default,
@@ -355,12 +362,32 @@ def customer_addresses_api(request, address_id=None):
         'address': str(data.get('address', '')).strip(),
         'city': str(data.get('city', '')).strip(),
         'postal_code': str(data.get('postal_code', '')).strip(),
+        'region_code': str(data.get('region_code') or '').strip(),
+        'region': str(data.get('region') or '').strip(),
+        'province_code': str(data.get('province_code') or '').strip(),
+        'province': str(data.get('province') or '').strip(),
+        'city_code': str(data.get('city_code') or '').strip(),
+        'barangay_code': str(data.get('barangay_code') or '').strip(),
+        'barangay': str(data.get('barangay') or '').strip(),
     }
+    address = None
+    if address_id is not None:
+        address = get_object_or_404(CustomerAddress, id=address_id, user=request.user)
+    legacy_edit = address is not None and not address.region_code
+    legacy_fallback = legacy_edit and not any(values[field] for field in (
+        'region_code', 'province_code', 'city_code', 'barangay_code'
+    ))
     missing = [label for label, value in {
         'Label': values['label'],
         'Street address': values['address'],
         'City / Municipality': values['city'],
         'Postal code': values['postal_code'],
+        **({} if legacy_fallback else {
+            'Region': values['region_code'],
+            'Province': values['province_code'],
+            'City / Municipality code': values['city_code'],
+            'Barangay': values['barangay_code'],
+        }),
     }.items() if not value]
     if missing:
         return JsonResponse({'success': False, 'error': f"Please fill in: {', '.join(missing)}"}, status=400)
@@ -379,10 +406,6 @@ def customer_addresses_api(request, address_id=None):
     fee, distance, message = store_settings.calculate_shipping_fee(latitude, longitude, 0)
     if fee is None:
         return JsonResponse({'success': False, 'error': _outside_delivery_area_message(store_settings)}, status=400)
-
-    address = None
-    if address_id is not None:
-        address = get_object_or_404(CustomerAddress, id=address_id, user=request.user)
 
     make_default = bool(data.get('is_default'))
     if address is None and not CustomerAddress.objects.filter(user=request.user).exists():
@@ -484,6 +507,11 @@ def checkout(request):
             'shipping_address': profile.address if profile else '',
             'shipping_city': profile.city if profile else '',
             'shipping_postal_code': profile.postal_code if profile else '',
+            'shipping_region_code': profile.region_code if profile else '',
+            'shipping_province_code': profile.province_code if profile else '',
+            'shipping_city_code': profile.city_code if profile else '',
+            'shipping_barangay_code': profile.barangay_code if profile else '',
+            'shipping_barangay': profile.barangay if profile else '',
         }
         if profile:
             customer_lat = profile.latitude
@@ -506,6 +534,10 @@ def checkout(request):
                 'shipping_address': selected_address.address,
                 'shipping_city': selected_address.city,
                 'shipping_postal_code': selected_address.postal_code,
+                'shipping_region_code': selected_address.region_code,
+                'shipping_province_code': selected_address.province_code,
+                'shipping_city_code': selected_address.city_code,
+                'shipping_barangay_code': selected_address.barangay_code,
             })
             customer_lat = selected_address.latitude
             customer_lng = selected_address.longitude
@@ -541,9 +573,13 @@ def process_checkout(request, cart, cart_items, total):
     shipping_address = request.POST.get('shipping_address', '').strip()
     shipping_city = request.POST.get('shipping_city', '').strip()
     shipping_postal_code = request.POST.get('shipping_postal_code', '').strip()
+    shipping_region_code = request.POST.get('shipping_region_code', '').strip()
+    shipping_province_code = request.POST.get('shipping_province_code', '').strip()
+    shipping_city_code = request.POST.get('shipping_city_code', '').strip()
+    shipping_barangay = request.POST.get('shipping_barangay', '').strip()
+    shipping_barangay_code = request.POST.get('shipping_barangay_code', '').strip()
 
-    # Authenticated customer fields are read-only in the form, so use the
-    # saved profile if a browser omits one of them from the POST payload.
+    # Use the saved profile as a fallback when an authenticated browser omits a field.
     if profile:
         customer_name = customer_name or request.user.get_full_name() or request.user.username
         customer_email = customer_email or request.user.email
@@ -602,8 +638,17 @@ def process_checkout(request, cart, cart_items, total):
         shipping_address = selected_address.address
         shipping_city = selected_address.city
         shipping_postal_code = selected_address.postal_code
+        shipping_barangay = selected_address.barangay
+        shipping_barangay_code = selected_address.barangay_code
+        if selected_address.latitude is None or selected_address.longitude is None:
+            messages.error(request, 'Please edit this saved address and pin its exact delivery location.')
+            return redirect('checkout')
         customer_latitude = float(selected_address.latitude)
         customer_longitude = float(selected_address.longitude)
+
+    # Keep the existing order snapshot format while retaining the structured barangay.
+    if shipping_address and shipping_barangay and shipping_barangay.casefold() not in shipping_address.casefold():
+        shipping_address = f'{shipping_address}, {shipping_barangay}'
 
     shipping_fee, delivery_distance, shipping_message = store_settings.calculate_shipping_fee(
         customer_latitude, customer_longitude, total
@@ -618,6 +663,20 @@ def process_checkout(request, cart, cart_items, total):
         'City / Municipality': shipping_city,
         'Postal Code': shipping_postal_code,
     }
+    if not selected_address_id and (not profile or any([
+        shipping_region_code, shipping_province_code, shipping_city_code,
+        shipping_barangay_code, shipping_barangay,
+    ])):
+        required_fields.update({
+            'Region': shipping_region_code,
+            'Province': shipping_province_code,
+            'City / Municipality code': shipping_city_code,
+            'Barangay': shipping_barangay_code,
+        })
+        if any([shipping_region_code, shipping_province_code, shipping_city_code, shipping_barangay_code]):
+            if not customer_latitude or not customer_longitude:
+                messages.error(request, 'Please pin the completed address on the map before checkout.')
+                return redirect('checkout')
     missing_fields = [label for label, value in required_fields.items() if not value]
     if missing_fields:
         messages.error(request, f'Please fill in: {", ".join(missing_fields)}')

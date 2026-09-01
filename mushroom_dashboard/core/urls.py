@@ -1,4 +1,6 @@
 from django.urls import path
+from django.contrib.auth import views as auth_views
+from django.urls import reverse_lazy
 from . import views
 from . import ecommerce_views
 from . import sensor_api
@@ -7,7 +9,24 @@ urlpatterns = [
     # Page URLs
     path('', views.dashboard_view, name='dashboard'),
     path('login/', views.login_view, name='login'),
+    path('forgot-password/', auth_views.PasswordResetView.as_view(
+        template_name='password_reset_form.html',
+        email_template_name='registration/password_reset_email.html',
+        subject_template_name='registration/password_reset_subject.txt',
+        success_url=reverse_lazy('password_reset_done'),
+    ), name='password_reset'),
+    path('forgot-password/sent/', auth_views.PasswordResetDoneView.as_view(
+        template_name='password_reset_done.html',
+    ), name='password_reset_done'),
+    path('reset-password/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
+        template_name='password_reset_confirm.html',
+        success_url=reverse_lazy('password_reset_complete'),
+    ), name='password_reset_confirm'),
+    path('reset-password/complete/', auth_views.PasswordResetCompleteView.as_view(
+        template_name='password_reset_complete.html',
+    ), name='password_reset_complete'),
     path('register/', views.register_view, name='register'),
+    path('api/philippine-locations/', views.philippine_locations_api, name='philippine-locations-api'),
     path('logout/', views.logout_view, name='logout'),
     
     # Email verification URLs

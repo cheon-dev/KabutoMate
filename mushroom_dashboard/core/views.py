@@ -23,6 +23,7 @@ import os
 from django.conf import settings
 from functools import wraps
 from .yield_model import calculate_predicted_yield as calculate_history_predicted_yield
+from .philippine_locations import get_locations
 
 
 # Helper function to merge session cart into user cart
@@ -782,10 +783,23 @@ def register_view(request):
             address = data.get('address', '')
             city = data.get('city', '')
             postal_code = data.get('postal_code', '')
+            region_code = data.get('region_code', '')
+            region = data.get('region', '')
+            province_code = data.get('province_code', '')
+            province = data.get('province', '')
+            city_code = data.get('city_code', '')
+            barangay_code = data.get('barangay_code', '')
+            barangay = data.get('barangay', '')
             
             # Validation
             if not username or not email or not password:
                 return JsonResponse({'success': False, 'error': 'Please fill in all required fields'}, status=400)
+
+            if address and not all([region_code, region, province_code, province, city_code, barangay_code, barangay, city]):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Please select your Region, Province, City / Municipality, and Barangay.',
+                }, status=400)
             
             if password != confirm_password:
                 return JsonResponse({'success': False, 'error': 'Passwords do not match'}, status=400)
@@ -817,6 +831,13 @@ def register_view(request):
             profile.address = address
             profile.city = city
             profile.postal_code = postal_code
+            profile.region_code = region_code
+            profile.region = region
+            profile.province_code = province_code
+            profile.province = province
+            profile.city_code = city_code
+            profile.barangay_code = barangay_code
+            profile.barangay = barangay
             profile.is_email_verified = False  # Require email verification
             profile.save()
             
@@ -835,6 +856,24 @@ def register_view(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     
     return render(request, 'register.html')
+
+
+def philippine_locations_api(request):
+    """Proxy the official PSGC dataset so browsers do not depend on cross-origin requests."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
+    level = request.GET.get('level', '').strip().lower()
+    parent_code = request.GET.get('parent_code', '').strip() or None
+    try:
+        locations = get_locations(level, parent_code)
+    except ValueError as error:
+        return JsonResponse({'success': False, 'error': str(error)}, status=400)
+    except Exception:
+        return JsonResponse({
+            'success': False,
+            'error': 'Philippine address data is temporarily unavailable. Please try again.',
+        }, status=502)
+    return JsonResponse({'success': True, 'locations': locations})
 
 
 def logout_view(request):
@@ -1930,19 +1969,43 @@ def update_customer_profile(request):
         user.first_name = data.get('first_name', user.first_name)
         user.last_name = data.get('last_name', user.last_name)
         user.email = data.get('email', user.email)
-        user.save()
-        
         # Update UserProfile model fields
         profile, created = UserProfile.objects.get_or_create(user=user)
         profile.phone = data.get('phone', profile.phone)
         profile.address = data.get('address', profile.address)
         profile.city = data.get('city', profile.city)
         profile.postal_code = data.get('postal_code', profile.postal_code)
-        
-        # Update location coordinates if provided
+        for field in ('region_code', 'region', 'province_code', 'province', 'city_code', 'barangay_code', 'barangay'):
+            if field in data:
+                setattr(profile, field, str(data.get(field) or '').strip())
+
+        # Update location coordinates before validating the newly selected address.
         if 'latitude' in data and 'longitude' in data:
-            profile.latitude = data.get('latitude')
-            profile.longitude = data.get('longitude')
+            profile.latitude = data.get('latitude') or None
+            profile.longitude = data.get('longitude') or None
+
+        location_codes = [profile.region_code, profile.province_code, profile.city_code, profile.barangay_code]
+        if profile.address and any(location_codes) and not all(location_codes):
+            return JsonResponse({
+                'success': False,
+                'error': 'Please select your complete Region, Province, City / Municipality, and Barangay.',
+            }, status=400)
+        if profile.address and all(location_codes):
+            if profile.latitude is None or profile.longitude is None:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Please pin the address on the map before saving it.',
+                }, status=400)
+            fee, _, _ = StoreSettings.load().calculate_shipping_fee(
+                profile.latitude, profile.longitude, 0
+            )
+            if fee is None:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'This address is outside the maximum delivery distance. Please choose another location.',
+                }, status=400)
+
+        user.save()
         
         profile.save()
         
@@ -1957,6 +2020,13 @@ def update_customer_profile(request):
                 'address': profile.address,
                 'city': profile.city,
                 'postal_code': profile.postal_code,
+                'region_code': profile.region_code,
+                'region': profile.region,
+                'province_code': profile.province_code,
+                'province': profile.province,
+                'city_code': profile.city_code,
+                'barangay_code': profile.barangay_code,
+                'barangay': profile.barangay,
                 'latitude': str(profile.latitude) if profile.latitude else None,
                 'longitude': str(profile.longitude) if profile.longitude else None
             }

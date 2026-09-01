@@ -22,6 +22,8 @@ import pandas as pd
 import os
 from django.conf import settings
 from functools import wraps
+from urllib.parse import urlparse
+from django.contrib.auth import views as auth_views
 from .yield_model import calculate_predicted_yield as calculate_history_predicted_yield
 from .philippine_locations import get_locations
 
@@ -856,6 +858,28 @@ def register_view(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     
     return render(request, 'register.html')
+
+
+class SitePasswordResetView(auth_views.PasswordResetView):
+    """Generate reset links from the configured public site URL, not request host."""
+
+    def form_valid(self, form):
+        site_url = os.getenv('SITE_URL', '').strip().rstrip('/') or 'https://kabutomate-dan-f468.vercel.app'
+        parsed_url = urlparse(site_url)
+        domain = parsed_url.netloc or parsed_url.path
+        opts = {
+            'domain_override': domain,
+            'use_https': parsed_url.scheme == 'https',
+            'token_generator': self.token_generator,
+            'from_email': self.from_email,
+            'email_template_name': self.email_template_name,
+            'subject_template_name': self.subject_template_name,
+            'request': self.request,
+            'html_email_template_name': self.html_email_template_name,
+            'extra_email_context': self.extra_email_context,
+        }
+        form.save(**opts)
+        return redirect(self.get_success_url())
 
 
 def philippine_locations_api(request):

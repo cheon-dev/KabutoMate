@@ -9,7 +9,7 @@ urlpatterns = [
     # Page URLs
     path('', views.dashboard_view, name='dashboard'),
     path('login/', views.login_view, name='login'),
-    path('forgot-password/', auth_views.PasswordResetView.as_view(
+    path('forgot-password/', views.SitePasswordResetView.as_view(
         template_name='password_reset_form.html',
         email_template_name='registration/password_reset_email.html',
         subject_template_name='registration/password_reset_subject.txt',

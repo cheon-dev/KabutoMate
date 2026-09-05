@@ -791,8 +791,10 @@
     </style>
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
     <script src="{% static 'js/toast-notifications.js' %}"></script>
+    {% include 'includes/page_loader_head.html' %}
 </head>
 <body>
+    {% include 'includes/page_loader.html' %}
     {% include 'includes/toast_notifications.html' %}
     <!-- Mobile Menu Toggle Button -->
     <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu">

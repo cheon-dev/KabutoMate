@@ -38,6 +38,10 @@ class UserProfile(models.Model):
     is_email_verified = models.BooleanField(default=False, help_text="Whether the user's email is verified")
     email_verification_token = models.CharField(max_length=100, blank=True, null=True)
     email_verification_sent_at = models.DateTimeField(null=True, blank=True)
+
+    accepted_privacy_policy = models.BooleanField(default=False)
+    accepted_terms = models.BooleanField(default=False)
+    accepted_at = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"

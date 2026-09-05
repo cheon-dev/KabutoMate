@@ -385,6 +385,155 @@
             display: none;
         }
 
+        .consent-section {
+            display: grid;
+            gap: 0.6rem;
+            margin: 1.1rem 0 1.35rem;
+        }
+
+        .consent-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.7rem;
+            min-height: 44px;
+            padding: 0.65rem 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fbfdfb;
+            color: #4a5568;
+            cursor: pointer;
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+
+        .consent-option:focus-within {
+            border-color: var(--primary-green);
+            box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
+        }
+
+        .consent-option input {
+            width: 20px;
+            height: 20px;
+            flex: 0 0 20px;
+            margin: 0.05rem 0 0;
+            accent-color: var(--primary-green);
+            cursor: pointer;
+        }
+
+        .consent-option span {
+            min-width: 0;
+        }
+
+        .policy-link {
+            display: inline;
+            padding: 0;
+            border: 0;
+            background: none;
+            color: var(--primary-green);
+            font: inherit;
+            font-weight: 700;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            cursor: pointer;
+        }
+
+        .policy-link:hover {
+            color: var(--light-green);
+        }
+
+        .policy-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 21000;
+            display: none;
+            place-items: center;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.58);
+            backdrop-filter: blur(4px);
+        }
+
+        .policy-modal.is-open {
+            display: grid;
+        }
+
+        .policy-dialog {
+            display: flex;
+            flex-direction: column;
+            width: min(680px, 100%);
+            max-height: min(760px, calc(100vh - 2rem));
+            overflow: hidden;
+            border: 1px solid rgba(46, 125, 50, 0.12);
+            border-radius: 20px;
+            background: #fff;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.3);
+            color: var(--dark-text);
+        }
+
+        .policy-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.1rem 1.25rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .policy-header h2 {
+            margin: 0;
+            color: var(--primary-green);
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.45rem;
+            font-weight: 400;
+        }
+
+        .policy-close {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
+            border: 0;
+            border-radius: 50%;
+            background: #f0f4f1;
+            color: #4a5568;
+            font-size: 1.45rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .policy-close:hover {
+            background: #e2eee3;
+            color: var(--primary-green);
+        }
+
+        .policy-content {
+            overflow-y: auto;
+            padding: 1.25rem 1.35rem 1.5rem;
+            color: #4a5568;
+            font-size: 0.9rem;
+            line-height: 1.65;
+        }
+
+        .policy-content h3 {
+            margin: 0 0 0.4rem;
+            color: var(--dark-text);
+            font-size: 1rem;
+        }
+
+        .policy-content p {
+            margin: 0 0 1rem;
+        }
+
+        .policy-content ul {
+            margin: 0 0 1rem;
+            padding-left: 1.25rem;
+        }
+
+        body.policy-modal-open {
+            overflow: hidden;
+        }
+
         /* Responsive Design - Enhanced */
         @media (max-width: 1024px) {
             .split-left, .split-right {
@@ -493,6 +642,17 @@
                 padding: 14px;
                 font-size: 0.95rem;
             }
+            .consent-option {
+                font-size: 0.82rem;
+            }
+            .policy-dialog {
+                max-height: calc(100vh - 1rem);
+                border-radius: 16px;
+            }
+            .policy-content {
+                padding: 1rem;
+                font-size: 0.86rem;
+            }
             .login-link {
                 font-size: 0.85rem;
             }
@@ -504,8 +664,10 @@
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
     <script src="{% static 'js/toast-notifications.js' %}"></script>
     <script src="{% static 'js/philippine-addresses.js' %}"></script>
+    {% include 'includes/page_loader_head.html' %}
 </head>
 <body class="auth-page">
+    {% include 'includes/page_loader.html' %}
     {% include 'includes/toast_notifications.html' %}
 
     <div class="split-left">
@@ -641,9 +803,58 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="consent-section" aria-label="Required agreements">
+                    <label class="consent-option" for="accepted_consent">
+                        <input type="checkbox" id="accepted_consent" name="accepted_consent" required aria-required="true">
+                        <span>I have read and accept the <button type="button" class="policy-link" data-policy-open="privacy-policy-modal">Privacy Policy</button> and <button type="button" class="policy-link" data-policy-open="terms-modal">Terms of Agreement</button>.</span>
+                    </label>
+                </div>
                 
                 <button type="submit" class="register-btn">Create Account</button>
             </form>
+
+            <div class="policy-modal" id="privacy-policy-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-policy-title" aria-hidden="true">
+                <section class="policy-dialog">
+                    <div class="policy-header">
+                        <h2 id="privacy-policy-title">Privacy Policy</h2>
+                        <button type="button" class="policy-close" data-policy-close aria-label="Close Privacy Policy">&times;</button>
+                    </div>
+                    <div class="policy-content">
+                        <h3>Information we collect</h3>
+                        <p>When you create a Kabutomate account, we collect the information you provide, such as your name, username, email address, phone number, and delivery details. We may also receive information you provide when you contact support, place an order, or update your profile.</p>
+                        <h3>How we use your information</h3>
+                        <p>We use this information to create and secure your account, verify your email address, process orders and payments, arrange delivery, respond to support requests, and improve the Kabutomate service. We do not use your information for unrelated purposes without an appropriate notice or your consent.</p>
+                        <h3>Sharing and protection</h3>
+                        <p>We may share only the information needed with trusted service providers that help us operate the service, such as payment, email, hosting, and delivery providers. We use reasonable safeguards to protect your information, but no internet transmission or storage system can be guaranteed to be completely secure.</p>
+                        <h3>Retention and your choices</h3>
+                        <p>We retain information for as long as needed to provide the service, meet legal obligations, resolve disputes, and enforce our agreements. You may request access to, correction of, or deletion of your personal information by contacting Kabutomate support, subject to applicable legal requirements.</p>
+                        <h3>Policy updates</h3>
+                        <p>We may update this policy when the service or applicable requirements change. We will present the updated policy when a new consent is required.</p>
+                    </div>
+                </section>
+            </div>
+
+            <div class="policy-modal" id="terms-modal" role="dialog" aria-modal="true" aria-labelledby="terms-title" aria-hidden="true">
+                <section class="policy-dialog">
+                    <div class="policy-header">
+                        <h2 id="terms-title">Terms of Agreement</h2>
+                        <button type="button" class="policy-close" data-policy-close aria-label="Close Terms of Agreement">&times;</button>
+                    </div>
+                    <div class="policy-content">
+                        <h3>Using your account</h3>
+                        <p>You agree to provide accurate, current information and to keep your account credentials private. You are responsible for activity performed through your account and must promptly notify Kabutomate if you believe it has been accessed without permission.</p>
+                        <h3>Orders and payment</h3>
+                        <p>Product availability, pricing, and estimated delivery details may change before an order is accepted. You agree to provide complete order information and to pay the amount shown at checkout using an available payment method. An order may be canceled or adjusted when an item is unavailable, information is incorrect, or payment cannot be confirmed.</p>
+                        <h3>Acceptable use</h3>
+                        <p>You may use Kabutomate only for lawful purposes. Do not attempt to interfere with the service, access another person’s account, submit harmful or misleading content, or use the service to violate another person’s rights.</p>
+                        <h3>Service changes</h3>
+                        <p>We may maintain, update, suspend, or discontinue parts of the service when necessary. We may also restrict or close an account that violates these terms or creates a security or legal risk, while respecting applicable requirements.</p>
+                        <h3>Updates to these terms</h3>
+                        <p>We may update these terms as Kabutomate changes. Continued use after an update means you accept the revised terms where permitted by law. Questions about these terms may be directed to Kabutomate support.</p>
+                    </div>
+                </section>
+            </div>
             
             <!-- Divider -->
             <div style="display: flex; align-items: center; margin: 20px 0; gap: 10px;">
@@ -737,9 +948,74 @@
             const registerForm = document.getElementById("register-form");
             const errorMessage = document.getElementById("error-message");
             const successMessage = document.getElementById("success-message");
+            const consentCheckbox = document.getElementById("accepted_consent");
+            const consentError = 'Please accept the Privacy Policy and Terms of Agreement before registering.';
+            let consentErrorShown = false;
+
+            function showConsentError() {
+                if (consentErrorShown) return;
+                consentErrorShown = true;
+                showToast(consentError, 'error');
+                window.setTimeout(() => { consentErrorShown = false; }, 500);
+            }
+
+            registerForm.querySelector('button[type="submit"]').addEventListener('click', (event) => {
+                if (!consentCheckbox.checked) {
+                    event.preventDefault();
+                    showConsentError();
+                    consentCheckbox.focus();
+                }
+            });
+
+            registerForm.addEventListener('invalid', (event) => {
+                if (event.target === consentCheckbox) {
+                    event.preventDefault();
+                    showConsentError();
+                }
+            }, true);
+
+            const policyOpeners = document.querySelectorAll('[data-policy-open]');
+            policyOpeners.forEach((opener) => {
+                opener.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const modal = document.getElementById(opener.dataset.policyOpen);
+                    if (!modal) return;
+                    modal.classList.add('is-open');
+                    modal.setAttribute('aria-hidden', 'false');
+                    document.body.classList.add('policy-modal-open');
+                    modal.querySelector('[data-policy-close]').focus();
+                });
+            });
+
+            document.querySelectorAll('.policy-modal').forEach((modal) => {
+                const closeModal = () => {
+                    modal.classList.remove('is-open');
+                    modal.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('policy-modal-open');
+                };
+
+                modal.querySelector('[data-policy-close]').addEventListener('click', closeModal);
+                modal.addEventListener('click', (event) => {
+                    if (event.target === modal) closeModal();
+                });
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    const openModal = document.querySelector('.policy-modal.is-open');
+                    if (openModal) openModal.querySelector('[data-policy-close]').click();
+                }
+            });
             
             registerForm.addEventListener("submit", async (event) => {
                 event.preventDefault();
+
+                if (!consentCheckbox.checked) {
+                    showConsentError();
+                    consentCheckbox.focus();
+                    return;
+                }
                 
                 // Hide previous messages
                 errorMessage.style.display = 'none';
@@ -764,6 +1040,8 @@
                      city_code: document.getElementById("registration-city").value,
                      barangay_code: document.getElementById("registration-barangay").value,
                      barangay: document.getElementById("registration-barangay").selectedOptions[0]?.textContent || '',
+                     accepted_privacy_policy: consentCheckbox.checked,
+                     accepted_terms: consentCheckbox.checked,
                  };
 
                  if (formData.address.trim() && (!formData.region_code || !formData.province_code || !formData.city_code || !formData.barangay_code)) {

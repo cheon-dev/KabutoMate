@@ -35,6 +35,7 @@
         html, body {
             height: 100%;
             font-family: 'DM Sans', sans-serif;
+            overflow-x: hidden;
         }
 
         body {
@@ -57,6 +58,8 @@
             padding: 3rem 2rem;
             position: relative;
             z-index: 2;
+            will-change: transform;
+            transition: transform 820ms cubic-bezier(0.76, 0, 0.24, 1);
         }
 
         /* Subtle dot-grid texture on left panel */
@@ -248,6 +251,37 @@
         }
         .forgot-link:hover { opacity: 0.75; }
 
+        .login-options {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: -12px;
+            margin-bottom: 20px;
+        }
+
+        .remember-me {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            min-height: 44px;
+            color: #64748b;
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+
+        .remember-me input {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            accent-color: var(--primary-green);
+            cursor: pointer;
+        }
+
+        .login-options .forgot-link {
+            margin: 0;
+        }
+
         /* Login button */
         .login-btn {
             width: 100%;
@@ -368,6 +402,32 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            will-change: transform;
+            transition: transform 820ms cubic-bezier(0.76, 0, 0.24, 1);
+        }
+
+        /* Open the two panels away from the center after authentication succeeds. */
+        body.login-transitioning .split-left {
+            transform: translate3d(-100%, 0, 0);
+        }
+
+        body.login-transitioning .split-right {
+            transform: translate3d(100%, 0, 0);
+        }
+
+        body.login-transitioning .split-left,
+        body.login-transitioning .split-right {
+            pointer-events: none;
+        }
+
+        body.login-transitioning .logo-container {
+            transform: scale(0.94);
+            opacity: 0.82;
+            transition: transform 820ms ease-in, opacity 820ms ease-in;
+        }
+
+        body.login-transitioning .login-btn {
+            pointer-events: none;
         }
 
         /* Layered organic shapes */
@@ -543,6 +603,21 @@
                 border-radius: 0;
             }
 
+            .split-left,
+            .split-right {
+                transition: transform 760ms ease-in-out, opacity 760ms ease-in-out;
+            }
+
+            body.login-transitioning .split-left {
+                transform: translate3d(0, 24px, 0);
+                opacity: 0;
+            }
+
+            body.login-transitioning .split-right {
+                transform: translate3d(0, -24px, 0);
+                opacity: 0;
+            }
+
             /* Overlap card over the green panel */
             .login-wrapper {
                 margin-top: -32px;
@@ -572,13 +647,25 @@
             .header-text h1 { font-size: 1.4rem; }
             .form-group input { padding: 11px 12px 11px 38px; font-size: 0.9rem; }
             .login-btn { padding: 13px; font-size: 0.9rem; }
+            .login-options { align-items: flex-start; gap: 0.5rem; }
+            .remember-me { font-size: 0.78rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .split-left,
+            .split-right,
+            body.login-transitioning .logo-container {
+                transition-duration: 1ms !important;
+            }
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
     <script src="{% static 'js/toast-notifications.js' %}"></script>
+    {% include 'includes/page_loader_head.html' %}
 </head>
 <body class="auth-page">
+    {% include 'includes/page_loader.html' %}
     {% include 'includes/toast_notifications.html' %}
 
     <!-- ── LEFT: Login Form ── -->
@@ -630,7 +717,13 @@
                     </div>
                 </div>
 
-                <a href="{% url 'password_reset' %}" class="forgot-link">Forgot password?</a>
+                <div class="login-options">
+                    <label class="remember-me" for="remember_me">
+                        <input type="checkbox" id="remember_me" name="remember_me">
+                        <span>Remember Me</span>
+                    </label>
+                    <a href="{% url 'password_reset' %}" class="forgot-link">Forgot password?</a>
+                </div>
 
                 <button type="submit" class="login-btn">Sign In</button>
             </form>
@@ -726,6 +819,8 @@
             loginForm.addEventListener("submit", async (event) => {
                 event.preventDefault();
 
+                if (loginForm.dataset.submitting === 'true') return;
+
                 const identifier = document.getElementById("username").value.trim();
                 const password = document.getElementById("password").value;
 
@@ -741,13 +836,25 @@
                             'Content-Type': 'application/json',
                             'X-CSRFToken': csrfToken
                         },
-                        body: JSON.stringify({ username: identifier, email: identifier, identifier, password })
+                        body: JSON.stringify({
+                            username: identifier,
+                            email: identifier,
+                            identifier,
+                            password,
+                            remember_me: document.getElementById("remember_me").checked
+                        })
                     });
 
                     const data = await response.json();
 
                     if (data.success) {
-                        window.location.href = data.redirect_url;
+                        loginForm.dataset.submitting = 'true';
+                        loginForm.querySelector('button[type="submit"]').disabled = true;
+                        document.body.classList.add('login-transitioning');
+
+                        window.setTimeout(() => {
+                            window.location.href = data.redirect_url;
+                        }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 50 : 850);
                     } else {
                         showToast(data.error, 'error');
                     }

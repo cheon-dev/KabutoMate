@@ -456,6 +456,9 @@ def notifications_view(request):
 @login_required(login_url='login')
 def profile_view(request):
     # Check if user is admin or customer and render appropriate template
+    if request.user.is_superuser or request.user.is_staff:
+        return render(request, 'profile.html')
+
     try:
         if request.user.profile.is_admin:
             # Admin gets the dashboard profile page
@@ -742,6 +745,9 @@ def login_view(request):
                 pass
             
             login(request, user)
+            request.session.set_expiry(
+                settings.REMEMBER_ME_SESSION_AGE if data.get('remember_me') is True else 0
+            )
             
             # Merge session cart into user cart
             try:
@@ -792,6 +798,14 @@ def register_view(request):
             city_code = data.get('city_code', '')
             barangay_code = data.get('barangay_code', '')
             barangay = data.get('barangay', '')
+            accepted_privacy_policy = data.get('accepted_privacy_policy') is True
+            accepted_terms = data.get('accepted_terms') is True
+
+            if not accepted_privacy_policy or not accepted_terms:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Please accept the Privacy Policy and Terms of Agreement before registering.',
+                }, status=400)
             
             # Validation
             if not username or not email or not password:
@@ -841,6 +855,9 @@ def register_view(request):
             profile.barangay_code = barangay_code
             profile.barangay = barangay
             profile.is_email_verified = False  # Require email verification
+            profile.accepted_privacy_policy = accepted_privacy_policy
+            profile.accepted_terms = accepted_terms
+            profile.accepted_at = timezone.now()
             profile.save()
             
             # Send verification email asynchronously (don't slow down registration)

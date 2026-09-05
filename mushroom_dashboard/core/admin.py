@@ -1,10 +1,32 @@
 from django.contrib import admin
+from django import forms
+from django.conf import settings
+from django.contrib.admin.forms import AdminAuthenticationForm
 from .models import (
     Product, SensorReading, Sale, ProductionBatch, Notification, 
     EnvironmentSettings, DiseaseDetection, ProductReview, Wishlist,
     ProductImage, RecentlyViewed, ReviewMedia, NotificationSettings,
     NotificationLog, EnvironmentalAlertState, CustomerAddress
 )
+
+
+class RememberMeAdminAuthenticationForm(AdminAuthenticationForm):
+    remember_me = forms.BooleanField(
+        required=False,
+        label='Remember Me',
+        widget=forms.CheckboxInput(attrs={'class': 'remember-me-checkbox'}),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.user_cache is not None:
+            self.request.session.set_expiry(
+                settings.REMEMBER_ME_SESSION_AGE if cleaned_data.get('remember_me') else 0
+            )
+        return cleaned_data
+
+
+admin.site.login_form = RememberMeAdminAuthenticationForm
 
 
 # Inline for ProductImage in Product admin

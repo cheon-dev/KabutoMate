@@ -612,8 +612,10 @@
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
     <script src="{% static 'js/toast-notifications.js' %}"></script>
     <script src="{% static 'js/philippine-addresses.js' %}"></script>
+    {% include 'includes/page_loader_head.html' %}
 </head>
 <body>
+    {% include 'includes/page_loader.html' %}
     {% include 'includes/toast_notifications.html' %}
     <nav class="navbar">
         <div class="logo-section">

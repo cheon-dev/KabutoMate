@@ -326,32 +326,7 @@
 <body>
     {% include 'includes/page_loader.html' %}
     {% include 'includes/toast_notifications.html' %}
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="logo-section">
-            <div class="logo-circle">🍄</div>
-            <span class="brand-name">KABUTOMATE</span>
-        </div>
-        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-            <i class="fa-solid fa-bars" id="navIcon"></i>
-        </button>
-        <div class="nav-links" id="navLinks">
-            <a href="{% url 'shop' %}">Shop</a>
-            <a href="{% url 'wishlist' %}" style="color: var(--primary);">Wishlist</a>
-            <a href="{% url 'view_cart' %}" class="cart-btn">
-                <i class="fa-solid fa-cart-shopping"></i>
-                Cart
-            </a>
-            {% if user.is_authenticated %}
-                {% if user.is_staff %}
-                    <a href="{% url 'dashboard' %}">Dashboard</a>
-                {% endif %}
-                <a href="#" id="logout-link">Logout</a>
-            {% else %}
-                <a href="{% url 'login' %}">Login</a>
-            {% endif %}
-        </div>
-    </nav>
+    {% include 'includes/customer_desktop_nav.html' %}
 
     <!-- Page Header -->
     <div class="page-header">
@@ -461,23 +436,7 @@
             });
         });
         
-        // Mobile Navigation Toggle
-        const navToggle = document.getElementById('navToggle');
-        const navLinks = document.getElementById('navLinks');
-        const navIcon = document.getElementById('navIcon');
-        
-        if (navToggle) {
-            navToggle.addEventListener('click', function() {
-                navLinks.classList.toggle('active');
-                if (navLinks.classList.contains('active')) {
-                    navIcon.classList.remove('fa-bars');
-                    navIcon.classList.add('fa-times');
-                } else {
-                    navIcon.classList.remove('fa-times');
-                    navIcon.classList.add('fa-bars');
-                }
-            });
-        }
     </script>
+    {% include 'includes/customer_mobile_nav.html' %}
 </body>
 </html>

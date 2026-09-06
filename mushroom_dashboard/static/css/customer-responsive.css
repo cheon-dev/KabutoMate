@@ -7,6 +7,118 @@ body {
     overflow-x: clip;
 }
 
+/* Shared app shell for customer pages. It is intentionally mobile-only so
+   the established desktop navigation remains unchanged. */
+.customer-mobile-nav {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .customer-mobile-nav {
+        display: none !important;
+    }
+}
+
+@media (max-width: 767px) {
+    body:has(.customer-mobile-nav) {
+        padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    }
+
+    /* The bottom bar replaces the old hamburger drawer on phones. */
+    body:has(.customer-mobile-nav) .navbar .nav-toggle,
+    body:has(.customer-mobile-nav) .navbar .nav-hamburger,
+    body:has(.customer-mobile-nav) .navbar .nav-links {
+        display: none !important;
+    }
+
+    .customer-mobile-nav {
+        position: fixed !important;
+        z-index: 1100;
+        inset: auto 0 0 0 !important;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        height: calc(68px + env(safe-area-inset-bottom));
+        min-height: 68px;
+        padding: 7px 4px calc(7px + env(safe-area-inset-bottom));
+        background: rgba(255, 255, 255, 0.97);
+        border-top: 1px solid var(--border-light, #e2e8f0);
+        box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        transform: translateZ(0);
+    }
+
+    .customer-mobile-nav__item {
+        position: relative;
+        display: flex;
+        min-width: 0;
+        min-height: 54px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        padding: 4px 2px;
+        color: var(--text-muted, #64748b);
+        font-size: 0.68rem;
+        font-weight: 700;
+        line-height: 1.1;
+        text-align: center;
+        text-decoration: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+
+    .customer-mobile-nav__item.is-active {
+        color: var(--primary, #0c4b33);
+    }
+
+    .customer-mobile-nav__item.is-active::before {
+        position: absolute;
+        top: -7px;
+        width: 28px;
+        height: 3px;
+        border-radius: 0 0 4px 4px;
+        background: var(--primary, #0c4b33);
+        content: '';
+    }
+
+    .customer-mobile-nav__icon {
+        position: relative;
+        display: flex;
+        width: 100%;
+        min-height: 25px;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+    }
+
+    .customer-mobile-nav__badge {
+        position: absolute;
+        top: -6px;
+        left: calc(50% + 7px);
+        display: inline-flex;
+        min-width: 17px;
+        height: 17px;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        border: 2px solid #fff;
+        border-radius: 999px;
+        background: #ef4444;
+        color: #fff;
+        font-size: 0.61rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .customer-mobile-nav__item > span:last-child {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
 img,
 video,
 svg {

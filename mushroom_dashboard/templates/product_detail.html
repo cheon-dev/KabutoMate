@@ -564,6 +564,8 @@
     {% include 'includes/toast_notifications.html' %}
     <!-- CSRF Token for AJAX requests -->
     {% csrf_token %}
+
+    {% include 'includes/customer_desktop_nav.html' %}
     
     <div class="container">
         <a href="{% url 'shop' %}" class="back-btn">
@@ -1005,5 +1007,6 @@
 
         loadReviews();
     </script>
+    {% include 'includes/customer_mobile_nav.html' %}
 </body>
 </html>

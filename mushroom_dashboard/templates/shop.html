@@ -94,15 +94,6 @@
         .cart-btn { position: relative; }
 
         /* ── Mobile hamburger (hidden on desktop) ── */
-        .nav-hamburger {
-            display: none;
-            background: none; border: none;
-            cursor: pointer; padding: 6px;
-            color: var(--text-main); font-size: 1.4rem;
-            align-items: center; justify-content: center;
-            min-height: unset; min-width: unset;
-        }
-
         /* ── CATEGORY BAR ── */
         .category-header {
             padding: 1.25rem 3%;
@@ -151,8 +142,40 @@
             border-radius: 20px; padding: 1.75rem;
             z-index: 100;
             box-shadow: var(--card-shadow);
-            display: flex; flex-direction: column; gap: 2rem;
+             display: flex; flex-direction: column; gap: 2rem;
         }
+        .filter-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .filter-panel-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            color: var(--text-main);
+            font-size: 1rem;
+            font-weight: 800;
+        }
+        .filter-panel-title i { color: var(--primary); }
+        .filter-toggle {
+            display: inline-flex;
+            width: 38px;
+            height: 38px;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-light);
+            border-radius: 10px;
+            background: var(--bg-body);
+            color: var(--primary);
+            cursor: pointer;
+            transition: background .2s, color .2s, transform .2s;
+        }
+        .filter-toggle:hover { background: var(--primary); color: #fff; }
+        .filter-panel-content { display: flex; flex-direction: column; gap: 2rem; }
+        .filter-panel.is-collapsed { gap: 0; }
+        .filter-panel.is-collapsed .filter-panel-content { display: none; }
         .sidebar-section h3 {
             font-size: 1rem; font-weight: 700;
             margin-bottom: 1.1rem; color: var(--text-main);
@@ -421,9 +444,11 @@
             .filter-select { flex: 1; min-width: 140px; }
             .clear-btn { width: auto; align-self: flex-end; }
             .products-grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+            .filter-panel-header { flex: 0 0 100%; }
+            .filter-panel-content { flex: 1 1 100%; }
         }
 
-        /* ── Mobile (≤ 768px) — hamburger nav, 2-col grid ── */
+        /* ── Mobile (≤ 768px) — bottom navigation, 2-col grid ── */
         @media (max-width: 768px) {
             :root { --navbar-height: 64px; --category-bar-height: 60px; }
 
@@ -443,10 +468,9 @@
             }
             .logo-circle img { width: 18px !important; }
             .brand-name { font-size: 1.05rem; line-height: 1; }
-            .header-search { display: none; } /* moved inside drawer */
-            .nav-hamburger { display: flex; flex-shrink: 0; margin-left: 12px; }
+            .header-search { display: none; }
 
-            /* Nav drawer — hidden by default */
+            /* Legacy desktop links are replaced by the shared bottom bar. */
             .nav-links {
                 display: none; flex-direction: column;
                 position: absolute; top: 64px; left: 0.75rem; right: 0.75rem;
@@ -473,7 +497,7 @@
             /* Always show labels + icons in drawer */
             .nav-links span { display: inline !important; }
 
-            /* Search bar inside drawer */
+            /* Legacy drawer search is retained only for desktop markup compatibility. */
             .nav-links .mobile-search-wrap {
                 padding: 0.5rem 0.25rem 0.75rem;
                 border-bottom: 1px solid var(--border-light);
@@ -660,6 +684,35 @@
         .load-more-container { text-align: center; margin-top: 2.5rem; grid-column: 1 / -1; }
         .load-more-btn { background: white; color: var(--text-main); border: 1.5px solid var(--primary); padding: 0.9rem 3rem; border-radius: 50px; font-weight: 600; cursor: pointer; transition: 0.3s; display: inline-flex; align-items: center; gap: 8px; }
         .load-more-btn:hover { background: var(--primary); color: white; }
+        @media (max-width: 767px) {
+            .navbar { flex-wrap: wrap; gap: 0.7rem; padding: 0.7rem 4%; height: auto; min-height: 64px; }
+            .navbar .logo-section { flex: 1; min-width: 0; }
+            .navbar .brand-name { font-size: 1.12rem; }
+            .navbar .logo-circle { width: 38px; height: 38px; }
+            .header-search { display: block; flex: 0 0 100%; order: 3; max-width: none; margin: 0; }
+            .header-search input { padding-top: 0.68rem; padding-bottom: 0.68rem; }
+            .nav-links { display: none; }
+            .mobile-search-wrap { display: none !important; }
+            .category-header { position: relative; top: auto; }
+        }
+        @media (min-width: 1025px) {
+            .main-container.filters-collapsed {
+                grid-template-columns: 64px minmax(0, 1fr) !important;
+                gap: 1.25rem;
+            }
+            .filter-panel.is-collapsed {
+                width: 64px;
+                min-width: 64px;
+                max-width: 64px;
+                padding: .75rem;
+            }
+            .filter-panel.is-collapsed .filter-panel-header {
+                justify-content: center;
+            }
+            .filter-panel.is-collapsed .filter-panel-title {
+                display: none;
+            }
+        }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
@@ -700,58 +753,7 @@
     </div>
     {% endif %}
 
-    <!-- ── NAVBAR ── -->
-    <nav class="navbar">
-        <div class="logo-section">
-            <div class="logo-circle">
-                <img src="{% static 'images/Screenshot_2025-11-01_124726-removebg-preview.png' %}" style="width: 24px;" alt="Logo">
-            </div>
-            <span class="brand-name">KABUTOMATE</span>
-        </div>
-
-        <!-- Desktop search (hidden on mobile) -->
-        <div class="header-search">
-            <i class="fa-solid fa-search"></i>
-            <input type="text" id="searchInput" placeholder="Search..." autocomplete="off">
-        </div>
-
-        <!-- Desktop nav links -->
-        <div class="nav-links" id="navLinks">
-
-            <!-- Mobile search row (only visible inside the drawer) -->
-            <div class="mobile-search-wrap" style="position:relative; display:none;">
-                <i class="fa-solid fa-search search-icon"></i>
-                <input type="text" id="searchInputMobile" placeholder="Search products..." autocomplete="off">
-            </div>
-
-            {% if user.is_authenticated and not user.profile.is_admin %}
-                <a href="#" id="customerServiceTrigger"><i class="fa-solid fa-headset"></i> <span>Support</span></a>
-            {% endif %}
-
-            {% if user.is_authenticated %}
-                {% if user.profile.is_admin %}
-                    <a href="{% url 'dashboard' %}"><i class="fa-solid fa-chart-line"></i> <span>Dashboard</span></a>
-                {% endif %}
-                <a href="{% url 'profile' %}"><i class="fa-regular fa-user"></i> <span>{{ user.first_name|default:user.username }}</span></a>
-            {% endif %}
-
-            <a href="{% url 'view_cart' %}" class="cart-btn" style="color:var(--text-main); background:none; box-shadow:none; padding:0;">
-                <i class="fa-solid fa-bag-shopping"></i> <span>Cart</span>
-                {% if cart_count > 0 %}<span class="cart-count" style="position:absolute; top:-8px; right:-12px; background:var(--primary); color:white; border-radius:50%; font-size:10px; width:18px; height:18px; display:flex; align-items:center; justify-content:center;">{{ cart_count }}</span>{% endif %}
-            </a>
-
-            {% if user.is_authenticated %}
-                <a href="#" id="logout-link"><i class="fa-solid fa-right-from-bracket"></i> <span>Logout</span></a>
-            {% else %}
-                <a href="{% url 'login' %}"><i class="fa-solid fa-right-to-bracket"></i> <span>Login</span></a>
-            {% endif %}
-        </div>
-
-        <!-- Mobile hamburger button -->
-        <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu">
-            <i class="fa-solid fa-bars" id="hamburgerIcon"></i>
-        </button>
-    </nav>
+    {% include 'includes/customer_desktop_nav.html' with show_search=True %}
 
     <!-- ── CATEGORY BAR ── -->
     <div class="category-header">
@@ -768,44 +770,52 @@
         <div class="main-container">
 
             <!-- LEFT: Sidebar Filters -->
-            <aside class="sidebar">
-                <div class="sidebar-section">
-                    <h3>Price Range</h3>
-                    <div class="price-filter">
-                        <label>Average price: ₱<span id="avgPriceLabel">300</span></label>
-                        <div class="price-range-inputs">
-                            <input type="range" id="minPrice" min="0" max="1000" value="0" step="10">
-                            <input type="range" id="maxPrice" min="0" max="1000" value="1000" step="10">
-                            <div style="display:flex; justify-content:space-between; font-weight:700; font-size:0.85rem; margin-top:-0.25rem;">
-                                <span style="background:var(--text-main); color:white; padding:2px 8px; border-radius:50px;">₱<span id="minPriceLabel">0</span></span>
-                                <span style="background:var(--text-main); color:white; padding:2px 8px; border-radius:50px;">₱<span id="maxPriceLabel">1000</span></span>
+            <aside class="sidebar filter-panel" id="filterPanel">
+                <div class="filter-panel-header">
+                    <span class="filter-panel-title"><i class="fa-solid fa-sliders"></i> Filters</span>
+                    <button type="button" class="filter-toggle" id="filterToggle" aria-expanded="true" aria-controls="filterPanelContent" aria-label="Minimize filters" title="Minimize filters">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                </div>
+                <div class="filter-panel-content" id="filterPanelContent">
+                    <div class="sidebar-section">
+                        <h3>Price Range</h3>
+                        <div class="price-filter">
+                            <label>Average price: ₱<span id="avgPriceLabel">300</span></label>
+                            <div class="price-range-inputs">
+                                <input type="range" id="minPrice" min="0" max="1000" value="0" step="10">
+                                <input type="range" id="maxPrice" min="0" max="1000" value="1000" step="10">
+                                <div style="display:flex; justify-content:space-between; font-weight:700; font-size:0.85rem; margin-top:-0.25rem;">
+                                    <span style="background:var(--text-main); color:white; padding:2px 8px; border-radius:50px;">₱<span id="minPriceLabel">0</span></span>
+                                    <span style="background:var(--text-main); color:white; padding:2px 8px; border-radius:50px;">₱<span id="maxPriceLabel">1000</span></span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="sidebar-section">
-                    <h3>Filters</h3>
-                    <div class="filter-group">
-                        <select id="sortSelect" class="filter-select">
-                            <option value="">Sort by Relevance</option>
-                            <option value="name-asc">Name (A-Z)</option>
-                            <option value="name-desc">Name (Z-A)</option>
-                            <option value="price-asc">Price: Low to High</option>
-                            <option value="price-desc">Price: High to Low</option>
-                            <option value="stock-desc">Availability</option>
-                        </select>
-                        
-                        <select id="productTypeFilter" class="filter-select" style="display:none;">
-                            <option value="">All Conditions</option>
-                            <option value="fresh">Fresh</option>
-                            <option value="cooked">Cooked</option>
-                            <option value="fruit_bags">Fruit Bags</option>
-                        </select>
+                    <div class="sidebar-section">
+                        <h3>Sort and category</h3>
+                        <div class="filter-group">
+                            <select id="sortSelect" class="filter-select">
+                                <option value="">Sort by Relevance</option>
+                                <option value="name-asc">Name (A-Z)</option>
+                                <option value="name-desc">Name (Z-A)</option>
+                                <option value="price-asc">Price: Low to High</option>
+                                <option value="price-desc">Price: High to Low</option>
+                                <option value="stock-desc">Availability</option>
+                            </select>
+
+                            <select id="productTypeFilter" class="filter-select" style="display:none;">
+                                <option value="">All Conditions</option>
+                                <option value="fresh">Fresh</option>
+                                <option value="cooked">Cooked</option>
+                                <option value="fruit_bags">Fruit Bags</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
 
-                <button id="clearFilters" class="clear-btn">Reset Filters</button>
+                    <button id="clearFilters" class="clear-btn">Reset Filters</button>
+                </div>
             </aside>
 
             <!-- RIGHT: Products -->
@@ -947,6 +957,8 @@
         </div><!-- /.main-container -->
     </div><!-- /.page-wrapper -->
 
+    {% include 'includes/customer_mobile_nav.html' %}
+
     <!-- Review Modal -->
     <div class="logout-modal" id="reviewModal" style="display:none;">
         <div class="logout-modal-content" style="max-width:600px; text-align:left;">
@@ -1063,7 +1075,7 @@
             const productsGrid = document.getElementById('mainProductGrid') || document.querySelector('.products-grid');
 
             // ── Customer service chat ──
-            const customerServiceTrigger = document.getElementById('customerServiceTrigger');
+            const customerServiceTriggers = document.querySelectorAll('[data-support-trigger], #customerServiceTrigger');
             const customerServiceModal = document.getElementById('customerServiceModal');
             const customerServiceClose = document.getElementById('customerServiceClose');
             const customerServiceMessages = document.getElementById('customerServiceMessages');
@@ -1122,16 +1134,26 @@
                 if (customerChatPoller) { clearInterval(customerChatPoller); customerChatPoller = null; }
             }
 
-            if (customerServiceTrigger && customerServiceModal) {
-                customerServiceTrigger.addEventListener('click', function(e) {
+            if (customerServiceModal) {
+                customerServiceTriggers.forEach(trigger => trigger.addEventListener('click', function(e) {
                     e.preventDefault();
                     customerServiceModal.classList.add('show');
                     customerServiceModal.setAttribute('aria-hidden', 'false');
                     document.body.classList.add('support-modal-open');
+                    document.querySelectorAll('.customer-mobile-support-badge').forEach(badge => badge.hidden = true);
                     loadCustomerMessages();
                     if (customerChatPoller) clearInterval(customerChatPoller);
                     customerChatPoller = setInterval(loadCustomerMessages, 8000);
-                });
+                }));
+                if (window.location.hash === '#support') {
+                    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+                    customerServiceModal.classList.add('show');
+                    customerServiceModal.setAttribute('aria-hidden', 'false');
+                    document.body.classList.add('support-modal-open');
+                    document.querySelectorAll('.customer-mobile-support-badge').forEach(badge => badge.hidden = true);
+                    loadCustomerMessages();
+                    customerChatPoller = setInterval(loadCustomerMessages, 8000);
+                }
             }
             if (customerServiceClose && customerServiceModal) {
                 customerServiceClose.addEventListener('click', closeCustomerService);
@@ -1195,6 +1217,9 @@
                         submitBtn.style.color = '#10b981';
                         const cartCount = document.querySelector('.cart-count');
                         if (cartCount && data.cart_count !== undefined) cartCount.textContent = data.cart_count;
+                        document.querySelectorAll('.customer-mobile-cart-badge').forEach(badge => {
+                            if (data.cart_count !== undefined) badge.textContent = data.cart_count;
+                        });
                         setTimeout(() => { submitBtn.innerHTML = originalContent; submitBtn.style.color = ''; submitBtn.disabled = false; }, 1500);
                     })
                     .catch(err => { console.error(err); submitBtn.innerHTML = originalContent; submitBtn.disabled = false; form.submit(); });
@@ -1228,6 +1253,40 @@
             const minPriceLabel = document.getElementById('minPriceLabel');
             const maxPriceLabel = document.getElementById('maxPriceLabel');
             const clearFiltersBtn = document.getElementById('clearFilters');
+            const filterPanel = document.getElementById('filterPanel');
+            const filterToggle = document.getElementById('filterToggle');
+            const mainContainer = document.querySelector('.main-container');
+
+            function setFilterPanelCollapsed(collapsed) {
+                if (!filterPanel || !filterToggle) return;
+                filterPanel.classList.toggle('is-collapsed', collapsed);
+                if (mainContainer) mainContainer.classList.toggle('filters-collapsed', collapsed);
+                filterToggle.setAttribute('aria-expanded', String(!collapsed));
+                filterToggle.setAttribute('aria-label', collapsed ? 'Show filters' : 'Minimize filters');
+                filterToggle.title = collapsed ? 'Show filters' : 'Minimize filters';
+                const isMobile = window.matchMedia('(max-width: 767px)').matches;
+                const direction = isMobile
+                    ? (collapsed ? 'down' : 'up')
+                    : (collapsed ? 'right' : 'left');
+                filterToggle.innerHTML = `<i class="fa-solid fa-chevron-${direction}"></i>`;
+            }
+
+            if (filterPanel && filterToggle) {
+                let filtersCollapsed = false;
+                try { filtersCollapsed = localStorage.getItem('shopFiltersCollapsed') === 'true'; } catch (error) { /* Storage may be unavailable. */ }
+                setFilterPanelCollapsed(filtersCollapsed);
+                filterToggle.addEventListener('click', function() {
+                    const collapsed = !filterPanel.classList.contains('is-collapsed');
+                    setFilterPanelCollapsed(collapsed);
+                    try { localStorage.setItem('shopFiltersCollapsed', String(collapsed)); } catch (error) { /* Ignore storage errors. */ }
+                });
+            }
+
+            window.addEventListener('resize', function() {
+                if (filterPanel && filterToggle) {
+                    setFilterPanelCollapsed(filterPanel.classList.contains('is-collapsed'));
+                }
+            });
 
             if (!productsGrid) return;
             let products = Array.from(document.querySelectorAll('.product-card'));
@@ -1413,41 +1472,8 @@
                 });
             }
 
-            // ── Mobile hamburger ──
-            const hamburger = document.getElementById('navHamburger');
-            const hamburgerIcon = document.getElementById('hamburgerIcon');
-            const navLinks = document.getElementById('navLinks');
-            const mobileSearchWrap = navLinks ? navLinks.querySelector('.mobile-search-wrap') : null;
-
-            if (hamburger && navLinks) {
-                // Show mobile search row only inside drawer on mobile
-                function syncMobileSearch() {
-                    if (mobileSearchWrap) {
-                        mobileSearchWrap.style.display = window.innerWidth <= 768 ? 'block' : 'none';
-                    }
-                }
-                syncMobileSearch();
-                window.addEventListener('resize', syncMobileSearch);
-
-                hamburger.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const isOpen = navLinks.classList.toggle('mobile-open');
-                    hamburgerIcon.className = isOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars';
-                });
-                navLinks.querySelectorAll('a').forEach(link => {
-                    link.addEventListener('click', () => {
-                        navLinks.classList.remove('mobile-open');
-                        hamburgerIcon.className = 'fa-solid fa-bars';
-                    });
-                });
-                document.addEventListener('click', function(e) {
-                    if (!navLinks.contains(e.target) && e.target !== hamburger) {
-                        navLinks.classList.remove('mobile-open');
-                        hamburgerIcon.className = 'fa-solid fa-bars';
-                    }
-                });
-            }
         });
     </script>
+    {% include 'includes/ai_chatbot.html' %}
 </body>
 </html>

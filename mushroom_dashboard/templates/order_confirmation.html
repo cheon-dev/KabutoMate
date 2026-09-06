@@ -302,14 +302,7 @@
 <body>
     {% include 'includes/page_loader.html' %}
     {% include 'includes/toast_notifications.html' %}
-    <nav class="navbar">
-        <div class="logo-section">
-            <div class="logo-circle">
-                <img src="{% static 'images/Screenshot_2025-11-01_124726-removebg-preview.png' %}" style="width: 25px;" alt="Logo">
-            </div>
-            <span class="brand-name">KABUTOMATE</span>
-        </div>
-    </nav>
+    {% include 'includes/customer_desktop_nav.html' %}
 
     <div class="container">
         <div class="confirmation-card">
@@ -526,5 +519,6 @@
         });
     </script>
     {% endif %}
+    {% include 'includes/customer_mobile_nav.html' %}
 </body>
 </html>

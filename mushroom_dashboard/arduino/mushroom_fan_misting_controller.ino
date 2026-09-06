@@ -152,6 +152,7 @@
  */
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <DHT.h>
 #include <Wire.h>
@@ -167,9 +168,9 @@ const char* ssid = "Hi2";           // Replace with your WiFi network name
 const char* password = "kir111104";          // Replace with your WiFi password
 
 // Server settings
-const char* serverUrl = "http://10.109.27.56:8000/api/sensor-data/receive/";
-const char* automationDecisionUrl = "http://10.109.27.56:8000/api/automation-decision/";
-const char* relayCommandUrl = "http://10.109.27.56:8000/api/relay-command/";
+const char* serverUrl = "https://kabutomate-dan-f468.vercel.app/api/sensor-data/receive/";
+const char* automationDecisionUrl = "https://kabutomate-dan-f468.vercel.app/api/automation-decision/";
+const char* relayCommandUrl = "https://kabutomate-dan-f468.vercel.app/api/relay-command/";
 const char* apiKey = "YOUR_API_KEY";  // Optional: Add API key for authentication
 const char* deviceId = "ESP32_FARM_001";
 
@@ -213,6 +214,7 @@ const char* deviceId = "ESP32_FARM_001";
 
 DHT dht(DHTPIN, DHTTYPE);
 BH1750 lightMeter;
+WiFiClientSecure secureClient;
 
 // Timing intervals (milliseconds)
 const unsigned long sensorReadInterval = 5000;    // Read/send sensor data every 5 seconds
@@ -332,6 +334,14 @@ void setup() {
   setRelay(HEATER_RELAY_PIN, false);
   setRelay(LIGHT_RELAY_PIN, false);
   Serial.println("✓ All relays set to OFF");
+  
+  // ===== WIFI AUTO-CONNECT AT POWER ON =====
+  // Runs immediately on boot - no computer or Serial Monitor needed.
+  WiFi.mode(WIFI_STA);          // Station mode: connect to the router
+  WiFi.persistent(false);       // Don't rewrite credentials to flash
+  WiFi.setAutoReconnect(true);  // Automatically reconnect after any drop
+  WiFi.setSleep(false);         // Disable modem sleep for a stable radio link
+  secureClient.setInsecure();   // Hosted API uses HTTPS; certificate validation is omitted
   
   // Connect to WiFi
   connectWiFi();
@@ -650,7 +660,7 @@ void pollAutomationDecision() {
   }
   
   HTTPClient http;
-  http.begin(automationDecisionUrl);
+  http.begin(secureClient, automationDecisionUrl);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-API-Key", apiKey);
   
@@ -819,7 +829,7 @@ void pollRelayCommandLights() {
   }
 
   HTTPClient http;
-  http.begin(relayCommandUrl);
+  http.begin(secureClient, relayCommandUrl);
   http.addHeader("X-API-Key", apiKey);
 
   int httpCode = http.GET();
@@ -939,18 +949,39 @@ void printSensorReadings(float temperature, float humidity, int airQualityRaw, f
 // =============================================================================
 
 void connectWiFi() {
+  // Already connected - nothing to do
+  if (WiFi.status() == WL_CONNECTED) {
+    return;
+  }
+
   Serial.print("Connecting to WiFi: ");
   Serial.println(ssid);
-  
-  WiFi.begin(ssid, password);
-  
+
+  // Phase 1: Wait for the connection started in setup() (up to 30 seconds).
+  // The long window handles slow routers, e.g. when power returns after an
+  // outage and the ESP32 boots faster than the router.
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+  while (WiFi.status() != WL_CONNECTED && attempts < 60) {
     delay(500);
     Serial.print(".");
     attempts++;
   }
-  
+
+  // Phase 2: If still offline, force a fresh association and retry once more.
+  // Calling disconnect() before begin() clears any half-open session so a
+  // retry isn't blocked by the previous failed attempt.
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.disconnect();
+    WiFi.begin(ssid, password);
+
+    attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 60) {
+      delay(500);
+      Serial.print(".");
+      attempts++;
+    }
+  }
+
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n✓ WiFi connected!");
     Serial.print("IP Address: ");
@@ -959,7 +990,7 @@ void connectWiFi() {
     Serial.print(WiFi.RSSI());
     Serial.println(" dBm");
   } else {
-    Serial.println("\n❌ WiFi connection failed!");
+    Serial.println("\n❌ WiFi not connected yet - auto-reconnect will keep trying...");
   }
 }
 
@@ -972,7 +1003,7 @@ void sendSensorData(float temperature, float humidity, float airQuality, float l
   
   Serial.println("\n📡 Sending data to server...");
   
-  http.begin(serverUrl);
+  http.begin(secureClient, serverUrl);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-API-Key", apiKey);
   

@@ -333,6 +333,7 @@
 <body>
     {% include 'includes/page_loader.html' %}
     {% include 'includes/toast_notifications.html' %}
+    {% include 'includes/customer_desktop_nav.html' %}
     {% if sandbox_mode %}
     <div class="sandbox-notice">
         <i class="fa-solid fa-flask"></i>
@@ -422,5 +423,6 @@
             document.getElementById('loadingOverlay').classList.add('active');
         }
     </script>
+    {% include 'includes/customer_mobile_nav.html' %}
 </body>
 </html>

@@ -12,6 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import SensorReading, Product, Sale, ProductionBatch, Notification, EnvironmentSettings, NotificationSettings, UserProfile, Cart, CartItem, CustomerAdminMessage, CustomerAddress, StoreSettings
 from .email_service import send_verification_email, send_email_async, resend_verification_email
 from .notification_service import evaluate_environment_notifications
+from .ai_service import GeminiConfigurationError, GeminiRequestError, ask_gemini
 import json
 from decimal import Decimal, InvalidOperation
 from django.utils import timezone
@@ -449,9 +450,24 @@ def sales_report_export(request):
 def weather_view(request):
     return render(request, 'weather.html')
 
-@admin_required
+@login_required(login_url='login')
 def notifications_view(request):
+    if not request.user.is_staff and not getattr(getattr(request.user, 'profile', None), 'is_admin', False):
+        return render(request, 'customer_notifications.html')
     return render(request, 'notifications.html')
+
+
+def notify_order_customer(order, title, description, level='info'):
+    """Create an in-system customer update without replacing email delivery."""
+    customer = User.objects.filter(email__iexact=order.customer_email).first()
+    if customer and not customer.is_staff and not getattr(getattr(customer, 'profile', None), 'is_admin', False):
+        Notification.objects.create(
+            user=customer,
+            title=title,
+            description=description,
+            category='system',
+            level=level,
+        )
 
 @login_required(login_url='login')
 def profile_view(request):
@@ -928,6 +944,65 @@ def logout_view(request):
         return redirect('login')
 
     return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+
+
+def build_catalog_context():
+    """Create a compact, current product snapshot for the AI assistant."""
+    active_products = Product.objects.filter(is_active=True)
+    available_products = active_products.filter(stock_kg__gt=0)
+    products = list(active_products.order_by('name')[:100])
+    published_count = active_products.count()
+    available_count = available_products.count()
+    out_of_stock_count = active_products.filter(stock_kg__lte=0).count()
+    lines = [
+        'Catalog snapshot (counts are product listings, not individual units):',
+        f'- Published product listings: {published_count}',
+        f'- Currently available in the Shop: {available_count}',
+        f'- Published but out of stock: {out_of_stock_count}',
+        'Product details:',
+    ]
+    for product in products:
+        description = ' '.join(product.description.split())[:300] or 'No description provided.'
+        lines.append(
+            f'- {product.name} | {product.get_product_type_display()} | '
+            f'price: {product.price_per_kg} per {product.unit} | '
+            f'stock: {product.stock_kg} {product.unit} | {description}'
+        )
+    if published_count > len(products):
+        lines.append(f'- Additional product listings not shown: {published_count - len(products)}')
+    return '\n'.join(lines)
+
+
+@login_required(login_url='login')
+@require_http_methods(['POST'])
+def ai_chat_api(request):
+    """Authenticated server-side proxy for the Gemini assistant."""
+    try:
+        data = json.loads(request.body or '{}')
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid chat request.'}, status=400)
+
+    message = str(data.get('message') or '').strip()
+    if not message:
+        return JsonResponse({'success': False, 'error': 'Message is required.'}, status=400)
+    if len(message) > 4000:
+        return JsonResponse({'success': False, 'error': 'Message is too long.'}, status=400)
+
+    is_admin = is_admin_chat_sender(request.user)
+    history = data.get('history') if isinstance(data.get('history'), list) else []
+    try:
+        answer = ask_gemini(
+            message,
+            history=history,
+            audience='admin' if is_admin else 'customer',
+            context=build_catalog_context(),
+        )
+    except GeminiConfigurationError as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=503)
+    except GeminiRequestError as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=502)
+
+    return JsonResponse({'success': True, 'answer': answer})
 
 
 def verify_email(request, token):
@@ -2078,7 +2153,17 @@ def update_customer_profile(request):
 @login_required(login_url='login')
 def notifications_api(request, pk=None):
     if request.method == 'GET':
-        notifications = Notification.objects.filter(is_read=False).order_by('-created_at')
+        is_customer = not request.user.is_staff and not getattr(
+            getattr(request.user, 'profile', None), 'is_admin', False
+        )
+        notifications = (
+            Notification.objects.filter(user=request.user)
+            if is_customer
+            else Notification.objects.filter(is_read=False).filter(
+                Q(user__isnull=True) | Q(user__profile__is_admin=True)
+            )
+        )
+        notifications = notifications.order_by('-created_at')
         now = timezone.now()
         data = []
         for n in notifications:
@@ -2087,12 +2172,22 @@ def notifications_api(request, pk=None):
             elif diff.seconds // 3600 > 0: time_ago = f"{diff.seconds // 3600} hours ago"
             elif diff.seconds // 60 > 0: time_ago = f"{diff.seconds // 60} minutes ago"
             else: time_ago = "Just now"
-            data.append({'id': n.id, 'title': n.title, 'description': n.description, 'category': n.category, 'level': n.level, 'time_ago': time_ago,})
+            data.append({'id': n.id, 'title': n.title, 'description': n.description, 'category': n.category, 'level': n.level, 'is_read': n.is_read, 'time_ago': time_ago,})
         return JsonResponse(data, safe=False)
     
     if request.method == 'POST':
         try:
-            notification = Notification.objects.get(pk=pk)
+            is_customer = not request.user.is_staff and not getattr(
+                getattr(request.user, 'profile', None), 'is_admin', False
+            )
+            notification_queryset = Notification.objects.filter(pk=pk)
+            if is_customer:
+                notification_queryset = notification_queryset.filter(user=request.user)
+            else:
+                notification_queryset = notification_queryset.filter(
+                    Q(user__isnull=True) | Q(user__profile__is_admin=True)
+                )
+            notification = notification_queryset.get()
             notification.is_read = True
             notification.save()
             return JsonResponse({'success': True, 'message': 'Notification marked as read'})
@@ -2106,7 +2201,17 @@ def mark_all_notifications_read(request):
     """Mark all notifications as read"""
     if request.method == 'POST':
         try:
-            updated_count = Notification.objects.filter(is_read=False).update(is_read=True)
+            is_customer = not request.user.is_staff and not getattr(
+                getattr(request.user, 'profile', None), 'is_admin', False
+            )
+            notifications = Notification.objects.filter(is_read=False)
+            if is_customer:
+                notifications = notifications.filter(user=request.user)
+            else:
+                notifications = notifications.filter(
+                    Q(user__isnull=True) | Q(user__profile__is_admin=True)
+                )
+            updated_count = notifications.update(is_read=True)
             return JsonResponse({
                 'success': True, 
                 'message': f'{updated_count} notifications marked as read'

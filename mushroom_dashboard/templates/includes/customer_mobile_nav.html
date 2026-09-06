@@ -1,0 +1,131 @@
+{% if customer_nav_visible %}
+<style>
+    /* Critical shell styles live with the component so the bar cannot fall
+       back to normal document flow when a deployment serves stale static CSS. */
+    .customer-mobile-nav { display: none !important; }
+    @media screen and (min-width: 768px) {
+        .customer-mobile-nav { display: none !important; }
+        body .navbar,
+        body .customer-topbar {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 1000 !important;
+        }
+    }
+    @media screen and (max-width: 767px) {
+        body { padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important; }
+        body .navbar .nav-toggle,
+        body .navbar .nav-hamburger,
+        body .navbar .nav-links { display: none !important; }
+        .customer-mobile-nav {
+            position: fixed !important;
+            z-index: 2147483000 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            display: grid !important;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            height: calc(68px + env(safe-area-inset-bottom));
+            min-height: 68px;
+            padding: 7px 4px calc(7px + env(safe-area-inset-bottom));
+            background: rgba(255, 255, 255, .98);
+            border-top: 1px solid #e2e8f0;
+            box-shadow: 0 -8px 24px rgba(15, 23, 42, .14);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            transform: translate3d(0, 0, 0);
+        }
+        .customer-mobile-nav__item {
+            position: relative;
+            display: flex;
+            min-width: 0;
+            min-height: 54px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 4px 2px;
+            color: #64748b;
+            font: 700 .68rem/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            text-align: center;
+            text-decoration: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .customer-mobile-nav__item.is-active { color: #0c4b33; }
+        .customer-mobile-nav__item.is-active::before {
+            position: absolute;
+            top: -7px;
+            width: 28px;
+            height: 3px;
+            border-radius: 0 0 4px 4px;
+            background: #0c4b33;
+            content: "";
+        }
+        .customer-mobile-nav__icon {
+            position: relative;
+            display: flex;
+            width: 100%;
+            min-height: 25px;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+        }
+        .customer-mobile-nav__badge {
+            position: absolute;
+            top: -6px;
+            left: calc(50% + 7px);
+            display: inline-flex;
+            min-width: 17px;
+            height: 17px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+            border: 2px solid #fff;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #fff;
+            font-size: .61rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .customer-mobile-nav__item > span:last-child {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+</style>
+<nav class="customer-mobile-nav" aria-label="Customer navigation">
+    <a href="{% url 'shop' %}" class="customer-mobile-nav__item {% if request.resolver_match.url_name == 'shop' or request.resolver_match.url_name == 'product_detail' or request.resolver_match.url_name == 'wishlist' %}is-active{% endif %}">
+        <span class="customer-mobile-nav__icon"><i class="fa-solid fa-house"></i></span>
+        <span>Home</span>
+    </a>
+    <a href="{% url 'view_cart' %}" class="customer-mobile-nav__item customer-mobile-nav__item--with-badge {% if request.resolver_match.url_name == 'view_cart' or request.resolver_match.url_name == 'checkout' %}is-active{% endif %}">
+        <span class="customer-mobile-nav__icon">
+            <i class="fa-solid fa-bag-shopping"></i>
+            {% if customer_cart_count %}<span class="customer-mobile-nav__badge customer-mobile-cart-badge">{{ customer_cart_count }}</span>{% endif %}
+        </span>
+        <span>Cart</span>
+    </a>
+    <a href="{% if user.is_authenticated %}{% url 'notifications' %}{% else %}{% url 'login' %}?next={% url 'notifications' %}{% endif %}" class="customer-mobile-nav__item customer-mobile-nav__item--with-badge {% if request.resolver_match.url_name == 'notifications' %}is-active{% endif %}">
+        <span class="customer-mobile-nav__icon">
+            <i class="fa-solid fa-bell"></i>
+            {% if customer_unread_notification_count %}<span class="customer-mobile-nav__badge customer-mobile-notification-badge">{{ customer_unread_notification_count }}</span>{% endif %}
+        </span>
+        <span>Notifications</span>
+    </a>
+    <a href="{% if user.is_authenticated %}{% url 'profile' %}{% else %}{% url 'login' %}?next={% url 'profile' %}{% endif %}" class="customer-mobile-nav__item {% if request.resolver_match.url_name == 'profile' %}is-active{% endif %}">
+        <span class="customer-mobile-nav__icon"><i class="fa-regular fa-user"></i></span>
+        <span>Profile</span>
+    </a>
+    <a href="{% if user.is_authenticated %}{% url 'shop' %}#support{% else %}{% url 'login' %}?next={% url 'shop' %}%23support{% endif %}" class="customer-mobile-nav__item customer-mobile-nav__item--with-badge customer-support-link" data-support-trigger>
+        <span class="customer-mobile-nav__icon">
+            <i class="fa-solid fa-headset"></i>
+            {% if customer_unread_support_count %}<span class="customer-mobile-nav__badge customer-mobile-support-badge">{{ customer_unread_support_count }}</span>{% endif %}
+        </span>
+        <span>Support</span>
+    </a>
+</nav>
+{% endif %}

@@ -1,0 +1,163 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="theme-color" content="#0c4b33">
+    <title>Notifications - KABUTOMATE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
+    <style>
+        :root {
+            --primary: #0c4b33;
+            --primary-light: #1a5e45;
+            --accent: #d4f26b;
+            --bg: #f8fafc;
+            --muted: #64748b;
+            --line: #e2e8f0;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; background: var(--bg); color: #1e293b; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .customer-topbar { display: flex; min-height: 70px; align-items: center; background: #fff; border-bottom: 1px solid var(--line); }
+        .customer-topbar__inner { display: flex; width: min(1120px, calc(100% - 32px)); margin: 0 auto; align-items: center; justify-content: space-between; gap: 20px; }
+        .customer-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--primary); font-size: 1.05rem; font-weight: 800; letter-spacing: -.02em; text-decoration: none; }
+        .customer-brand img { width: 32px; height: 32px; object-fit: contain; border-radius: 9px; background: var(--primary); }
+        .customer-topbar__links { display: flex; align-items: center; gap: 22px; }
+        .customer-topbar__links a { color: #475569; font-size: .86rem; font-weight: 700; text-decoration: none; }
+        .customer-topbar__links a:hover, .customer-topbar__links a.is-active { color: var(--primary); }
+        .customer-notifications-page { width: min(760px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0 32px; }
+        .customer-notifications-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+        .eyebrow { margin: 0 0 6px; color: var(--primary); font-size: .75rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+        h1 { margin: 0; font-size: clamp(1.65rem, 5vw, 2.2rem); }
+        .subtitle { margin: 7px 0 0; color: var(--muted); font-size: .92rem; }
+        .mark-all { border: 1px solid var(--line); border-radius: 999px; padding: 10px 14px; background: #fff; color: var(--primary); cursor: pointer; font-weight: 700; white-space: nowrap; }
+        .mark-all:disabled { opacity: .45; cursor: default; }
+        .notification-list { display: grid; gap: 12px; }
+        .notification-card { display: flex; align-items: flex-start; gap: 14px; padding: 17px; border: 1px solid var(--line); border-radius: 17px; background: #fff; box-shadow: 0 5px 20px rgba(15, 23, 42, .04); }
+        .notification-card.is-read { opacity: .68; }
+        .notification-icon { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; border-radius: 13px; background: #e9f5ee; color: var(--primary); }
+        .notification-card.warning .notification-icon { background: #fff7ed; color: #c2410c; }
+        .notification-card.success .notification-icon { background: #f0fdf4; color: #15803d; }
+        .notification-content { min-width: 0; flex: 1; }
+        .notification-title { margin: 0 0 4px; font-size: .98rem; font-weight: 800; overflow-wrap: anywhere; }
+        .notification-description { margin: 0 0 8px; color: var(--muted); font-size: .87rem; line-height: 1.5; overflow-wrap: anywhere; }
+        .notification-time { color: #94a3b8; font-size: .75rem; }
+        .mark-read { flex: 0 0 38px; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: var(--primary); cursor: pointer; }
+        .empty-state { padding: 58px 20px; border: 1px dashed #cbd5e1; border-radius: 20px; background: #fff; color: var(--muted); text-align: center; }
+        .empty-state i { display: block; margin-bottom: 14px; color: var(--primary); font-size: 2.3rem; }
+        .empty-state h2 { margin: 0 0 6px; color: #1e293b; font-size: 1.15rem; }
+        .empty-state p { margin: 0; font-size: .88rem; }
+        @media (max-width: 480px) {
+            .customer-topbar { min-height: 58px; }
+            .customer-topbar__inner { width: calc(100% - 24px); }
+            .customer-topbar__links { display: none; }
+            .customer-notifications-page { width: min(100% - 24px, 760px); padding-top: 25px; }
+            .customer-notifications-header { align-items: flex-start; flex-direction: column; }
+            .mark-all { width: 100%; }
+            .notification-card { padding: 14px; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+    {% include 'includes/customer_desktop_nav.html' %}
+    <main class="customer-notifications-page">
+        <header class="customer-notifications-header">
+            <div>
+                <p class="eyebrow">KabutoMate updates</p>
+                <h1>Notifications</h1>
+                <p class="subtitle">Order progress, payment updates, and account messages in one place.</p>
+            </div>
+            <button class="mark-all" id="markAllReadBtn" type="button"><i class="fa-solid fa-check-double"></i> Mark all read</button>
+        </header>
+        <section class="notification-list" id="notification-list" aria-live="polite">
+            <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>Loading updates...</p></div>
+        </section>
+    </main>
+
+    {% include 'includes/customer_mobile_nav.html' %}
+
+    <script>
+        const csrfToken = document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
+        const list = document.getElementById('notification-list');
+        const markAllButton = document.getElementById('markAllReadBtn');
+        let notifications = [];
+
+        function notificationIcon(notification) {
+            if (notification.level === 'warning') return 'fa-triangle-exclamation';
+            if (notification.level === 'success') return 'fa-circle-check';
+            return notification.title.toLowerCase().includes('order') ? 'fa-box' : 'fa-circle-info';
+        }
+
+        function renderNotifications() {
+            const unreadCount = notifications.filter(notification => !notification.is_read).length;
+            document.querySelectorAll('.customer-mobile-notification-badge').forEach(badge => {
+                badge.textContent = unreadCount;
+                badge.hidden = unreadCount === 0;
+            });
+            if (!notifications.length) {
+                list.innerHTML = '<div class="empty-state"><i class="fa-regular fa-bell-slash"></i><h2>You are all caught up</h2><p>New order and account updates will appear here.</p></div>';
+                markAllButton.disabled = true;
+                return;
+            }
+            markAllButton.disabled = !notifications.some(notification => !notification.is_read);
+            list.innerHTML = notifications.map(notification => `
+                <article class="notification-card ${notification.level || 'info'} ${notification.is_read ? 'is-read' : ''}" data-id="${notification.id}">
+                    <div class="notification-icon"><i class="fa-solid ${notificationIcon(notification)}"></i></div>
+                    <div class="notification-content">
+                        <h2 class="notification-title">${escapeHtml(notification.title)}</h2>
+                        <p class="notification-description">${escapeHtml(notification.description)}</p>
+                        <time class="notification-time">${escapeHtml(notification.time_ago)}</time>
+                    </div>
+                    ${notification.is_read ? '' : `<button class="mark-read" type="button" data-id="${notification.id}" aria-label="Mark notification as read"><i class="fa-solid fa-check"></i></button>`}
+                </article>`).join('');
+        }
+
+        function escapeHtml(value) {
+            const element = document.createElement('div');
+            element.textContent = value || '';
+            return element.innerHTML;
+        }
+
+        async function loadNotifications() {
+            try {
+                const response = await fetch('/api/notifications/');
+                if (!response.ok) throw new Error('Unable to load notifications');
+                notifications = await response.json();
+                renderNotifications();
+            } catch (error) {
+                list.innerHTML = '<div class="empty-state"><i class="fa-solid fa-circle-exclamation"></i><h2>Updates unavailable</h2><p>Please try again in a moment.</p></div>';
+            }
+        }
+
+        async function markRead(id) {
+            const response = await fetch(`/api/notifications/${id}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+            if (!response.ok) throw new Error('Unable to update notification');
+            notifications = notifications.map(notification => notification.id === id ? { ...notification, is_read: true } : notification);
+            renderNotifications();
+        }
+
+        list.addEventListener('click', event => {
+            const button = event.target.closest('.mark-read');
+            if (button) markRead(Number(button.dataset.id)).catch(() => showToast('Could not mark this update as read.', 'error'));
+        });
+
+        markAllButton.addEventListener('click', async () => {
+            markAllButton.disabled = true;
+            try {
+                const response = await fetch('/api/notifications/mark-all-read/', { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+                if (!response.ok) throw new Error('Unable to update notifications');
+                notifications = notifications.map(notification => ({ ...notification, is_read: true }));
+                renderNotifications();
+            } catch (error) {
+                markAllButton.disabled = false;
+                showToast('Could not mark notifications as read.', 'error');
+            }
+        });
+
+        loadNotifications();
+    </script>
+</body>
+</html>

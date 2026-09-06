@@ -141,6 +141,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.customer_navigation',
             ],
         },
     },
@@ -276,6 +277,10 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'Mushroom Farm <{EMAIL_HOS
 
 # Admin email for order notifications
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', EMAIL_HOST_USER)
+
+# Gemini AI assistant. Keep this key server-side and never place it in a template.
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.6-flash').strip() or 'gemini-3.6-flash'
 
 # Site URL for building absolute URLs in emails
 SITE_URL = os.getenv('SITE_URL', 'http://localhost:8000')

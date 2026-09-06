@@ -128,6 +128,7 @@ urlpatterns = [
     path('api/store-settings/', views.store_settings_api, name='store-settings-api'),
     path('api/chat/customer/', views.customer_chat_api, name='customer-chat-api'),
     path('api/chat/admin/', views.admin_chat_api, name='admin-chat-api'),
+    path('api/ai/chat/', views.ai_chat_api, name='ai-chat-api'),
     path('api/customer/order-tracking/', views.customer_order_tracking_api, name='customer-order-tracking-api'),
     
     path('api/notifications/', views.notifications_api, name='notifications-api'),

@@ -16,7 +16,7 @@ from decimal import Decimal, InvalidOperation
 import os
 import logging
 from .models import Product, Sale, Order, OrderItem, Cart, CartItem, Notification, CustomerAddress
-from .views import admin_required  # Import the admin_required decorator
+from .views import admin_required, notify_order_customer  # Import the admin_required decorator
 from .email_service import (
     send_new_order_admin_notification, 
     send_order_confirmation_email, 
@@ -737,6 +737,14 @@ def process_checkout(request, cart, cart_items, total):
         payment_proof_image=payment_proof_image if payment_method == 'GCASH' else None,
         status='PENDING_VERIFICATION' if payment_method == 'GCASH' else 'PENDING'
     )
+
+    if request.user.is_authenticated:
+        notify_order_customer(
+            order,
+            'Order placed successfully',
+            f'Order {order.order_number} was received and is ready for processing.',
+            'success',
+        )
     
     # Create OrderItems and Sales
     for cart_item in cart_items:
@@ -1138,6 +1146,12 @@ def update_order_status(request, order_id):
         # Send email notification to customer if status changed
         if status_changed:
             send_email_async(send_order_status_email, order, old_status)
+            notify_order_customer(
+                order,
+                f'Order status: {order.get_status_display()}',
+                f'Order {order.order_number} is now {order.get_status_display()}.',
+                'success' if order.status == 'DELIVERED' else 'info',
+            )
         
         messages.success(request, f'Order {order.order_number} updated successfully')
         
@@ -1202,6 +1216,12 @@ def verify_manual_gcash_payment(request, order_id):
 
     if old_status != order.status:
         send_email_async(send_order_status_email, order, old_status)
+        notify_order_customer(
+            order,
+            'Payment verification updated',
+            f'Your payment for order {order.order_number} was {"approved" if action == "approve" else "rejected"}.',
+            'success' if action == 'approve' else 'warning',
+        )
 
     messages.success(request, success_message)
     return redirect('manage_orders')
@@ -1732,6 +1752,14 @@ def cancel_order(request, order_number):
     
     # Send cancellation confirmation email
     send_email_async(send_order_cancellation_email, order, refund_result)
+    notify_order_customer(
+        order,
+        'Order cancelled',
+        f'Order {order.order_number} was cancelled successfully.' + (
+            ' Your refund is being processed.' if refund_result and refund_result['success'] else ''
+        ),
+        'warning',
+    )
     
     if refund_result and refund_result['success']:
         messages.success(request, f'Order cancelled successfully. Refund of ₱{refund_result["refund_amount"]} is being processed.')

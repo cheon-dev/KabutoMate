@@ -72,6 +72,21 @@
         }
         .nav-links a:hover { color: var(--primary); }
 
+        .mobile-profile-logout {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px solid #fecaca;
+            border-radius: 999px;
+            padding: 0.7rem 1.2rem;
+            background: #fff;
+            color: #dc2626;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
         /* --- Main Container --- */
         .container {
             max-width: 1000px;
@@ -1345,6 +1360,14 @@
                 width: 100%;
             }
         }
+
+        @media (max-width: 767px) {
+            .mobile-profile-logout {
+                display: inline-flex;
+                width: 100%;
+                min-height: 44px;
+            }
+        }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
     <link rel="stylesheet" href="{% static 'css/address-selector.css' %}">
@@ -1372,23 +1395,7 @@
         </div>
     </div>
 
-    <nav class="navbar">
-        <div class="logo-section">
-            <div class="logo-circle">
-                <img src="{% static 'images/Screenshot_2025-11-01_124726-removebg-preview.png' %}" style="width: 30px;" alt="Logo">
-            </div>
-            <span class="brand-name">KABUTOMATE</span>
-        </div>
-        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-            <i class="fa-solid fa-bars"></i>
-        </button>
-        <div class="nav-links" id="navLinks">
-            <a href="{% url 'shop' %}"><i class="fa-solid fa-store"></i> Shop</a>
-            <a href="{% url 'view_cart' %}"><i class="fa-solid fa-basket-shopping"></i> Cart</a>
-            <a href="{% url 'profile' %}" style="color: var(--primary);"><i class="fa-solid fa-user"></i> Profile</a>
-            <a href="#" id="logout-link" style="color: #ef4444;"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-        </div>
-    </nav>
+    {% include 'includes/customer_desktop_nav.html' %}
 
     <div class="container">
         <div class="profile-header">
@@ -1411,6 +1418,9 @@
                     {% endif %}
                 </div>
             </div>
+            <button type="button" class="mobile-profile-logout" id="mobile-logout-link">
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
+            </button>
         </div>
 
         <div class="card">
@@ -1817,16 +1827,17 @@
     <script>
         // Logout confirmation
         const logoutLink = document.getElementById('logout-link');
+        const mobileLogoutLink = document.getElementById('mobile-logout-link');
         const logoutModal = document.getElementById('logoutModal');
         const cancelLogout = document.getElementById('cancelLogout');
         const confirmLogout = document.getElementById('confirmLogout');
         
-        if (logoutLink) {
-            logoutLink.addEventListener('click', function(e) {
+        [logoutLink, mobileLogoutLink].filter(Boolean).forEach(logoutTrigger => {
+            logoutTrigger.addEventListener('click', function(e) {
                 e.preventDefault();
                 logoutModal.classList.add('show');
             });
-        }
+        });
         
         if (cancelLogout) {
             cancelLogout.addEventListener('click', function() {
@@ -1836,27 +1847,8 @@
         
         if (confirmLogout) {
             confirmLogout.addEventListener('click', function() {
-                const csrfToken = document.cookie
-                    .split('; ')
-                    .find(row => row.startsWith('csrftoken='))
-                    ?.split('=')[1];
-                
-                fetch('{% url "logout" %}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = data.redirect_url;
-                    }
-                })
-                .catch(error => {
-                    console.error('Logout error:', error);
-                });
+                // The logout view supports normal browser navigation and redirects to login.
+                window.location.href = '{% url "logout" %}';
             });
         }
         
@@ -2892,33 +2884,6 @@
             if (event.target === addressModal) addressModal.classList.remove('show');
         });
 
-        // Mobile Navigation Toggle
-        const navToggle = document.getElementById('navToggle');
-        const navLinks = document.getElementById('navLinks');
-        
-        if (navToggle && navLinks) {
-            navToggle.addEventListener('click', function() {
-                navLinks.classList.toggle('active');
-                const icon = this.querySelector('i');
-                if (navLinks.classList.contains('active')) {
-                    icon.classList.remove('fa-bars');
-                    icon.classList.add('fa-xmark');
-                } else {
-                    icon.classList.remove('fa-xmark');
-                    icon.classList.add('fa-bars');
-                }
-            });
-            
-            // Close mobile nav when clicking a link
-            navLinks.querySelectorAll('a').forEach(link => {
-                link.addEventListener('click', function() {
-                    navLinks.classList.remove('active');
-                    navToggle.querySelector('i').classList.remove('fa-xmark');
-                    navToggle.querySelector('i').classList.add('fa-bars');
-                });
-            });
-        }
-
         // Order status tabs (To Pay / To Ship / Completed / To Review)
         const orderTabButtons = document.querySelectorAll('.order-tab-btn');
         const orderCards = document.querySelectorAll('.order-card[data-order-status]');
@@ -3179,5 +3144,6 @@
         </div>
     </div>
 
+    {% include 'includes/customer_mobile_nav.html' %}
 </body>
 </html>

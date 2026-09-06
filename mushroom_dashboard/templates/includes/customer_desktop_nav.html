@@ -1,0 +1,145 @@
+{% load static %}
+<style>
+    .customer-shared-navbar {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.25rem;
+    }
+    .customer-shared-navbar .logo-section {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 12px;
+    }
+    .customer-shared-navbar .logo-circle {
+        display: flex;
+        width: 45px;
+        height: 45px;
+        flex: 0 0 45px;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border-radius: 12px;
+        background: var(--primary, #0c4b33);
+    }
+    .customer-shared-navbar .logo-circle img {
+        display: block;
+        width: 30px;
+        height: 30px;
+        max-width: none;
+        object-fit: contain;
+    }
+    .customer-shared-navbar .brand-name {
+        min-width: 0;
+        overflow: hidden;
+        color: var(--primary, #0c4b33);
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: -.02em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .customer-shared-navbar .customer-shared-nav-links {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: clamp(.8rem, 1.8vw, 2rem);
+        min-width: 0;
+    }
+    .customer-shared-navbar .customer-shared-nav-links a {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--text-main, #1e293b);
+        font-size: .9rem;
+        font-weight: 700;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .customer-shared-navbar .customer-shared-nav-links a:hover,
+    .customer-shared-navbar .customer-shared-nav-links a.is-active {
+        color: var(--primary, #0c4b33);
+    }
+    .customer-shared-navbar .customer-shared-nav-links .customer-desktop-badge {
+        position: absolute;
+        top: -10px;
+        right: -12px;
+        display: inline-flex;
+        min-width: 17px;
+        height: 17px;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        border: 2px solid #fff;
+        border-radius: 999px;
+        background: #ef4444;
+        color: #fff;
+        font-size: .6rem;
+        line-height: 1;
+    }
+    .customer-shared-logout { color: #dc2626 !important; }
+    @media screen and (max-width: 1100px) and (min-width: 768px) {
+        .customer-shared-navbar .customer-shared-nav-links { gap: .75rem; }
+        .customer-shared-navbar .customer-shared-nav-links a { font-size: .78rem; }
+        .customer-shared-navbar .customer-shared-nav-links a span { display: none; }
+    }
+    @media screen and (max-width: 767px) {
+        .customer-shared-navbar { flex-wrap: wrap; height: auto !important; min-height: 58px; }
+        .customer-shared-navbar .customer-shared-nav-links { display: none !important; }
+        .customer-shared-navbar .header-search { display: block; flex: 0 0 100%; order: 3; max-width: none; margin: 0; }
+        .customer-shared-navbar .logo-circle { width: 38px; height: 38px; flex-basis: 38px; }
+        .customer-shared-navbar .logo-circle img { width: 25px; height: 25px; }
+        .customer-shared-navbar .brand-name { font-size: 1.1rem; }
+    }
+</style>
+<nav class="navbar customer-shared-navbar">
+    <div class="logo-section">
+        <div class="logo-circle">
+            <img src="{% static 'images/Screenshot_2025-11-01_124726-removebg-preview.png' %}" alt="KabutoMate logo">
+        </div>
+        <span class="brand-name">KABUTOMATE</span>
+    </div>
+
+    {% if show_search %}
+    <div class="header-search">
+        <i class="fa-solid fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Search products..." autocomplete="off">
+    </div>
+    {% endif %}
+
+    <div class="nav-links customer-shared-nav-links" id="navLinks">
+        <a href="{% url 'shop' %}" class="{% if request.resolver_match.url_name == 'shop' or request.resolver_match.url_name == 'product_detail' %}is-active{% endif %}">
+            <i class="fa-solid fa-store"></i><span>Shop</span>
+        </a>
+        <a href="{% url 'view_cart' %}" class="{% if request.resolver_match.url_name == 'view_cart' or request.resolver_match.url_name == 'checkout' %}is-active{% endif %}">
+            <i class="fa-solid fa-bag-shopping"></i><span>Cart</span>
+            {% if customer_cart_count %}<b class="customer-desktop-badge">{{ customer_cart_count }}</b>{% endif %}
+        </a>
+        <a href="{% if user.is_authenticated %}{% url 'notifications' %}{% else %}{% url 'login' %}?next={% url 'notifications' %}{% endif %}" class="{% if request.resolver_match.url_name == 'notifications' %}is-active{% endif %}">
+            <i class="fa-solid fa-bell"></i><span>Notifications</span>
+            {% if customer_unread_notification_count %}<b class="customer-desktop-badge">{{ customer_unread_notification_count }}</b>{% endif %}
+        </a>
+        <a href="{% if user.is_authenticated %}{% url 'profile' %}{% else %}{% url 'login' %}?next={% url 'profile' %}{% endif %}" class="{% if request.resolver_match.url_name == 'profile' %}is-active{% endif %}">
+            <i class="fa-regular fa-user"></i><span>Profile</span>
+        </a>
+        {% if not customer_nav_visible %}
+        <a href="{% url 'dashboard' %}"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></a>
+        {% endif %}
+        {% if customer_nav_visible %}
+        <a href="{% if user.is_authenticated %}{% url 'shop' %}#support{% else %}{% url 'login' %}?next={% url 'shop' %}%23support{% endif %}" data-support-trigger>
+            <i class="fa-solid fa-headset"></i><span>Support</span>
+            {% if customer_unread_support_count %}<b class="customer-desktop-badge">{{ customer_unread_support_count }}</b>{% endif %}
+        </a>
+        {% endif %}
+        {% if user.is_authenticated %}
+        <a href="{% url 'logout' %}" id="logout-link" class="customer-shared-logout">
+            <i class="fa-solid fa-right-from-bracket"></i><span>Logout</span>
+        </a>
+        {% else %}
+        <a href="{% url 'login' %}"><i class="fa-solid fa-right-to-bracket"></i><span>Login</span></a>
+        {% endif %}
+    </div>
+</nav>

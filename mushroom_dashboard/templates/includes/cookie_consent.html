@@ -1,0 +1,16 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/cookie-consent.css' %}">
+<div id="cookie-consent" class="cookie-consent" role="dialog" aria-labelledby="cookie-consent-title" aria-describedby="cookie-consent-description" hidden>
+    <div class="cookie-consent__copy">
+        <span class="cookie-consent__icon" aria-hidden="true">&#127812;</span>
+        <div>
+            <h2 id="cookie-consent-title">Cookies on KabutoMate</h2>
+            <p id="cookie-consent-description">We use cookies to keep you signed in and help KabutoMate work smoothly. Essential cookies are always enabled.</p>
+        </div>
+    </div>
+    <div class="cookie-consent__actions">
+        <button type="button" class="cookie-consent__reject" data-cookie-consent-reject>Reject Non-Essential Cookies</button>
+        <button type="button" class="cookie-consent__accept" data-cookie-consent-accept>Accept All Cookies</button>
+    </div>
+</div>
+<script src="{% static 'js/cookie-consent.js' %}"></script>

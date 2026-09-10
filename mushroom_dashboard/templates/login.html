@@ -252,34 +252,8 @@
         .forgot-link:hover { opacity: 0.75; }
 
         .login-options {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
             margin-top: -12px;
             margin-bottom: 20px;
-        }
-
-        .remember-me {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.55rem;
-            min-height: 44px;
-            color: #64748b;
-            font-size: 0.82rem;
-            cursor: pointer;
-        }
-
-        .remember-me input {
-            width: 18px;
-            height: 18px;
-            margin: 0;
-            accent-color: var(--primary-green);
-            cursor: pointer;
-        }
-
-        .login-options .forgot-link {
-            margin: 0;
         }
 
         /* Login button */
@@ -647,8 +621,6 @@
             .header-text h1 { font-size: 1.4rem; }
             .form-group input { padding: 11px 12px 11px 38px; font-size: 0.9rem; }
             .login-btn { padding: 13px; font-size: 0.9rem; }
-            .login-options { align-items: flex-start; gap: 0.5rem; }
-            .remember-me { font-size: 0.78rem; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -718,10 +690,6 @@
                 </div>
 
                 <div class="login-options">
-                    <label class="remember-me" for="remember_me">
-                        <input type="checkbox" id="remember_me" name="remember_me">
-                        <span>Remember Me</span>
-                    </label>
                     <a href="{% url 'password_reset' %}" class="forgot-link">Forgot password?</a>
                 </div>
 
@@ -840,8 +808,7 @@
                             username: identifier,
                             email: identifier,
                             identifier,
-                            password,
-                            remember_me: document.getElementById("remember_me").checked
+                            password
                         })
                     });
 
@@ -865,5 +832,6 @@
             });
         });
     </script>
+    {% include 'includes/cookie_consent.html' %}
 </body>
 </html>

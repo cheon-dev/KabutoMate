@@ -8,7 +8,7 @@ from django.db import models, transaction
 from django.db.models import Sum, Count, F, Q, DecimalField, Avg, DateField
 from django.db.models.functions import Coalesce, TruncMonth, Cast
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from .models import SensorReading, Product, Sale, ProductionBatch, Notification, EnvironmentSettings, NotificationSettings, UserProfile, Cart, CartItem, CustomerAdminMessage, CustomerAddress, StoreSettings
 from .email_service import send_verification_email, send_email_async, resend_verification_email
 from .notification_service import evaluate_environment_notifications
@@ -735,7 +735,7 @@ def _authenticate_user_by_identifier(request, identifier, password):
     return None
 
 
-@csrf_exempt
+@ensure_csrf_cookie
 def login_view(request):
     if request.method == 'POST':
         try:
@@ -761,9 +761,6 @@ def login_view(request):
                 pass
             
             login(request, user)
-            request.session.set_expiry(
-                settings.REMEMBER_ME_SESSION_AGE if data.get('remember_me') is True else 0
-            )
             
             # Merge session cart into user cart
             try:

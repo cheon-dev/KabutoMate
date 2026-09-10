@@ -4,26 +4,6 @@
 {% block title %}{% if form.errors %}{% translate "Error:" %} {% endif %}{{ block.super }}{% endblock %}
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static "admin/css/login.css" %}">
 {{ form.media }}
-<style>
-    #login-form .remember-me-row {
-        display: flex;
-        align-items: center;
-        gap: 0.55rem;
-    }
-
-    #login-form .remember-me-row input {
-        width: 18px;
-        height: 18px;
-        accent-color: #417690;
-    }
-
-    #login-form .remember-me-row label {
-        float: none;
-        width: auto;
-        padding: 0;
-        line-height: 1.4;
-    }
-</style>
 {% endblock %}
 
 {% block bodyclass %}{{ block.super }} login{% endblock %}
@@ -66,9 +46,6 @@
     {{ form.password.label_tag }} {{ form.password }}
     <input type="hidden" name="next" value="{{ next }}">
   </div>
-  <div class="form-row remember-me-row">
-    {{ form.remember_me }} {{ form.remember_me.label_tag }}
-  </div>
   {% url 'admin_password_reset' as password_reset_url %}
   {% if password_reset_url %}
   <div class="password-reset-link">
@@ -80,4 +57,5 @@
   </div>
 </form>
 </div>
+{% include 'includes/cookie_consent.html' %}
 {% endblock %}

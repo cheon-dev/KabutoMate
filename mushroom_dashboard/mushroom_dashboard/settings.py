@@ -93,8 +93,9 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 
-# Session policy used when a user explicitly chooses Remember Me.
-REMEMBER_ME_SESSION_AGE = 30 * 24 * 60 * 60
+# Keep authenticated sessions across browser restarts, subject to this security policy.
+SESSION_COOKIE_AGE = 30 * 24 * 60 * 60
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = not DEBUG
@@ -249,9 +250,6 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Session Configuration - Logout when browser closes
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_COOKIE_AGE = 43200  # 12 hours as backup
 SESSION_SAVE_EVERY_REQUEST = True  # Update session expiry on each request
 
 # Session Security

@@ -13,6 +13,7 @@ from .models import SensorReading, Product, Sale, ProductionBatch, Notification,
 from .email_service import send_verification_email, send_email_async, resend_verification_email
 from .notification_service import evaluate_environment_notifications
 from .ai_service import GeminiConfigurationError, GeminiRequestError, ask_gemini
+from .ai_context import build_ai_context
 import json
 from decimal import Decimal, InvalidOperation
 from django.utils import timezone
@@ -943,33 +944,6 @@ def logout_view(request):
     return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
 
 
-def build_catalog_context():
-    """Create a compact, current product snapshot for the AI assistant."""
-    active_products = Product.objects.filter(is_active=True)
-    available_products = active_products.filter(stock_kg__gt=0)
-    products = list(active_products.order_by('name')[:100])
-    published_count = active_products.count()
-    available_count = available_products.count()
-    out_of_stock_count = active_products.filter(stock_kg__lte=0).count()
-    lines = [
-        'Catalog snapshot (counts are product listings, not individual units):',
-        f'- Published product listings: {published_count}',
-        f'- Currently available in the Shop: {available_count}',
-        f'- Published but out of stock: {out_of_stock_count}',
-        'Product details:',
-    ]
-    for product in products:
-        description = ' '.join(product.description.split())[:300] or 'No description provided.'
-        lines.append(
-            f'- {product.name} | {product.get_product_type_display()} | '
-            f'price: {product.price_per_kg} per {product.unit} | '
-            f'stock: {product.stock_kg} {product.unit} | {description}'
-        )
-    if published_count > len(products):
-        lines.append(f'- Additional product listings not shown: {published_count - len(products)}')
-    return '\n'.join(lines)
-
-
 @login_required(login_url='login')
 @require_http_methods(['POST'])
 def ai_chat_api(request):
@@ -992,7 +966,7 @@ def ai_chat_api(request):
             message,
             history=history,
             audience='admin' if is_admin else 'customer',
-            context=build_catalog_context(),
+            context=build_ai_context(request.user, is_admin=is_admin),
         )
     except GeminiConfigurationError as exc:
         return JsonResponse({'success': False, 'error': str(exc)}, status=503)
@@ -2217,7 +2191,7 @@ def mark_all_notifications_read(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
     return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
             
-@login_required(login_url='login')
+@admin_required
 def environment_api(request):
     settings_obj = EnvironmentSettings.load()
     notification_settings = NotificationSettings.load()
@@ -2225,6 +2199,39 @@ def environment_api(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
+
+            if any(field in data for field in ('wifi_ssid', 'wifi_password', 'wifi_password_changed')):
+                wifi_ssid = str(data.get('wifi_ssid') or '').strip()
+                wifi_password_changed = bool(data.get('wifi_password_changed'))
+                wifi_password = str(data.get('wifi_password') or '')
+                if not wifi_ssid or len(wifi_ssid) > 32:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Wi-Fi SSID is required and must be 32 characters or fewer.',
+                    }, status=400)
+                if len(wifi_password) > 63:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Wi-Fi password must be 63 characters or fewer.',
+                    }, status=400)
+                if wifi_password and len(wifi_password) < 8:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Wi-Fi passwords must contain at least 8 characters.',
+                    }, status=400)
+                if wifi_password_changed:
+                    settings_obj.set_wifi_credentials(wifi_ssid, wifi_password)
+                elif settings_obj.wifi_ssid != wifi_ssid:
+                    if not settings_obj.wifi_ssid:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Enter a Wi-Fi password or select open network for the first setup.',
+                        }, status=400)
+                    settings_obj.set_wifi_credentials(
+                        wifi_ssid,
+                        settings_obj.get_wifi_password(),
+                    )
+
             # Control settings
             settings_obj.fan_on = data.get('fan_on', settings_obj.fan_on)
             settings_obj.fan_auto = data.get('fan_auto', settings_obj.fan_auto)
@@ -2389,6 +2396,13 @@ def environment_api(request):
             'recipient_emails': notification_settings.recipient_emails,
             'alert_cooldown_minutes': notification_settings.alert_cooldown_minutes,
             'recovery_email_enabled': notification_settings.recovery_email_enabled,
+        },
+        'wifi': {
+            'ssid': settings_obj.wifi_ssid,
+            'configured': bool(settings_obj.wifi_ssid and settings_obj.wifi_password_encrypted),
+            'version': settings_obj.wifi_credentials_version,
+            'updated_at': settings_obj.wifi_credentials_updated_at.isoformat()
+            if settings_obj.wifi_credentials_updated_at else None,
         },
         'recommendations': recommendations,
         'ml_predictions': predictions  # Include predictions in response

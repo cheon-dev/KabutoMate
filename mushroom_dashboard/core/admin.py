@@ -102,7 +102,12 @@ class SensorReadingAdmin(admin.ModelAdmin):
 admin.site.register(Sale)
 admin.site.register(ProductionBatch)
 admin.site.register(Notification)
-admin.site.register(EnvironmentSettings)
+@admin.register(EnvironmentSettings)
+class EnvironmentSettingsAdmin(admin.ModelAdmin):
+    # Wi-Fi passwords are managed by the dedicated environment page and should
+    # never be displayed, even as encrypted ciphertext, in Django admin.
+    exclude = ('wifi_password_encrypted',)
+    readonly_fields = ('wifi_credentials_version', 'wifi_credentials_updated_at')
 admin.site.register(DiseaseDetection)
 admin.site.register(ProductReview)
 admin.site.register(Wishlist)

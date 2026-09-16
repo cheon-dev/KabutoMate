@@ -7,13 +7,28 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from django.conf import settings
 from decimal import Decimal
+import hmac
 import json
-from .models import SensorReading, Notification
+from .models import EnvironmentSettings, SensorReading, Notification
 from .notification_service import evaluate_environment_notifications
 
 # Optional: Add your API key here for basic authentication
-API_KEY = None  # Change this to a secure key
+def _device_key_error(request, required=False):
+    """Return an error response when a device API key is missing or invalid."""
+    expected = getattr(settings, 'ESP32_API_KEY', '').strip()
+    provided = request.headers.get('X-API-Key', '')
+    if not expected:
+        if required:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'ESP32 device authentication is not configured.',
+            }, status=503)
+        return None
+    if not hmac.compare_digest(provided, expected):
+        return JsonResponse({'status': 'error', 'message': 'Invalid device API key.'}, status=401)
+    return None
 
 
 @csrf_exempt  # Exempt from CSRF for external devices
@@ -30,13 +45,9 @@ def receive_sensor_data(request):
     }
     """
     try:
-        # Optional: Check API key for authentication
-        api_key = request.headers.get('X-API-Key')
-        if API_KEY and api_key != API_KEY:
-            return JsonResponse({
-                'status': 'error',
-                'message': 'Invalid API key'
-            }, status=401)
+        auth_error = _device_key_error(request)
+        if auth_error:
+            return auth_error
         
         # Parse JSON data
         data = json.loads(request.body)
@@ -223,6 +234,9 @@ def get_control_states(request):
     }
     """
     try:
+        auth_error = _device_key_error(request)
+        if auth_error:
+            return auth_error
         from .models import EnvironmentSettings
         settings = EnvironmentSettings.load()
         
@@ -250,6 +264,43 @@ def get_control_states(request):
 
 
 @csrf_exempt
+@require_http_methods(["GET"])
+def get_wifi_config(request):
+    """Return a newly configured Wi-Fi profile to an authenticated ESP32."""
+    auth_error = _device_key_error(request, required=True)
+    if auth_error:
+        return auth_error
+
+    try:
+        requested_version = int(request.GET.get('version', 0))
+    except (TypeError, ValueError):
+        requested_version = 0
+
+    try:
+        wifi_settings = EnvironmentSettings.load()
+        version = wifi_settings.wifi_credentials_version
+        configured = bool(wifi_settings.wifi_ssid and wifi_settings.wifi_password_encrypted)
+        credentials_changed = configured and requested_version < version
+        response = {
+            'status': 'success',
+            'configured': configured,
+            'credentials_changed': credentials_changed,
+            'version': version,
+        }
+        if credentials_changed:
+            response.update({
+                'ssid': wifi_settings.wifi_ssid,
+                'password': wifi_settings.get_wifi_password(),
+            })
+        return JsonResponse(response)
+    except Exception as exc:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Unable to read Wi-Fi configuration: {exc}',
+        }, status=500)
+
+
+@csrf_exempt
 @require_http_methods(["POST"])
 def confirm_control_action(request):
     """
@@ -264,6 +315,9 @@ def confirm_control_action(request):
     }
     """
     try:
+        auth_error = _device_key_error(request)
+        if auth_error:
+            return auth_error
         data = json.loads(request.body)
         device_id = data.get('device_id', 'ESP32_001')
         action = data.get('action', 'UNKNOWN')
@@ -342,6 +396,9 @@ def get_automation_decision(request):
     }
     """
     try:
+        auth_error = _device_key_error(request)
+        if auth_error:
+            return auth_error
         from .models import EnvironmentSettings, SensorReading, AutomationLog
         
         settings = EnvironmentSettings.load()
@@ -587,6 +644,9 @@ def get_relay_command(request):
     }
     """
     try:
+        auth_error = _device_key_error(request)
+        if auth_error:
+            return auth_error
         from .models import EnvironmentSettings
         settings = EnvironmentSettings.load()
         

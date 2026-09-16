@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import base64
+import hashlib
 import os
 
 import dj_database_url
@@ -275,6 +277,16 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'Mushroom Farm <{EMAIL_HOS
 
 # Admin email for order notifications
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', EMAIL_HOST_USER)
+
+# ESP32 device authentication and encrypted Wi-Fi provisioning.
+ESP32_API_KEY = os.getenv('ESP32_API_KEY', '').strip()
+ESP32_WIFI_ENCRYPTION_KEY = os.getenv('ESP32_WIFI_ENCRYPTION_KEY', '').strip()
+if not ESP32_WIFI_ENCRYPTION_KEY:
+    # Keep local setup usable while allowing production deployments to provide
+    # a dedicated stable key through the environment.
+    ESP32_WIFI_ENCRYPTION_KEY = base64.urlsafe_b64encode(
+        hashlib.sha256(f'{SECRET_KEY}:esp32-wifi'.encode()).digest()
+    ).decode()
 
 # Gemini AI assistant. Keep this key server-side and never place it in a template.
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()

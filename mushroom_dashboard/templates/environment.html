@@ -830,6 +830,35 @@
             </div>
         </div>
 
+        <div class="card ai-recommendations" style="margin-top: 20px;">
+            <h3><i class="fa-solid fa-wifi"></i> ESP32 Wi-Fi Connection</h3>
+            <p style="margin: 8px 0 14px; color: #4b5563;">
+                Update the network used by the ESP32 without uploading the firmware again.
+                The device must be online so it can receive the new credentials.
+            </p>
+            <div style="display: grid; gap: 14px; max-width: 620px;">
+                <div>
+                    <label for="wifi-ssid" style="display: block; margin-bottom: 6px; font-weight: 600;">Wi-Fi network name (SSID)</label>
+                    <input id="wifi-ssid" type="text" maxlength="32" autocomplete="off" placeholder="Your Wi-Fi network" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #d1d5db;">
+                </div>
+                <div>
+                    <label for="wifi-password" style="display: block; margin-bottom: 6px; font-weight: 600;">New Wi-Fi password</label>
+                    <input id="wifi-password" type="password" maxlength="63" autocomplete="new-password" placeholder="Leave blank to keep the current password" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #d1d5db;">
+                </div>
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 600;">
+                    <input type="checkbox" id="wifi-open-network">
+                    This is an open network with no password
+                </label>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <button type="button" id="save-wifi-settings" class="btn btn-primary">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Wi-Fi Credentials
+                    </button>
+                    <span id="wifi-status" style="color: #6b7280; font-size: 0.9em;">Loading Wi-Fi status...</span>
+                </div>
+                <small style="color: #6b7280;">For first-time setup, connect to the ESP32 access point named <strong>KabutoMate-Setup</strong> and enter the network there.</small>
+            </div>
+        </div>
+
         <div class="card ai-recommendations">
             <h3><i class="fa-solid fa-brain"></i> AI Recommendations</h3>
             <ul id="ai-recommendation-list">
@@ -955,6 +984,7 @@
                 const settings = data.settings;
                 const notificationSettings = data.notification_settings || {};
                 const recommendations = data.recommendations;
+                const wifi = data.wifi || {};
                 
                 // Set all controls
                 controls.fan_on.checked = settings.fan_on;
@@ -981,6 +1011,13 @@
                 controls.notification_recipients.value = notificationSettings.recipient_emails || '';
                 controls.alert_cooldown_minutes.value = notificationSettings.alert_cooldown_minutes || 60;
                 controls.recovery_email_enabled.checked = notificationSettings.recovery_email_enabled !== false;
+
+                document.getElementById('wifi-ssid').value = wifi.ssid || '';
+                document.getElementById('wifi-password').value = '';
+                document.getElementById('wifi-open-network').checked = false;
+                document.getElementById('wifi-status').textContent = wifi.configured
+                    ? `Configured for ${wifi.ssid}. Version ${wifi.version}.`
+                    : 'No Wi-Fi credentials configured yet.';
 
                 // Populate AI Recommendations
                 aiList.innerHTML = ''; 
@@ -1116,6 +1153,48 @@
                 console.error("Failed to save settings:", error);
             }
         }
+
+        async function saveWifiSettings() {
+            const ssid = document.getElementById('wifi-ssid').value.trim();
+            const password = document.getElementById('wifi-password').value;
+            const openNetwork = document.getElementById('wifi-open-network').checked;
+            const status = document.getElementById('wifi-status');
+            if (!ssid) {
+                showToast('Enter a Wi-Fi network name first.', 'error');
+                return;
+            }
+            if (openNetwork && password) {
+                showToast('Remove the password or uncheck open network.', 'error');
+                return;
+            }
+            status.textContent = 'Saving credentials...';
+            try {
+                const response = await fetch('/api/environment/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        wifi_ssid: ssid,
+                        wifi_password: password,
+                        wifi_password_changed: openNetwork || Boolean(password)
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Unable to save Wi-Fi credentials.');
+                }
+                document.getElementById('wifi-password').value = '';
+                status.textContent = 'Saved. The ESP32 will apply the change on its next poll.';
+                showToast('ESP32 Wi-Fi credentials updated.', 'success');
+            } catch (error) {
+                status.textContent = error.message;
+                showToast(error.message, 'error');
+            }
+        }
+
+        document.getElementById('save-wifi-settings').addEventListener('click', saveWifiSettings);
         
         // --- 3. Link Sliders to their Text Display ---
         function linkSlider(slider, display, unit) {

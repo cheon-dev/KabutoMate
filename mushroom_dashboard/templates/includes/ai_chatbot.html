@@ -99,6 +99,14 @@
         overflow-wrap: anywhere;
     }
 
+    .ai-chatbot-message strong {
+        font-weight: 700;
+    }
+
+    .ai-chatbot-message em {
+        font-style: italic;
+    }
+
     .ai-chatbot-message.assistant {
         align-self: flex-start;
         border: 1px solid #e0ebe5;
@@ -233,10 +241,31 @@
         function addMessage(type, text) {
             const message = document.createElement('div');
             message.className = `ai-chatbot-message ${type}`;
-            message.textContent = text;
+            if (type === 'assistant') {
+                message.innerHTML = formatAssistantMarkdown(text);
+            } else {
+                message.textContent = text;
+            }
             messages.appendChild(message);
             messages.scrollTop = messages.scrollHeight;
             return message;
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function formatAssistantMarkdown(text) {
+            return escapeHtml(text)
+                .replace(/\*\*\*(.+?)\*\*\*/gs, '<strong><em>$1</em></strong>')
+                .replace(/___(.+?)___/gs, '<strong><em>$1</em></strong>')
+                .replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>')
+                .replace(/__(.+?)__/gs, '<strong>$1</strong>');
         }
 
         launcher.addEventListener('click', () => setOpen(panel.hidden));

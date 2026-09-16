@@ -26,17 +26,24 @@ def ask_gemini(message, history=None, audience='customer', context=''):
         'You are KabutoMate AI, a helpful assistant inside a mushroom farm and '
         'e-commerce dashboard. Be concise, practical, and honest. Do not claim '
         'to have performed an action or know live data unless it is provided in '
-        'the conversation. '
+        'the conversation. Use the live application snapshot as the source of '
+        'truth for product, stock, sales, order, production, sensor, and store '
+        'questions. Distinguish current values from historical totals. If the '
+        'snapshot does not contain the answer, say that the data is unavailable '
+        'instead of guessing. Return a complete answer and do not stop mid-sentence. '
     )
     if audience == 'admin':
         system_prompt += (
             'The user is an administrator. Focus on farm operations, sensors, '
-            'production, inventory, orders, sales, and dashboard guidance.'
+            'production, inventory, orders, sales, and dashboard guidance. The '
+            'admin snapshot may include business metrics and operational records; '
+            'use those records for accurate calculations.'
         )
     else:
         system_prompt += (
             'The user is a customer. Focus on products, shopping, orders, '
-            'payments, delivery, account help, and support guidance.'
+            'payments, delivery, account help, and support guidance. Do not reveal '
+            'admin-only inventory, customer, operational, or business metrics.'
         )
     if context:
         system_prompt += (
@@ -66,7 +73,7 @@ def ask_gemini(message, history=None, audience='customer', context=''):
         'contents': contents,
         'generationConfig': {
             'temperature': 0.4,
-            'maxOutputTokens': 700,
+            'maxOutputTokens': 2048,
         },
     }
 

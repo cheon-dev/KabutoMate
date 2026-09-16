@@ -99,6 +99,7 @@ urlpatterns = [
     # ESP32 Control State Endpoints (for relay control)
     path('api/control-states/', sensor_api.get_control_states, name='control-states'),
     path('api/control-confirm/', sensor_api.confirm_control_action, name='control-confirm'),
+    path('api/device/wifi-config/', sensor_api.get_wifi_config, name='device-wifi-config'),
     
     # Automation Decision Endpoints (core automation logic)
     path('api/automation-decision/', sensor_api.get_automation_decision, name='automation-decision'),

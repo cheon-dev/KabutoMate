@@ -2200,38 +2200,6 @@ def environment_api(request):
         try:
             data = json.loads(request.body)
 
-            if any(field in data for field in ('wifi_ssid', 'wifi_password', 'wifi_password_changed')):
-                wifi_ssid = str(data.get('wifi_ssid') or '').strip()
-                wifi_password_changed = bool(data.get('wifi_password_changed'))
-                wifi_password = str(data.get('wifi_password') or '')
-                if not wifi_ssid or len(wifi_ssid) > 32:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Wi-Fi SSID is required and must be 32 characters or fewer.',
-                    }, status=400)
-                if len(wifi_password) > 63:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Wi-Fi password must be 63 characters or fewer.',
-                    }, status=400)
-                if wifi_password and len(wifi_password) < 8:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Wi-Fi passwords must contain at least 8 characters.',
-                    }, status=400)
-                if wifi_password_changed:
-                    settings_obj.set_wifi_credentials(wifi_ssid, wifi_password)
-                elif settings_obj.wifi_ssid != wifi_ssid:
-                    if not settings_obj.wifi_ssid:
-                        return JsonResponse({
-                            'success': False,
-                            'error': 'Enter a Wi-Fi password or select open network for the first setup.',
-                        }, status=400)
-                    settings_obj.set_wifi_credentials(
-                        wifi_ssid,
-                        settings_obj.get_wifi_password(),
-                    )
-
             # Control settings
             settings_obj.fan_on = data.get('fan_on', settings_obj.fan_on)
             settings_obj.fan_auto = data.get('fan_auto', settings_obj.fan_auto)
@@ -2396,13 +2364,6 @@ def environment_api(request):
             'recipient_emails': notification_settings.recipient_emails,
             'alert_cooldown_minutes': notification_settings.alert_cooldown_minutes,
             'recovery_email_enabled': notification_settings.recovery_email_enabled,
-        },
-        'wifi': {
-            'ssid': settings_obj.wifi_ssid,
-            'configured': bool(settings_obj.wifi_ssid and settings_obj.wifi_password_encrypted),
-            'version': settings_obj.wifi_credentials_version,
-            'updated_at': settings_obj.wifi_credentials_updated_at.isoformat()
-            if settings_obj.wifi_credentials_updated_at else None,
         },
         'recommendations': recommendations,
         'ml_predictions': predictions  # Include predictions in response

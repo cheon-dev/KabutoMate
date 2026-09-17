@@ -161,20 +161,21 @@
 #include <Wire.h>
 #include <BH1750.h>
 #include <ArduinoJson.h>  // Install via Library Manager: "ArduinoJson" by Benoit Blanchon
-#include <Preferences.h>   // Included with the ESP32 Arduino core
-#include <WebServer.h>     // Included with the ESP32 Arduino core
 #include <string.h>
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
 
+// WiFi credentials
+const char* ssid = "YOUR_WIFI_SSID";       // Replace with your WiFi network name
+const char* password = "YOUR_WIFI_PASSWORD"; // Replace with your WiFi password
+
 // Server settings
 const char* serverUrl = "https://kabutomate-dan-f468.vercel.app/api/sensor-data/receive/";
 const char* automationDecisionUrl = "https://kabutomate-dan-f468.vercel.app/api/automation-decision/";
 const char* relayCommandUrl = "https://kabutomate-dan-f468.vercel.app/api/relay-command/";
-const char* wifiConfigUrl = "https://kabutomate-dan-f468.vercel.app/api/device/wifi-config/";
-const char* apiKey = "SET_THE_SAME_VALUE_AS_ESP32_API_KEY";
+const char* apiKey = "YOUR_API_KEY";  // Replace with the dashboard API key
 const char* deviceId = "ESP32_FARM_001";
 
 // =============================================================================
@@ -220,27 +221,14 @@ const char* deviceId = "ESP32_FARM_001";
 DHT dht(DHTPIN, DHTTYPE);
 BH1750 lightMeter;
 WiFiClientSecure secureClient;
-Preferences wifiPreferences;
-WebServer setupServer(80);
-
-String wifiSsid;
-String wifiPassword;
-unsigned long wifiCredentialsVersion = 0;
-bool setupPortalActive = false;
-
-void loadWiFiCredentials();
-void startSetupPortal();
-void pollWiFiConfiguration();
 void connectWiFi();
 
 // Timing intervals (milliseconds)
 const unsigned long sensorReadInterval = 5000;    // Read/send sensor data every 5 seconds
 const unsigned long automationPollInterval = 3000; // Poll automation decision every 3 seconds
-const unsigned long wifiConfigPollInterval = 15000; // Check admin Wi-Fi changes every 15 seconds
-const unsigned long wifiReconnectInterval = 30000; // Retry saved Wi-Fi after outages
+const unsigned long wifiReconnectInterval = 30000; // Retry hardcoded Wi-Fi after outages
 unsigned long lastSensorReadTime = 0;
 unsigned long lastAutomationPollTime = 0;
-unsigned long lastWifiConfigPollTime = 0;
 unsigned long lastWifiReconnectTime = 0;
 unsigned long lastServerResponse = 0;        // Watchdog timer for heater safety
 unsigned long lastHeaterStateChange = 0;      // Prevent rapid heater cycling
@@ -361,25 +349,16 @@ void setup() {
   Serial.println("✓ All relays set to OFF");
   
   // ===== WIFI AUTO-CONNECT AT POWER ON =====
-  // Credentials are provisioned through the local setup AP or the admin UI,
-  // then kept in ESP32 NVS so they are not compiled into the firmware.
-  wifiPreferences.begin("wifi", false);
-  loadWiFiCredentials();
-  WiFi.persistent(false);       // Keep Wi-Fi credentials under Preferences control
+  WiFi.persistent(false);       // Wi-Fi credentials are defined in this firmware
   WiFi.setAutoReconnect(true);  // Automatically reconnect after any drop
   WiFi.setSleep(false);         // Disable modem sleep for a stable radio link
   secureClient.setInsecure();   // Hosted API uses HTTPS; certificate validation is omitted
 
-  if (wifiSsid.length() == 0) {
-    startSetupPortal();
-  } else {
-    WiFi.mode(WIFI_STA);        // Station mode: connect to the router
-    WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
-    connectWiFi();
-    if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("Saved Wi-Fi is unavailable; the ESP32 will keep retrying.");
-      Serial.println("Send 'WIFI RESET' through Serial Monitor to reconfigure Wi-Fi.");
-    }
+  WiFi.mode(WIFI_STA);        // Station mode: connect to the router
+  WiFi.begin(ssid, password);
+  connectWiFi();
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Hardcoded Wi-Fi is unavailable; the ESP32 will keep retrying.");
   }
   
   // Initialize watchdog timer
@@ -401,12 +380,6 @@ void setup() {
 void loop() {
   unsigned long currentTime = millis();
 
-  if (setupPortalActive) {
-    setupServer.handleClient();
-    delay(2);
-    return;
-  }
-  
   // Task 0: Process Serial commands for manual heater testing
   processSerialCommands();
   
@@ -488,12 +461,6 @@ void loop() {
     lastAutomationPollTime = currentTime;
     pollAutomationDecision();
     pollRelayCommandLights();
-  }
-
-  // Task 2.5: Apply a new Wi-Fi profile saved from the admin page.
-  if (currentTime - lastWifiConfigPollTime >= wifiConfigPollInterval) {
-    lastWifiConfigPollTime = currentTime;
-    pollWiFiConfiguration();
   }
 
   if (WiFi.status() != WL_CONNECTED &&
@@ -608,7 +575,6 @@ void setHeaterStateWithOverride(bool newState, const char* reason, bool bypassSo
 //   HEATER TEST OFF  - Force heater OFF
 //   HEATER AUTO      - Return to automatic mode
 //   HEATER STATUS    - Show current heater status
-//   WIFI RESET       - Clear saved Wi-Fi and start setup access point
 //   HELP             - Show available commands
 
 void processSerialCommands() {
@@ -644,14 +610,6 @@ void processSerialCommands() {
     } else if (command == "HEATER STATUS") {
       printHeaterStatus();
 
-    } else if (command == "WIFI RESET") {
-      Serial.println("\nClearing saved Wi-Fi credentials and restarting setup portal...");
-      wifiPreferences.clear();
-      wifiSsid = "";
-      wifiPassword = "";
-      wifiCredentialsVersion = 0;
-      startSetupPortal();
-      
     } else if (command == "HELP" || command == "?") {
       printHelpCommands();
       
@@ -697,7 +655,6 @@ void printHelpCommands() {
   Serial.println("  HEATER TEST OFF - Force heater OFF (test mode)");
   Serial.println("  HEATER AUTO     - Return to automatic mode");
   Serial.println("  HEATER STATUS   - Show heater status");
-  Serial.println("  WIFI RESET      - Clear saved Wi-Fi and open setup portal");
   Serial.println("  HELP            - Show this help");
   Serial.println("");
   Serial.println("⚠️  Test mode auto-disables after 60 seconds");
@@ -1019,123 +976,6 @@ void printSensorReadings(float temperature, float humidity, int airQualityRaw, f
 // WIFI CONNECTION
 // =============================================================================
 
-void loadWiFiCredentials() {
-  wifiSsid = wifiPreferences.getString("ssid", "");
-  wifiPassword = wifiPreferences.getString("password", "");
-  wifiCredentialsVersion = wifiPreferences.getULong("version", 0);
-  Serial.print("Saved Wi-Fi profile: ");
-  Serial.println(wifiSsid.length() > 0 ? wifiSsid : "none");
-}
-
-void handleSetupPage() {
-  const char* html = R"rawliteral(
-<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>KabutoMate ESP32 Setup</title></head><body style="font-family:Arial;max-width:420px;margin:40px auto;padding:0 18px">
-<h2>KabutoMate ESP32 Wi-Fi Setup</h2>
-<p>Enter the Wi-Fi network that provides internet access to the dashboard.</p>
-<form method="post" action="/save">
-<label>Wi-Fi name (SSID)<br><input name="ssid" maxlength="32" required style="width:100%;padding:10px;margin:6px 0 14px"></label>
-<label>Password (leave empty for an open network)<br><input name="password" type="password" maxlength="63" style="width:100%;padding:10px;margin:6px 0 14px"></label>
-<button type="submit" style="padding:11px 18px">Save and connect</button>
-</form></body></html>)rawliteral";
-  setupServer.send(200, "text/html", html);
-}
-
-void handleSetupSave() {
-  String newSsid = setupServer.arg("ssid");
-  String newPassword = setupServer.arg("password");
-  newSsid.trim();
-  if (newSsid.length() == 0 || newSsid.length() > 32 || newPassword.length() > 63) {
-    setupServer.send(400, "text/plain", "Invalid Wi-Fi credentials.");
-    return;
-  }
-
-  wifiPreferences.putString("ssid", newSsid);
-  wifiPreferences.putString("password", newPassword);
-  wifiPreferences.putULong("version", 0);
-  setupServer.send(200, "text/html", "<h3>Saved. The ESP32 is restarting...</h3>");
-  delay(1000);
-  ESP.restart();
-}
-
-void startSetupPortal() {
-  if (setupPortalActive) {
-    return;
-  }
-  setupPortalActive = true;
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP("KabutoMate-Setup");
-  setupServer.on("/", HTTP_GET, handleSetupPage);
-  setupServer.on("/save", HTTP_POST, handleSetupSave);
-  setupServer.begin();
-  Serial.println("\nWi-Fi setup portal started.");
-  Serial.println("Connect to 'KabutoMate-Setup', then open http://192.168.4.1");
-}
-
-bool tryWiFiCredentials(const String& newSsid, const String& newPassword) {
-  String oldSsid = wifiSsid;
-  String oldPassword = wifiPassword;
-  Serial.print("Testing new Wi-Fi network: ");
-  Serial.println(newSsid);
-
-  WiFi.disconnect();
-  delay(250);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(newSsid.c_str(), newPassword.c_str());
-
-  unsigned long startedAt = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - startedAt < 20000) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nNew Wi-Fi network connected.");
-    return true;
-  }
-
-  Serial.println("\nNew Wi-Fi credentials failed; restoring the previous profile.");
-  WiFi.disconnect();
-  if (oldSsid.length() > 0) {
-    WiFi.begin(oldSsid.c_str(), oldPassword.c_str());
-  }
-  return false;
-}
-
-void pollWiFiConfiguration() {
-  if (WiFi.status() != WL_CONNECTED || strlen(apiKey) == 0 || strstr(apiKey, "SET_THE_SAME") != NULL) {
-    return;
-  }
-
-  HTTPClient http;
-  String url = String(wifiConfigUrl) + "?device_id=" + deviceId + "&version=" + String(wifiCredentialsVersion);
-  http.begin(secureClient, url);
-  http.addHeader("X-API-Key", apiKey);
-  int httpCode = http.GET();
-
-  if (httpCode == 200) {
-    String response = http.getString();
-    StaticJsonDocument<768> responseDoc;
-    DeserializationError error = deserializeJson(responseDoc, response);
-    if (!error && responseDoc["credentials_changed"] == true) {
-      String newSsid = responseDoc["ssid"].as<String>();
-      String newPassword = responseDoc["password"].as<String>();
-      unsigned long newVersion = responseDoc["version"] | wifiCredentialsVersion;
-      if (newSsid.length() > 0 && tryWiFiCredentials(newSsid, newPassword)) {
-        wifiSsid = newSsid;
-        wifiPassword = newPassword;
-        wifiCredentialsVersion = newVersion;
-        wifiPreferences.putString("ssid", wifiSsid);
-        wifiPreferences.putString("password", wifiPassword);
-        wifiPreferences.putULong("version", wifiCredentialsVersion);
-        Serial.print("Applied Wi-Fi profile version ");
-        Serial.println(wifiCredentialsVersion);
-      }
-    }
-  }
-  http.end();
-}
-
 void connectWiFi() {
   // Already connected - nothing to do
   if (WiFi.status() == WL_CONNECTED) {
@@ -1143,7 +983,7 @@ void connectWiFi() {
   }
 
   Serial.print("Connecting to WiFi: ");
-  Serial.println(wifiSsid);
+  Serial.println(ssid);
 
   // Phase 1: Wait for the connection started in setup() (up to 30 seconds).
   // The long window handles slow routers, e.g. when power returns after an
@@ -1160,7 +1000,7 @@ void connectWiFi() {
   // retry isn't blocked by the previous failed attempt.
   if (WiFi.status() != WL_CONNECTED) {
     WiFi.disconnect();
-    WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+    WiFi.begin(ssid, password);
 
     attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 60) {

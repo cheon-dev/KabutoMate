@@ -7,8 +7,6 @@ from django.dispatch import receiver
 from datetime import date
 import os
 import uuid
-from cryptography.fernet import Fernet
-from django.conf import settings
 
 
 # User Profile for role-based access control
@@ -502,12 +500,6 @@ class EnvironmentSettings(models.Model):
     # Timestamp for last automation action
     last_automation_update = models.DateTimeField(auto_now=True)
 
-    # ESP32 Wi-Fi provisioning. The password is encrypted before it is stored.
-    wifi_ssid = models.CharField(max_length=32, blank=True, default='')
-    wifi_password_encrypted = models.TextField(blank=True, default='')
-    wifi_credentials_version = models.PositiveIntegerField(default=0)
-    wifi_credentials_updated_at = models.DateTimeField(null=True, blank=True)
-
     def save(self, *args, **kwargs):
         self.pk = 1 
         super(EnvironmentSettings, self).save(*args, **kwargs)
@@ -520,28 +512,6 @@ class EnvironmentSettings(models.Model):
         obj, created = cls.objects.get_or_create(pk=1)
         return obj
 
-    def _wifi_cipher(self):
-        key = getattr(settings, 'ESP32_WIFI_ENCRYPTION_KEY', '')
-        if not key:
-            raise ValueError('ESP32 Wi-Fi encryption is not configured.')
-        return Fernet(key.encode())
-
-    def get_wifi_password(self):
-        if not self.wifi_password_encrypted:
-            return ''
-        return self._wifi_cipher().decrypt(
-            self.wifi_password_encrypted.encode()
-        ).decode()
-
-    def set_wifi_credentials(self, ssid, password):
-        """Encrypt and version new device credentials for ESP32 polling."""
-        self.wifi_ssid = ssid
-        self.wifi_password_encrypted = self._wifi_cipher().encrypt(
-            password.encode()
-        ).decode()
-        self.wifi_credentials_version += 1
-        self.wifi_credentials_updated_at = timezone.now()
-    
     def get_automation_decision(self, temperature, humidity, air_quality_ppm=None):
         """
         Determines what actions should be taken based on sensor readings and target values.

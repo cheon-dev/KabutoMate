@@ -264,43 +264,6 @@ def get_control_states(request):
 
 
 @csrf_exempt
-@require_http_methods(["GET"])
-def get_wifi_config(request):
-    """Return a newly configured Wi-Fi profile to an authenticated ESP32."""
-    auth_error = _device_key_error(request, required=True)
-    if auth_error:
-        return auth_error
-
-    try:
-        requested_version = int(request.GET.get('version', 0))
-    except (TypeError, ValueError):
-        requested_version = 0
-
-    try:
-        wifi_settings = EnvironmentSettings.load()
-        version = wifi_settings.wifi_credentials_version
-        configured = bool(wifi_settings.wifi_ssid and wifi_settings.wifi_password_encrypted)
-        credentials_changed = configured and requested_version < version
-        response = {
-            'status': 'success',
-            'configured': configured,
-            'credentials_changed': credentials_changed,
-            'version': version,
-        }
-        if credentials_changed:
-            response.update({
-                'ssid': wifi_settings.wifi_ssid,
-                'password': wifi_settings.get_wifi_password(),
-            })
-        return JsonResponse(response)
-    except Exception as exc:
-        return JsonResponse({
-            'status': 'error',
-            'message': f'Unable to read Wi-Fi configuration: {exc}',
-        }, status=500)
-
-
-@csrf_exempt
 @require_http_methods(["POST"])
 def confirm_control_action(request):
     """

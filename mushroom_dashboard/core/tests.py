@@ -8,7 +8,7 @@ from django.test import Client, TestCase, override_settings
 
 from .ai_service import ask_gemini
 from .ai_context import build_ai_context
-from .models import EnvironmentSettings, Order, OrderItem, Product, Sale
+from .models import Order, OrderItem, Product, Sale
 
 
 class LoginAuthenticationTests(TestCase):
@@ -131,56 +131,3 @@ class AIContextTests(TestCase):
         self.assertIn('ADMIN INVENTORY SUMMARY', context)
         self.assertIn('SALES SUMMARY', context)
         self.assertIn('ORDER AND PAYMENT SUMMARY', context)
-
-
-class ESP32WiFiProvisioningTests(TestCase):
-    def test_only_an_admin_can_update_wifi_credentials(self):
-        User = get_user_model()
-        admin = User.objects.create_user(
-            username='wifi-admin',
-            email='wifi-admin@example.com',
-            password='StrongPass123!',
-        )
-        admin.profile.role = 'ADMIN'
-        admin.profile.save(update_fields=['role'])
-        self.client.force_login(admin)
-
-        response = self.client.post(
-            '/api/environment/',
-            data=json.dumps({
-                'wifi_ssid': 'AdminNetwork',
-                'wifi_password': 'admin-password',
-                'wifi_password_changed': True,
-            }),
-            content_type='application/json',
-        )
-
-        self.assertEqual(response.status_code, 200)
-        wifi_settings = EnvironmentSettings.load()
-        self.assertEqual(wifi_settings.wifi_ssid, 'AdminNetwork')
-        self.assertEqual(wifi_settings.get_wifi_password(), 'admin-password')
-
-    @override_settings(ESP32_API_KEY='test-device-key')
-    def test_device_receives_new_credentials_only_with_device_key(self):
-        wifi_settings = EnvironmentSettings.load()
-        wifi_settings.set_wifi_credentials('FarmNetwork', 'correct-password')
-        wifi_settings.save()
-
-        unauthorized = self.client.get('/api/device/wifi-config/?version=0')
-        self.assertEqual(unauthorized.status_code, 401)
-
-        response = self.client.get(
-            f'/api/device/wifi-config/?version=0',
-            HTTP_X_API_KEY='test-device-key',
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['ssid'], 'FarmNetwork')
-        self.assertEqual(response.json()['password'], 'correct-password')
-
-        unchanged = self.client.get(
-            f'/api/device/wifi-config/?version={wifi_settings.wifi_credentials_version}',
-            HTTP_X_API_KEY='test-device-key',
-        )
-        self.assertFalse(unchanged.json()['credentials_changed'])
-        self.assertNotIn('password', unchanged.json())
-        self.assertNotIn('correct-password', wifi_settings.wifi_password_encrypted)

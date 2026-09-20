@@ -157,8 +157,16 @@ WSGI_APPLICATION = 'mushroom_dashboard.wsgi.application'
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 if DATABASE_URL:
+    # Reuse the database connection between requests when the hosting worker
+    # stays warm. This avoids paying the connection setup cost for every API call.
+    db_conn_max_age = int(os.getenv('DB_CONN_MAX_AGE', '60'))
     DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=0, ssl_require=True),
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=db_conn_max_age,
+            conn_health_checks=True,
+            ssl_require=True,
+        ),
     }
 else:
     DATABASES = {

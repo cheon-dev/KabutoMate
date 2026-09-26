@@ -216,12 +216,26 @@ body {
 
 /* Toggle button position when sidebar is collapsed */
 .sidebar.collapsed .sidebar-toggle {
-    right: 50%;
-    transform: translateX(50%);
+    position: fixed;
+    top: 84px;
+    left: calc(var(--sidebar-collapsed-width) - 18px);
+    right: auto;
+    width: 34px;
+    height: 34px;
+    background: var(--primary-dark);
+    border-color: var(--accent-light);
+    transform: none;
+}
+
+body.sidebar-collapsed .sidebar.collapsed .sidebar-toggle {
+    position: fixed !important;
+    top: 84px !important;
+    left: calc(var(--sidebar-collapsed-width) - 18px) !important;
+    right: auto !important;
 }
 
 .sidebar.collapsed .sidebar-toggle:hover {
-    transform: translateX(50%) scale(1.1);
+    transform: scale(1.1);
 }
 
 .sidebar-toggle i {

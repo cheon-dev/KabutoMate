@@ -28,6 +28,7 @@ from urllib.parse import urlparse
 from django.contrib.auth import views as auth_views
 from .yield_model import calculate_predicted_yield as calculate_history_predicted_yield
 from .philippine_locations import get_locations
+from .shipping import calculate_shipping_fee
 
 
 # Helper function to merge session cart into user cart
@@ -513,7 +514,8 @@ def profile_view(request):
             store_settings = StoreSettings.load()
             addresses = list(CustomerAddress.objects.filter(user=request.user))
             for address in addresses:
-                fee, distance, message = store_settings.calculate_shipping_fee(
+                fee, distance, message = calculate_shipping_fee(
+                    store_settings,
                     address.latitude, address.longitude, 0
                 )
                 address.is_valid_for_delivery = fee is not None
@@ -2083,7 +2085,8 @@ def update_customer_profile(request):
                     'success': False,
                     'error': 'Please pin the address on the map before saving it.',
                 }, status=400)
-            fee, _, _ = StoreSettings.load().calculate_shipping_fee(
+            fee, _, _ = calculate_shipping_fee(
+                StoreSettings.load(),
                 profile.latitude, profile.longitude, 0
             )
             if fee is None:
@@ -2131,7 +2134,10 @@ def notifications_api(request, pk=None):
             Notification.objects.filter(user=request.user)
             if is_customer
             else Notification.objects.filter(is_read=False).filter(
-                Q(user__isnull=True) | Q(user__profile__is_admin=True)
+                Q(user__isnull=True)
+                | Q(user__profile__role='ADMIN')
+                | Q(user__is_staff=True)
+                | Q(user__is_superuser=True)
             )
         )
         notifications = notifications.order_by('-created_at')
@@ -2156,7 +2162,10 @@ def notifications_api(request, pk=None):
                 notification_queryset = notification_queryset.filter(user=request.user)
             else:
                 notification_queryset = notification_queryset.filter(
-                    Q(user__isnull=True) | Q(user__profile__is_admin=True)
+                    Q(user__isnull=True)
+                    | Q(user__profile__role='ADMIN')
+                    | Q(user__is_staff=True)
+                    | Q(user__is_superuser=True)
                 )
             notification = notification_queryset.get()
             notification.is_read = True
@@ -2180,7 +2189,10 @@ def mark_all_notifications_read(request):
                 notifications = notifications.filter(user=request.user)
             else:
                 notifications = notifications.filter(
-                    Q(user__isnull=True) | Q(user__profile__is_admin=True)
+                    Q(user__isnull=True)
+                    | Q(user__profile__role='ADMIN')
+                    | Q(user__is_staff=True)
+                    | Q(user__is_superuser=True)
                 )
             updated_count = notifications.update(is_read=True)
             return JsonResponse({

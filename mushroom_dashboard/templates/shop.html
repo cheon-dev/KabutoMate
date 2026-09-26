@@ -331,10 +331,12 @@
         }
 
         .stock-urgency {
-            position: absolute; top: 10px; left: 10px;
+            position: absolute; top: 44px; left: 10px;
             background: #ef4444; color: white;
             padding: 4px 10px; border-radius: 8px;
             font-size: 0.7rem; font-weight: 700; z-index: 10;
+            max-width: calc(100% - 20px);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
 
         .product-emoji { font-size: 4rem; }
@@ -1458,7 +1460,10 @@
                     } else {
                         if (categoryDropdown) categoryDropdown.value = "";
                         if (productTypeDropdown) productTypeDropdown.value = "";
-                        if (categoryDropdown) categoryDropdown.dispatchEvent(new Event('change'));
+                        // The category select is not rendered in the sidebar; the
+                        // product-type select owns the category filtering state.
+                        const resetControl = productTypeDropdown || categoryDropdown;
+                        if (resetControl) resetControl.dispatchEvent(new Event('change'));
                     }
                 });
             });

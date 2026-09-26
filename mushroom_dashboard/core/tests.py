@@ -8,7 +8,8 @@ from django.test import Client, TestCase, override_settings
 
 from .ai_service import ask_gemini
 from .ai_context import build_ai_context
-from .models import Order, OrderItem, Product, Sale
+from .models import Notification, Order, OrderItem, Product, Sale, StoreSettings
+from .shipping import calculate_shipping_fee
 
 
 class LoginAuthenticationTests(TestCase):
@@ -40,6 +41,55 @@ class LoginAuthenticationTests(TestCase):
         self.assertEqual(self.client.session.get_expiry_age(), settings.SESSION_COOKIE_AGE)
         self.assertFalse(self.client.session.get_expire_at_browser_close())
         self.assertTrue(user.is_authenticated)
+
+
+class NotificationApiTests(TestCase):
+    def test_admin_can_load_notifications(self):
+        User = get_user_model()
+        admin = User.objects.create_user(
+            username='notification-admin',
+            password='StrongPass123!',
+        )
+        admin.profile.role = 'ADMIN'
+        admin.profile.save()
+        notification = Notification.objects.create(
+            title='System alert',
+            description='A system alert for the admin.',
+            category='system',
+            level='warning',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get('/api/notifications/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()[0]['id'], notification.id)
+
+
+class ShippingDistanceTests(TestCase):
+    @patch('core.shipping.requests.get')
+    def test_shipping_uses_road_distance_when_routing_is_available(self, get):
+        store_settings = StoreSettings.objects.create(
+            store_latitude=Decimal('14.5995'),
+            store_longitude=Decimal('120.9842'),
+            minimum_base_distance_km=Decimal('3.00'),
+            minimum_base_fee=Decimal('20.00'),
+            fee_per_km=Decimal('10.00'),
+        )
+        response = Mock()
+        response.json.return_value = {
+            'routes': [{'distance': 10000}],
+        }
+        get.return_value = response
+
+        _, distance, _ = calculate_shipping_fee(
+            store_settings,
+            Decimal('14.6500'),
+            Decimal('121.0500'),
+        )
+
+        self.assertEqual(distance, 10.0)
+        get.assert_called_once()
 
 
 class GeminiServiceTests(TestCase):

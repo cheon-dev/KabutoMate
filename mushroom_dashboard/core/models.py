@@ -1113,7 +1113,7 @@ class StoreSettings(models.Model):
         obj, created = cls.objects.get_or_create(pk=1)
         return obj
     
-    def calculate_shipping_fee(self, customer_lat, customer_lng, order_total=0):
+    def calculate_shipping_fee(self, customer_lat, customer_lng, order_total=0, route_distance_km=None):
         """
         Calculate shipping fee based on distance from store to customer.
         - First X km (minimum_base_distance_km): minimum_base_fee (e.g., ₱20 for first 3km)
@@ -1123,8 +1123,10 @@ class StoreSettings(models.Model):
         import math
         from decimal import Decimal
         
-        distance_km = None
-        if self.store_latitude and self.store_longitude and customer_lat and customer_lng:
+        distance_km = route_distance_km
+        if distance_km is not None:
+            distance_km = float(distance_km)
+        elif self.store_latitude and self.store_longitude and customer_lat and customer_lng:
             # Haversine distance is the existing delivery-distance calculation.
             R = 6371
             lat1 = math.radians(float(self.store_latitude))

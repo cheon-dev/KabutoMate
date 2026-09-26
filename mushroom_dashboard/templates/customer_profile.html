@@ -2544,9 +2544,9 @@
             // Initialize the map centered on user's saved location or default
             map = L.map('locationMap').setView([userLatitude, userLongitude], 13);
             
-            // Add OpenStreetMap tiles
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            // Use public Esri tiles so the map does not require a client-side API key.
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri',
                 maxZoom: 19
             }).addTo(map);
             
@@ -2741,8 +2741,8 @@
             const fallbackLng = storeLng || 120.9842;
             if (!addressMap) {
                 addressMap = L.map('addressMap').setView([lat || fallbackLat, lng || fallbackLng], lat ? 15 : 10);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri', maxZoom: 19
                 }).addTo(addressMap);
                 addressMap.on('click', event => setAddressLocation(event.latlng.lat, event.latlng.lng));
             }
@@ -2998,8 +2998,9 @@
 
             if (!orderRouteMaps[order.order_id]) {
                 orderRouteMaps[order.order_id] = L.map(mapEl).setView([customerLat, customerLng], 12);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors'
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri',
+                    maxZoom: 19
                 }).addTo(orderRouteMaps[order.order_id]);
             }
 

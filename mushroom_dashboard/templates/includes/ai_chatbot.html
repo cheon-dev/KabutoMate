@@ -22,11 +22,22 @@
         cursor: pointer;
         font: inherit;
         font-weight: 700;
+        transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
     }
 
     .ai-chatbot-launcher:hover,
     .ai-chatbot-launcher:focus-visible {
         background: #18533d;
+    }
+
+    .ai-chatbot-launcher:hover {
+        transform: translateY(-2px) scale(1.04);
+        box-shadow: 0 14px 32px rgba(17, 57, 42, .34);
+    }
+
+    .ai-chatbot-launcher.is-active {
+        transform: rotate(90deg) scale(.94);
+        box-shadow: 0 8px 22px rgba(17, 57, 42, .22);
     }
 
     .ai-chatbot-panel {
@@ -42,10 +53,23 @@
         border-radius: 18px;
         background: #fff;
         box-shadow: 0 18px 55px rgba(23, 43, 35, .24);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(12px) scale(.96);
+        transform-origin: bottom right;
+        transition: opacity 220ms ease, transform 220ms cubic-bezier(.22, 1, .36, 1), visibility 220ms ease;
     }
 
     .ai-chatbot-panel[hidden] {
         display: none;
+    }
+
+    .ai-chatbot-panel.is-open {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0) scale(1);
     }
 
     .ai-chatbot-header {
@@ -97,6 +121,15 @@
         line-height: 1.45;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
+    }
+
+    .ai-chatbot-panel.is-open .ai-chatbot-message {
+        animation: ai-chat-message-enter 240ms cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    @keyframes ai-chat-message-enter {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     .ai-chatbot-message strong {
@@ -170,6 +203,15 @@
         opacity: .65;
     }
 
+    @media (prefers-reduced-motion: reduce) {
+        .ai-chatbot-launcher,
+        .ai-chatbot-panel,
+        .ai-chatbot-panel.is-open .ai-chatbot-message {
+            animation: none;
+            transition-duration: 0ms;
+        }
+    }
+
     @media (max-width: 767px) {
         .ai-chatbot {
             right: 14px;
@@ -198,7 +240,7 @@
         <i class="fa-solid fa-message" aria-hidden="true"></i>
     </button>
 
-    <section class="ai-chatbot-panel" id="ai-chatbot-panel" hidden aria-label="KabutoMate AI assistant">
+    <section class="ai-chatbot-panel" id="ai-chatbot-panel" hidden aria-hidden="true" aria-label="KabutoMate AI assistant">
         <header class="ai-chatbot-header">
             <div>
                 <h2 class="ai-chatbot-title">KabutoMate AI</h2>
@@ -231,11 +273,33 @@
         const sendButton = root.querySelector('.ai-chatbot-send');
         const csrfToken = root.querySelector('[name=csrfmiddlewaretoken]').value;
         const history = [];
+        let closeTimer = null;
+        const PANEL_TRANSITION_MS = 220;
 
         function setOpen(open) {
-            panel.hidden = !open;
+            if (closeTimer) {
+                window.clearTimeout(closeTimer);
+                closeTimer = null;
+            }
+
+            if (open) {
+                panel.hidden = false;
+                panel.setAttribute('aria-hidden', 'false');
+                launcher.classList.add('is-active');
+                window.requestAnimationFrame(() => panel.classList.add('is-open'));
+            } else {
+                panel.classList.remove('is-open');
+                panel.setAttribute('aria-hidden', 'true');
+                launcher.classList.remove('is-active');
+                closeTimer = window.setTimeout(() => {
+                    panel.hidden = true;
+                    closeTimer = null;
+                }, PANEL_TRANSITION_MS);
+            }
+
             launcher.setAttribute('aria-expanded', String(open));
             if (open) input.focus();
+            else launcher.focus();
         }
 
         function addMessage(type, text) {
@@ -270,6 +334,9 @@
 
         launcher.addEventListener('click', () => setOpen(panel.hidden));
         closeButton.addEventListener('click', () => setOpen(false));
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !panel.hidden) setOpen(false);
+        });
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();

@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
     <script src="{% static 'js/toast-notifications.js' %}"></script>
+    {% include 'includes/page_loader_head.html' %}
     <style>
         :root {
             --primary: #0c4b33;
@@ -62,6 +63,7 @@
     </style>
 </head>
 <body>
+    {% include 'includes/page_loader.html' %}
     {% include 'includes/customer_desktop_nav.html' %}
     <main class="customer-notifications-page">
         <header class="customer-notifications-header">

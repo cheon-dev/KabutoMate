@@ -23,6 +23,7 @@ from .email_service import (
     send_order_status_email,
     send_email_async
 )
+from .shipping import calculate_shipping_fee
 import json
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,8 @@ def _outside_delivery_area_message(store_settings):
 def _calculate_address_delivery(address, store_settings, order_total=0):
     if address.latitude is None or address.longitude is None:
         return None, None, 'Please edit this address and pin its exact location before using it.'
-    fee, distance, message = store_settings.calculate_shipping_fee(
+    fee, distance, message = calculate_shipping_fee(
+        store_settings,
         address.latitude, address.longitude, order_total
     )
     if fee is None:
@@ -403,7 +405,7 @@ def customer_addresses_api(request, address_id=None):
             'error': 'Please pin the address on the map before saving it.',
         }, status=400)
 
-    fee, distance, message = store_settings.calculate_shipping_fee(latitude, longitude, 0)
+    fee, distance, message = calculate_shipping_fee(store_settings, latitude, longitude, 0)
     if fee is None:
         return JsonResponse({'success': False, 'error': _outside_delivery_area_message(store_settings)}, status=400)
 
@@ -650,7 +652,8 @@ def process_checkout(request, cart, cart_items, total):
     if shipping_address and shipping_barangay and shipping_barangay.casefold() not in shipping_address.casefold():
         shipping_address = f'{shipping_address}, {shipping_barangay}'
 
-    shipping_fee, delivery_distance, shipping_message = store_settings.calculate_shipping_fee(
+    shipping_fee, delivery_distance, shipping_message = calculate_shipping_fee(
+        store_settings,
         customer_latitude, customer_longitude, total
     )
     
@@ -1549,7 +1552,8 @@ def calculate_shipping_api(request):
             order_total = float(data.get('order_total', 0))
             
             store_settings = StoreSettings.load()
-            shipping_fee, distance, message = store_settings.calculate_shipping_fee(
+            shipping_fee, distance, message = calculate_shipping_fee(
+                store_settings,
                 customer_lat, customer_lng, order_total
             )
             

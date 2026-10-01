@@ -8,7 +8,7 @@ from django.test import Client, TestCase, override_settings
 
 from .ai_service import ask_gemini
 from .ai_context import build_ai_context
-from .models import Notification, Order, OrderItem, Product, Sale, StoreSettings
+from .models import Notification, Order, OrderItem, Product, Sale, SensorReading, StoreSettings
 from .shipping import calculate_shipping_fee
 
 
@@ -181,3 +181,48 @@ class AIContextTests(TestCase):
         self.assertIn('ADMIN INVENTORY SUMMARY', context)
         self.assertIn('SALES SUMMARY', context)
         self.assertIn('ORDER AND PAYMENT SUMMARY', context)
+
+
+class SensorProcessingControlTests(TestCase):
+    def test_disabled_sensor_processing_skips_database_work(self):
+        response = self.client.post(
+            '/api/sensor-data/receive/',
+            data=json.dumps({
+                'temperature': 17.0,
+                'humidity': 85.0,
+                'device_id': 'ESP32_TEST',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'disabled')
+        self.assertEqual(response.json()['relays']['heater'], False)
+        self.assertEqual(SensorReading.objects.count(), 0)
+
+    @override_settings(
+        SENSOR_PROCESSING_ENABLED=True,
+        SENSOR_MIN_INTERVAL_SECONDS=60,
+    )
+    def test_sensor_readings_are_sampled_server_side(self):
+        payload = json.dumps({
+            'temperature': 17.0,
+            'humidity': 85.0,
+            'device_id': 'ESP32_TEST',
+        })
+
+        first_response = self.client.post(
+            '/api/sensor-data/receive/',
+            data=payload,
+            content_type='application/json',
+        )
+        second_response = self.client.post(
+            '/api/sensor-data/receive/',
+            data=payload,
+            content_type='application/json',
+        )
+
+        self.assertEqual(first_response.status_code, 201)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertFalse(second_response.json()['stored'])
+        self.assertEqual(SensorReading.objects.count(), 1)

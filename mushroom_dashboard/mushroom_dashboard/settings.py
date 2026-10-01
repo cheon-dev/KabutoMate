@@ -39,7 +39,7 @@ elif DEBUG:
     # Development default: allow LAN access without extra configuration.
     ALLOWED_HOSTS = ['*']
 else:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.8.37']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.8.34']
 
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
@@ -286,6 +286,19 @@ ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', EMAIL_HOST_USER)
 
 # ESP32 device authentication.
 ESP32_API_KEY = os.getenv('ESP32_API_KEY', '').strip()
+
+# Sensor processing can be disabled while no ESP32 device is connected. When
+# enabled, the receive endpoint stores at most one reading per device during
+# this interval; the firmware does not need to change.
+SENSOR_PROCESSING_ENABLED = os.getenv('SENSOR_PROCESSING_ENABLED', 'false').strip().lower() in {
+    '1', 'true', 'yes', 'on'
+}
+try:
+    SENSOR_MIN_INTERVAL_SECONDS = max(
+        0, int(os.getenv('SENSOR_MIN_INTERVAL_SECONDS', '60'))
+    )
+except ValueError:
+    SENSOR_MIN_INTERVAL_SECONDS = 60
 
 # Gemini AI assistant. Keep this key server-side and never place it in a template.
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()

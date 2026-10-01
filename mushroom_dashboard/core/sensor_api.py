@@ -9,10 +9,47 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.conf import settings
 from decimal import Decimal
+from datetime import timedelta
 import hmac
 import json
 from .models import EnvironmentSettings, SensorReading, Notification
 from .notification_service import evaluate_environment_notifications
+
+
+def _sensor_processing_enabled():
+    return getattr(settings, 'SENSOR_PROCESSING_ENABLED', False)
+
+
+def _disabled_response():
+    """Return a safe response without performing database work."""
+    controls = {
+        name: {
+            'should_be_on': False,
+            'current_state': False,
+            'mode': 'disabled',
+            'reason': 'Sensor processing is disabled on the server',
+        }
+        for name in ('fan', 'humidifier', 'heater', 'lights')
+    }
+    return JsonResponse({
+        'status': 'disabled',
+        'message': 'Sensor processing is disabled on the server.',
+        'controls': controls,
+        'relays': {
+            'fan': False,
+            'humidifier': False,
+            'heater': False,
+            'co2': False,
+            'lights': False,
+        },
+        'auto_modes': {
+            'fan_auto': False,
+            'humidifier_auto': False,
+            'heater_auto': False,
+            'co2_auto': False,
+            'lights_auto': False,
+        },
+    })
 
 # Optional: Add your API key here for basic authentication
 def _device_key_error(request, required=False):
@@ -44,6 +81,9 @@ def receive_sensor_data(request):
         "device_id": "ESP32_001" (optional)
     }
     """
+    if not _sensor_processing_enabled():
+        return _disabled_response()
+
     try:
         auth_error = _device_key_error(request)
         if auth_error:
@@ -64,6 +104,21 @@ def receive_sensor_data(request):
         humidity = Decimal(str(data['humidity']))
         air_quality_ppm = data.get('air_quality_ppm', None)  # MQ-135 air quality (optional)
         device_id = data.get('device_id', 'DHT22_MQ135_ESP32')
+
+        # Keep the firmware interval unchanged while reducing database writes.
+        min_interval = getattr(settings, 'SENSOR_MIN_INTERVAL_SECONDS', 60)
+        if min_interval:
+            latest_reading = SensorReading.objects.filter(
+                device_id=device_id
+            ).first()
+            if latest_reading and timezone.now() - latest_reading.timestamp < timedelta(
+                seconds=min_interval
+            ):
+                return JsonResponse({
+                    'status': 'success',
+                    'stored': False,
+                    'message': 'Reading received but skipped by server sampling interval.',
+                })
         
         # Create sensor reading
         reading = SensorReading.objects.create(
@@ -109,7 +164,11 @@ def receive_sensor_data(request):
                 'humidity': float(reading.humidity),
                 'air_quality_ppm': air_quality_ppm,
                 'condition_status': reading.condition_status,
-                'alerts': alerts
+                'alerts': alerts,
+                'environmental_alert': any(
+                    event.get('type') == 'alert'
+                    for event in notification_events
+                ),
             }
         }
         
@@ -233,6 +292,9 @@ def get_control_states(request):
         }
     }
     """
+    if not _sensor_processing_enabled():
+        return _disabled_response()
+
     try:
         auth_error = _device_key_error(request)
         if auth_error:
@@ -277,6 +339,9 @@ def confirm_control_action(request):
         "success": true/false
     }
     """
+    if not _sensor_processing_enabled():
+        return _disabled_response()
+
     try:
         auth_error = _device_key_error(request)
         if auth_error:
@@ -358,6 +423,9 @@ def get_automation_decision(request):
         }
     }
     """
+    if not _sensor_processing_enabled():
+        return _disabled_response()
+
     try:
         auth_error = _device_key_error(request)
         if auth_error:
@@ -606,6 +674,9 @@ def get_relay_command(request):
         "lights": true/false
     }
     """
+    if not _sensor_processing_enabled():
+        return _disabled_response()
+
     try:
         auth_error = _device_key_error(request)
         if auth_error:

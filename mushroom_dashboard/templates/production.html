@@ -870,7 +870,7 @@
                         <input type="text" id="growth_days_display" readonly value="-">
                     </div>
                     <div class="form-group">
-                        <label for="predicted_yield_display">Predicted (kg)</label>
+                        <label for="predicted_yield_display">Predicted (g)</label>
                         <input type="text" id="predicted_yield_display" readonly value="Calculating...">
                     </div>
                     <div class="form-group">
@@ -924,8 +924,8 @@
                         <input type="date" id="edit-harvest_date" name="harvest_date">
                     </div>
                     <div class="form-group">
-                        <label for="edit-yield_kg">Yield (kg)</label>
-                        <input type="number" step="0.1" id="edit-yield_kg" name="yield_kg">
+                        <label for="edit-yield_g">Yield (g)</label>
+                        <input type="number" step="1" min="0" id="edit-yield_g" name="yield_g">
                     </div>
                     <div class="form-group">
                         <label for="edit-cost">Cost (₱)</label>
@@ -946,7 +946,7 @@
             </div>
             <div class="card">
                 <div class="card-title">Total Yield</div>
-                <div id="summary-total-yield" class="card-value small">...<span class="unit">kg</span></div>
+                <div id="summary-total-yield" class="card-value small">...<span class="unit">g</span></div>
             </div>
         </div>
 
@@ -960,7 +960,7 @@
                 </div>
                 <div class="prediction-metric">
                     <div class="metric-label">Average Predicted Yield</div>
-                    <div id="predicted-average-yield" class="metric-value">...<span>kg per batch</span></div>
+                    <div id="predicted-average-yield" class="metric-value">...<span>g per batch</span></div>
                 </div>
                 <div class="prediction-metric">
                     <div class="metric-label">Top Predicted Batch</div>
@@ -978,8 +978,8 @@
                 <div class="table-header">Start Date</div>
                 <div class="table-header">Growth Days</div>
                 <div class="table-header">Harvest Date</div>
-                <div class="table-header">Yield (kg)</div>
-                <div class="table-header">Predicted (kg)</div>
+                <div class="table-header">Yield (g)</div>
+                <div class="table-header">Predicted (g)</div>
                 <div class="table-header">Status</div>
                 <div class="table-header">Actions</div>
 
@@ -1063,6 +1063,16 @@
             .find(row => row.startsWith('csrftoken='))
             ?.split('=')[1];
 
+        function kilogramsToGrams(value) {
+            const kilograms = Number.parseFloat(value);
+            return Number.isNaN(kilograms) ? null : kilograms * 1000;
+        }
+
+        function formatGrams(value) {
+            const grams = kilogramsToGrams(value);
+            return grams === null ? '-' : `${grams.toFixed(0)} g`;
+        }
+
         // --- 1. Data Loading Functions ---
         // Pagination state
         let allBatches = [];
@@ -1075,7 +1085,7 @@
                 const summary = await response.json();
                 cardActiveBatches.textContent = summary.active_batches;
                 cardTotalRecords.textContent = summary.total_records;
-                cardTotalYield.innerHTML = `${parseFloat(summary.total_yield).toFixed(1)}<span class="unit">kg</span>`;
+                cardTotalYield.innerHTML = formatGrams(summary.total_yield);
             } catch (error) {
                 console.error("Failed to load summary:", error);
             }
@@ -1118,8 +1128,8 @@
             }, predictedBatches[0]);
 
             countElement.textContent = predictedBatches.length;
-            averageElement.innerHTML = `${average.toFixed(2)}<span>kg per batch</span>`;
-            topElement.innerHTML = `${topBatch.batch_number || 'N/A'} — ${parseFloat(topBatch.predicted_yield_kg).toFixed(2)}<span>kg</span>`;
+            averageElement.innerHTML = `${formatGrams(average)}<span> per batch</span>`;
+            topElement.innerHTML = `${topBatch.batch_number || 'N/A'} — ${formatGrams(topBatch.predicted_yield_kg)}`;
         }
 
         function renderProductionPage() {
@@ -1141,10 +1151,10 @@
                 tableGrid.appendChild(createRow(batch.start_date));
                 tableGrid.appendChild(createRow(batch.growth_days));
                 tableGrid.appendChild(createRow(batch.harvest_date));
-                tableGrid.appendChild(createRow(batch.yield_kg));
+                tableGrid.appendChild(createRow(formatGrams(batch.yield_kg)));
                 
                 // Predicted Yield with highlight
-                const predictedRow = createRow(batch.predicted_yield_kg);
+                const predictedRow = createRow(formatGrams(batch.predicted_yield_kg));
                 if (batch.predicted_yield_kg !== '-') {
                     predictedRow.style.color = '#059669';
                     predictedRow.style.fontWeight = '600';
@@ -1214,7 +1224,7 @@
             if (Number.isNaN(value)) {
                 return '-';
             }
-            return `${value.toFixed(2)} kg`;
+            return `${(value * 1000).toFixed(0)} g`;
         }
 
         async function updateBatchNumberPreview() {
@@ -1342,7 +1352,10 @@
                 document.getElementById('edit-start_date').value = batch.start_date;
                 document.getElementById('edit-status').value = batch.status;
                 document.getElementById('edit-harvest_date').value = batch.harvest_date || '';
-                document.getElementById('edit-yield_kg').value = batch.yield_kg || '';
+                const existingYieldGrams = kilogramsToGrams(batch.yield_kg);
+                document.getElementById('edit-yield_g').value = existingYieldGrams === null
+                    ? ''
+                    : existingYieldGrams.toFixed(0);
                 document.getElementById('edit-cost').value = batch.cost || '';
                 editRecordForm.dataset.id = batch.id;
                 
@@ -1361,7 +1374,9 @@
                 start_date: formData.get('start_date'),
                 status: formData.get('status'),
                 harvest_date: formData.get('harvest_date') || null,
-                yield_kg: formData.get('yield_kg') || null,
+                yield_kg: formData.get('yield_g')
+                    ? (Number.parseFloat(formData.get('yield_g')) / 1000).toFixed(3)
+                    : null,
                 cost: formData.get('cost') || null
             };
             

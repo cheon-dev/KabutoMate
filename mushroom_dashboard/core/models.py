@@ -279,7 +279,7 @@ class ProductionBatch(models.Model):
     batch_number = models.CharField(max_length=50, unique=True)
     start_date = models.DateField(default=timezone.now)
     harvest_date = models.DateField(null=True, blank=True)
-    yield_kg = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    yield_kg = models.DecimalField(max_digits=5, decimal_places=3, null=True, blank=True)
     predicted_yield_kg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="ML predicted yield")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='GROWING')
     
@@ -317,6 +317,30 @@ class ProductionBatch(models.Model):
 
     def __str__(self):
         return self.batch_number
+
+
+class YieldTrainingSample(models.Model):
+    """Training-only yield data that should not appear as a production batch."""
+
+    sample_code = models.CharField(max_length=100, unique=True)
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='yield_training_samples',
+    )
+    start_date = models.DateField()
+    harvest_date = models.DateField()
+    yield_grams = models.PositiveIntegerField()
+    cost = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['harvest_date', 'start_date', 'id']
+
+    def __str__(self):
+        return f"{self.sample_code} - {self.yield_grams} g"
 
 class Notification(models.Model):
     CATEGORY_CHOICES = [

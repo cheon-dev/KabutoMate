@@ -17,15 +17,12 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-from .models import ProductionBatch
+from .models import ProductionBatch, YieldTrainingSample
 
 
 MODEL_FILENAME = 'mushroom_yield_model.pkl'
 FEATURE_COLUMNS = [
     'product_id',
-    'start_month',
-    'growth_days',
-    'cost',
     'same_product_prev_yield_1',
     'same_product_prev_avg_3',
     'farm_prev_avg_5',
@@ -74,23 +71,54 @@ def _build_harvest_history_frame():
         .order_by('harvest_date', 'start_date', 'id')
     )
 
+    samples = list(
+        YieldTrainingSample.objects.select_related('product').all()
+    )
+
+    training_records = [
+        {
+            'product_id': batch.product_id or -1,
+            'start_date': batch.start_date,
+            'harvest_date': batch.harvest_date,
+            'cost': float(batch.cost) if batch.cost is not None else np.nan,
+            'yield_kg': float(batch.yield_kg),
+            'sequence': batch.id,
+        }
+        for batch in batches
+    ]
+    training_records.extend(
+        {
+            'product_id': sample.product_id or -1,
+            'start_date': sample.start_date,
+            'harvest_date': sample.harvest_date,
+            'cost': float(sample.cost) if sample.cost is not None else np.nan,
+            'yield_kg': float(sample.yield_grams) / 1000,
+            'sequence': sample.id,
+        }
+        for sample in samples
+    )
+    training_records.sort(
+        key=lambda record: (
+            record['harvest_date'],
+            record['start_date'],
+            record['sequence'],
+        )
+    )
+
     records = []
     farm_history = []
     product_history = {}
 
-    for batch in batches:
-        harvested_yield = float(batch.yield_kg)
-        product_id = batch.product_id or -1
+    for training_record in training_records:
+        harvested_yield = training_record['yield_kg']
+        product_id = training_record['product_id']
         product_values = product_history.get(product_id, [])
-        start_date = batch.start_date
-        harvest_date = batch.harvest_date
-        growth_days = max((harvest_date - start_date).days + 1, 1)
+        start_date = training_record['start_date']
+        harvest_date = training_record['harvest_date']
 
         records.append({
             'product_id': product_id,
-            'start_month': start_date.month,
-            'growth_days': growth_days,
-            'cost': float(batch.cost) if batch.cost is not None else np.nan,
+            'harvest_date': harvest_date,
             'same_product_prev_yield_1': float(product_values[-1]) if product_values else np.nan,
             'same_product_prev_avg_3': _rolling_average(product_values, 3),
             'farm_prev_avg_5': _rolling_average(farm_history, 5),
@@ -106,15 +134,13 @@ def _build_harvest_history_frame():
 def _build_feature_row(product_id=None, start_date=None, cost=None):
     history = _build_harvest_history_frame()
     parsed_start_date = _parse_date(start_date)
-    current_date = parsed_start_date or timezone.now().date()
-    parsed_cost = _parse_float(cost)
+
+    if parsed_start_date and not history.empty:
+        history = history[history['harvest_date'] <= parsed_start_date]
 
     if history.empty:
         return pd.DataFrame([{
             'product_id': product_id if product_id is not None else -1,
-            'start_month': current_date.month,
-            'growth_days': np.nan,
-            'cost': parsed_cost if parsed_cost is not None else np.nan,
             'same_product_prev_yield_1': np.nan,
             'same_product_prev_avg_3': np.nan,
             'farm_prev_avg_5': np.nan,
@@ -126,15 +152,9 @@ def _build_feature_row(product_id=None, start_date=None, cost=None):
         product_history = []
 
     farm_history = history['yield_kg'].tolist()
-    growth_days = None
-    if parsed_start_date:
-        growth_days = max((timezone.now().date() - parsed_start_date).days + 1, 1)
 
     return pd.DataFrame([{
         'product_id': int(product_id) if product_id is not None else -1,
-        'start_month': current_date.month,
-        'growth_days': growth_days if growth_days is not None else np.nan,
-        'cost': parsed_cost if parsed_cost is not None else np.nan,
         'same_product_prev_yield_1': float(product_history[-1]) if product_history else np.nan,
         'same_product_prev_avg_3': _rolling_average(product_history, 3),
         'farm_prev_avg_5': _rolling_average(farm_history, 5),
@@ -159,9 +179,6 @@ def train_yield_model():
     preprocessor = ColumnTransformer(
         transformers=[
             ('numeric', SimpleImputer(strategy='median'), [
-                'start_month',
-                'growth_days',
-                'cost',
                 'same_product_prev_yield_1',
                 'same_product_prev_avg_3',
                 'farm_prev_avg_5',
@@ -218,7 +235,7 @@ def load_yield_model():
     with open(model_path, 'rb') as handle:
         artifact = pickle.load(handle)
 
-    if isinstance(artifact, dict):
+    if isinstance(artifact, dict) and artifact.get('features') == FEATURE_COLUMNS:
         return artifact
 
     return {

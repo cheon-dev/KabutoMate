@@ -119,18 +119,23 @@ def calculate_predicted_yield(product_id=None, start_date=None, cost=None):
     return round(float(predicted), 2)
 
 
-def calculate_growth_days(start_date=None):
-    """Return elapsed growth days based on start date (minimum of 1 day)."""
-    parsed_start_date = None
-    if isinstance(start_date, str) and start_date:
-        parsed_start_date = date.fromisoformat(start_date)
-    elif isinstance(start_date, date):
-        parsed_start_date = start_date
+def calculate_growth_days(start_date=None, harvest_date=None):
+    """Return growth days, stopping at harvest date when one exists."""
+    def parse_date(value):
+        if isinstance(value, str) and value:
+            return date.fromisoformat(value)
+        if isinstance(value, date):
+            return value
+        return None
+
+    parsed_start_date = parse_date(start_date)
+    parsed_harvest_date = parse_date(harvest_date)
 
     if not parsed_start_date:
         return None
 
-    return max((timezone.now().date() - parsed_start_date).days + 1, 1)
+    end_date = parsed_harvest_date or timezone.now().date()
+    return max((end_date - parsed_start_date).days + 1, 1)
 
 
 # --- NEW: Predictive Maintenance Function ---
@@ -1612,7 +1617,7 @@ def production_api(request):
             'batch_number': batch.batch_number,
             'product_name': batch.product.name if batch.product else 'N/A',
             'start_date': batch.start_date.strftime('%Y-%m-%d'),
-            'growth_days': calculate_growth_days(batch.start_date) or '-',
+            'growth_days': calculate_growth_days(batch.start_date, batch.harvest_date) or '-',
             'harvest_date': batch.harvest_date.strftime('%Y-%m-%d') if batch.harvest_date else '-',
             'yield_kg': batch.yield_kg if batch.yield_kg is not None else '-',
             'predicted_yield_kg': batch.predicted_yield_kg if batch.predicted_yield_kg is not None else '-',
@@ -1686,7 +1691,7 @@ def production_api_detail(request, pk):
             'product_id': batch.product_id,
             'batch_number': batch.batch_number,
             'start_date': batch.start_date,
-            'growth_days': calculate_growth_days(batch.start_date),
+            'growth_days': calculate_growth_days(batch.start_date, batch.harvest_date),
             'harvest_date': batch.harvest_date,
             'yield_kg': batch.yield_kg,
             'predicted_yield_kg': batch.predicted_yield_kg,

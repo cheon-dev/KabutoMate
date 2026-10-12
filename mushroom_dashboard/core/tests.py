@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -8,8 +9,20 @@ from django.test import Client, TestCase, override_settings
 
 from .ai_service import ask_gemini
 from .ai_context import build_ai_context
-from .models import Notification, Order, OrderItem, Product, Sale, SensorReading, StoreSettings
+from .models import (
+    Notification,
+    Order,
+    OrderItem,
+    Product,
+    ProductionBatch,
+    Sale,
+    SensorReading,
+    StoreSettings,
+    YieldTrainingSample,
+)
 from .shipping import calculate_shipping_fee
+from .yield_model import _build_harvest_history_frame
+from .views import calculate_growth_days
 
 
 class LoginAuthenticationTests(TestCase):
@@ -226,3 +239,54 @@ class SensorProcessingControlTests(TestCase):
         self.assertEqual(second_response.status_code, 200)
         self.assertFalse(second_response.json()['stored'])
         self.assertEqual(SensorReading.objects.count(), 1)
+
+
+class YieldTrainingSampleTests(TestCase):
+    def test_gram_samples_are_converted_to_kg_for_training(self):
+        product = Product.objects.create(
+            name='Oyster Mushroom',
+            stock_kg=Decimal('12.0'),
+            price_per_kg=Decimal('180.00'),
+            product_type='fresh',
+        )
+        YieldTrainingSample.objects.create(
+            sample_code='SYNTHETIC-TEST-001',
+            product=product,
+            start_date=date(2026, 1, 1),
+            harvest_date=date(2026, 1, 16),
+            yield_grams=700,
+        )
+
+        history = _build_harvest_history_frame()
+
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history.iloc[0]['yield_kg'], 0.7)
+        self.assertNotIn('growth_days', history.columns)
+
+
+class GrowthDayTests(TestCase):
+    def test_growth_days_stop_at_harvest_date(self):
+        self.assertEqual(
+            calculate_growth_days(date(2026, 1, 1), date(2026, 1, 16)),
+            16,
+        )
+
+    def test_harvested_yield_preserves_gram_precision(self):
+        product = Product.objects.create(
+            name='Precision Oyster Mushroom',
+            stock_kg=Decimal('12.0'),
+            price_per_kg=Decimal('180.00'),
+            product_type='fresh',
+        )
+        batch = ProductionBatch.objects.create(
+            product=product,
+            batch_number='TEST-PRECISION-001',
+            start_date=date(2026, 1, 1),
+            harvest_date=date(2026, 1, 16),
+            yield_kg=Decimal('0.675'),
+            status='HARVESTED',
+        )
+
+        batch.refresh_from_db()
+
+        self.assertEqual(batch.yield_kg, Decimal('0.675'))

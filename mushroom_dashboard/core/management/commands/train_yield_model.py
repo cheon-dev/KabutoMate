@@ -10,7 +10,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('=' * 70))
-        self.stdout.write(self.style.SUCCESS('🍄 YIELD MODEL TRAINING'))
+        self.stdout.write(self.style.SUCCESS('YIELD MODEL TRAINING'))
         self.stdout.write(self.style.SUCCESS('=' * 70))
 
         try:
@@ -19,11 +19,11 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'❌ {exc}'))
             return
 
-        self.stdout.write(self.style.SUCCESS(f"✅ Trained on {artifact['training_rows']} harvested batches"))
-        self.stdout.write(self.style.SUCCESS(f"✅ Model saved to: {get_yield_model_path()}"))
+        self.stdout.write(self.style.SUCCESS(f"Trained on {artifact['training_rows']} training samples"))
+        self.stdout.write(self.style.SUCCESS(f"Model saved to: {get_yield_model_path()}"))
         self.stdout.write('\nMetrics:')
         metrics = artifact.get('metrics', {})
         self.stdout.write(f"  MAE: {metrics.get('mae')}")
         self.stdout.write(f"  RMSE: {metrics.get('rmse')}")
-        self.stdout.write(f"  R²: {metrics.get('r2')}")
-        self.stdout.write('\nThis model is now based on the farmer\'s previous harvested batches.')
+        self.stdout.write(f"  R2: {metrics.get('r2')}")
+        self.stdout.write('\nThis model is now based on the available harvested batches and training samples.')

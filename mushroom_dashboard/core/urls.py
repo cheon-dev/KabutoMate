@@ -4,6 +4,7 @@ from django.urls import reverse_lazy
 from . import views
 from . import ecommerce_views
 from . import sensor_api
+from . import water_refill_api
 
 urlpatterns = [
     # Page URLs
@@ -103,6 +104,10 @@ urlpatterns = [
     # Automation Decision Endpoints (core automation logic)
     path('api/automation-decision/', sensor_api.get_automation_decision, name='automation-decision'),
     path('api/relay-command/', sensor_api.get_relay_command, name='relay-command'),
+
+    # Dedicated water-refill ESP32
+    path('api/water-refill/report/', water_refill_api.receive_water_refill_status, name='water-refill-report'),
+    path('api/water-refill/status/', water_refill_api.water_refill_status_api, name='water-refill-status'),
     
     # Sensor data for dashboard charts (GET)
     path('api/sensor-data/', views.sensor_data_api, name='sensor-api'),

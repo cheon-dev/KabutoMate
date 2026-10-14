@@ -319,3 +319,90 @@ def evaluate_environment_notifications(reading, settings_obj=None):
         ))
 
     return events
+
+
+def evaluate_water_refill_notifications(status, previous_source_status=None, previous_refill_state=None):
+    """Create deduplicated notifications for source-water and refill faults."""
+    if status is None:
+        return []
+
+    notification_settings = NotificationSettings.load()
+    cooldown_minutes = notification_settings.alert_cooldown_minutes or 60
+    events = []
+
+    events.extend(_evaluate_alert(
+        alert_key='water_refill_source_low',
+        alert_label='Water Source Low',
+        current_value=status.source_status,
+        is_abnormal=status.source_status == 'LOW',
+        threshold_text='Source float must indicate available water',
+        notification_type='water_refill_source_low',
+        settings_obj=None,
+        notification_settings=notification_settings,
+        cooldown_minutes=cooldown_minutes,
+        subject_title='Water Refill Source Low',
+        description_builder=lambda value, threshold: 'The source water jug is low or empty. The refill pump is being blocked.',
+        recovery_description_builder=lambda value, threshold: 'The source water jug is available again.',
+        metadata={'metric': 'source_water', 'status': status.source_status},
+    ))
+
+    refill_fault = status.refill_state in {'TIMEOUT', 'SENSOR_ERROR'}
+    events.extend(_evaluate_alert(
+        alert_key='water_refill_fault',
+        alert_label='Water Refill Fault',
+        current_value=status.refill_state,
+        is_abnormal=refill_fault,
+        threshold_text='Refill controller must report IDLE or REFILLING',
+        notification_type='water_refill_fault',
+        settings_obj=None,
+        notification_settings=notification_settings,
+        cooldown_minutes=cooldown_minutes,
+        subject_title='Water Refill Fault',
+        description_builder=lambda value, threshold: f'Water refill controller reported {value}: {status.last_error or "automatic refill is unavailable"}.',
+        recovery_description_builder=lambda value, threshold: 'Water refill controller returned to a healthy state.',
+        metadata={'metric': 'refill_state', 'status': status.refill_state},
+    ))
+
+    if (
+        previous_refill_state == 'REFILLING'
+        and status.refill_state == 'IDLE'
+        and status.container_status == 'NORMAL'
+        and status.source_status == 'AVAILABLE'
+    ):
+        description = 'The misting container reached its refill level and the pump stopped.'
+        _record_environment_notification(
+            'water_refill_completed',
+            'Water Refill Completed',
+            description,
+            level='success',
+        )
+        events.append({
+            'type': 'recovery',
+            'key': 'water_refill_completed',
+            'description': description,
+        })
+
+    return events
+
+
+def evaluate_water_refill_offline_notification(status, is_online):
+    """Use the existing alert-state cooldown for controller connectivity alerts."""
+    if status is None:
+        return []
+
+    notification_settings = NotificationSettings.load()
+    return _evaluate_alert(
+        alert_key='water_refill_controller_offline',
+        alert_label='Water Refill Controller Offline',
+        current_value='ONLINE' if is_online else 'OFFLINE',
+        is_abnormal=not is_online,
+        threshold_text='A status report is required within the configured interval',
+        notification_type='water_refill_controller_offline',
+        settings_obj=None,
+        notification_settings=notification_settings,
+        cooldown_minutes=notification_settings.alert_cooldown_minutes or 60,
+        subject_title='Water Refill Controller Offline',
+        description_builder=lambda value, threshold: 'The second ESP32 has not reported recently. Local float-switch safety remains active, but remote status is unavailable.',
+        recovery_description_builder=lambda value, threshold: 'The second ESP32 is reporting again.',
+        metadata={'metric': 'device_connection', 'status': 'ONLINE' if is_online else 'OFFLINE'},
+    )

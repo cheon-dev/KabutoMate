@@ -178,6 +178,37 @@
             margin-bottom: 20px;
         }
 
+        .refill-status-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .refill-status-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+        }
+
+        .refill-status-label {
+            color: #64748b;
+            display: block;
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+
+        .refill-status-value {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .refill-status-error {
+            color: #b91c1c;
+            margin: 14px 0 0;
+        }
+
         /* --- Control Grid --- */
         .control-grid {
             display: grid;
@@ -589,6 +620,7 @@
             .main-header h1 { font-size: 1.75rem; }
             .card-grid { grid-template-columns: 1fr; }
             .control-grid { grid-template-columns: 1fr; }
+            .refill-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .form-grid, .form-grid-col-3 { grid-template-columns: 1fr; }
         }
         
@@ -806,6 +838,36 @@
             </div>
 
         </div> 
+
+        <div class="card" aria-labelledby="water-refill-heading">
+            <div class="control-header">
+                <div class="icon-title">
+                    <div class="icon-bg"><i class="fa-solid fa-faucet-drip"></i></div>
+                    <span id="water-refill-heading" class="control-title">Automatic Water Refill</span>
+                </div>
+                <span id="water-refill-connection" class="refill-status-value">Loading...</span>
+            </div>
+            <div class="refill-status-grid">
+                <div class="refill-status-item">
+                    <span class="refill-status-label">Misting container</span>
+                    <span id="water-refill-container" class="refill-status-value">Unknown</span>
+                </div>
+                <div class="refill-status-item">
+                    <span class="refill-status-label">Source jug</span>
+                    <span id="water-refill-source" class="refill-status-value">Unknown</span>
+                </div>
+                <div class="refill-status-item">
+                    <span class="refill-status-label">Refill state</span>
+                    <span id="water-refill-state" class="refill-status-value">Unknown</span>
+                </div>
+                <div class="refill-status-item">
+                    <span class="refill-status-label">Pump</span>
+                    <span id="water-refill-pump" class="refill-status-value">Unknown</span>
+                </div>
+            </div>
+            <p id="water-refill-last-report" style="color: #64748b; margin: 14px 0 0;"></p>
+            <p id="water-refill-error" class="refill-status-error"></p>
+        </div>
         
         <div class="card ai-recommendations" style="margin-top: 20px;">
             <h3><i class="fa-solid fa-bell"></i> Email Notification Settings</h3>
@@ -884,6 +946,30 @@
     </main>
 
     <script>
+    async function updateWaterRefillStatus() {
+        try {
+            const response = await fetch('/api/water-refill/status/');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const payload = await response.json();
+            const status = payload.data || {};
+            document.getElementById('water-refill-connection').textContent = status.connection_status || 'UNKNOWN';
+            document.getElementById('water-refill-container').textContent = status.container_status || 'UNKNOWN';
+            document.getElementById('water-refill-source').textContent = status.source_status || 'UNKNOWN';
+            document.getElementById('water-refill-state').textContent = status.refill_state || 'UNKNOWN';
+            document.getElementById('water-refill-pump').textContent = status.pump_on ? 'ON' : 'OFF';
+            document.getElementById('water-refill-last-report').textContent = status.last_reported_at
+                ? `Last report: ${new Date(status.last_reported_at).toLocaleString()}`
+                : 'No report received yet.';
+            document.getElementById('water-refill-error').textContent = status.last_error || '';
+        } catch (error) {
+            document.getElementById('water-refill-connection').textContent = 'UNAVAILABLE';
+            document.getElementById('water-refill-error').textContent = 'Unable to load water-refill status.';
+            console.error('Failed to update water-refill status:', error);
+        }
+    }
+
     async function updateSidebarStatus() {
         try {
             const response = await fetch('/api/dashboard-summary/');
@@ -1213,11 +1299,13 @@
 
         // --- Initial Load ---
         loadData();
+        updateWaterRefillStatus();
         
         // --- Auto-refresh every 15 seconds to update ML predictions ---
         setInterval(() => {
             loadData();
         }, 15000);
+        setInterval(updateWaterRefillStatus, 15000);
         
         // Initialize sidebar status
         updateSidebarStatus();

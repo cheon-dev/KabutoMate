@@ -18,6 +18,7 @@ from .models import (
     Sale,
     SensorReading,
     StoreSettings,
+    WaterRefillStatus,
     YieldTrainingSample,
 )
 from .shipping import calculate_shipping_fee
@@ -77,6 +78,99 @@ class NotificationApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()[0]['id'], notification.id)
+
+
+class WaterRefillApiTests(TestCase):
+    def setUp(self):
+        self.payload = {
+            'device_id': 'ESP32_WATER_REFILL_001',
+            'container_status': 'LOW',
+            'source_status': 'AVAILABLE',
+            'refill_state': 'REFILLING',
+            'pump_on': True,
+            'sensor_valid': True,
+            'last_error': '',
+        }
+
+    @override_settings(
+        WATER_REFILL_API_KEY='water-test-key',
+        WATER_REFILL_DEVICE_ID='ESP32_WATER_REFILL_001',
+    )
+    def test_report_requires_device_api_key(self):
+        response = self.client.post(
+            '/api/water-refill/report/',
+            data=json.dumps(self.payload),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(WaterRefillStatus.objects.count(), 0)
+
+    @override_settings(
+        WATER_REFILL_API_KEY='water-test-key',
+        WATER_REFILL_DEVICE_ID='ESP32_WATER_REFILL_001',
+    )
+    def test_report_records_status_and_admin_can_read_it(self):
+        response = self.client.post(
+            '/api/water-refill/report/',
+            data=json.dumps(self.payload),
+            content_type='application/json',
+            HTTP_X_API_KEY='water-test-key',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['data']['refill_state'], 'REFILLING')
+        self.assertTrue(response.json()['data']['pump_on'])
+
+        admin = get_user_model().objects.create_user(
+            username='water-refill-admin',
+            password='StrongPass123!',
+        )
+        admin.profile.role = 'ADMIN'
+        admin.profile.save()
+        self.client.force_login(admin)
+
+        admin_response = self.client.get('/api/water-refill/status/')
+
+        self.assertEqual(admin_response.status_code, 200)
+        self.assertEqual(admin_response.json()['data']['connection_status'], 'ONLINE')
+        self.assertEqual(admin_response.json()['data']['device_id'], 'ESP32_WATER_REFILL_001')
+
+    @override_settings(
+        WATER_REFILL_API_KEY='water-test-key',
+        WATER_REFILL_DEVICE_ID='ESP32_WATER_REFILL_001',
+    )
+    def test_completed_refill_records_completion_and_notification(self):
+        first_response = self.client.post(
+            '/api/water-refill/report/',
+            data=json.dumps(self.payload),
+            content_type='application/json',
+            HTTP_X_API_KEY='water-test-key',
+        )
+        self.assertEqual(first_response.status_code, 200)
+
+        completed_payload = {
+            **self.payload,
+            'container_status': 'NORMAL',
+            'refill_state': 'IDLE',
+            'pump_on': False,
+        }
+        second_response = self.client.post(
+            '/api/water-refill/report/',
+            data=json.dumps(completed_payload),
+            content_type='application/json',
+            HTTP_X_API_KEY='water-test-key',
+        )
+
+        self.assertEqual(second_response.status_code, 200)
+        status = WaterRefillStatus.objects.get(pk=1)
+        self.assertIsNotNone(status.last_refill_started_at)
+        self.assertIsNotNone(status.last_refill_completed_at)
+        self.assertTrue(
+            any(event['key'] == 'water_refill_completed'
+                for event in second_response.json()['notification_events'])
+        )
+        self.assertTrue(Notification.objects.filter(title='Water Refill Completed').exists())
 
 
 class ShippingDistanceTests(TestCase):
@@ -216,6 +310,7 @@ class SensorProcessingControlTests(TestCase):
     @override_settings(
         SENSOR_PROCESSING_ENABLED=True,
         SENSOR_MIN_INTERVAL_SECONDS=60,
+        ESP32_API_KEY='',
     )
     def test_sensor_readings_are_sampled_server_side(self):
         payload = json.dumps({

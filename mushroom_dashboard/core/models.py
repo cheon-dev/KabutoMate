@@ -242,6 +242,55 @@ class SensorReading(models.Model):
         else:
             return "CRITICAL"
 
+
+class WaterRefillStatus(models.Model):
+    """Latest status reported by the dedicated water-refill ESP32."""
+
+    CONTAINER_STATUS_CHOICES = [
+        ('NORMAL', 'Normal'),
+        ('LOW', 'Low'),
+        ('UNKNOWN', 'Unknown'),
+    ]
+    SOURCE_STATUS_CHOICES = [
+        ('AVAILABLE', 'Available'),
+        ('LOW', 'Low'),
+        ('UNKNOWN', 'Unknown'),
+    ]
+    REFILL_STATE_CHOICES = [
+        ('IDLE', 'Idle'),
+        ('REFILLING', 'Refilling'),
+        ('SOURCE_EMPTY', 'Source Empty'),
+        ('TIMEOUT', 'Timeout'),
+        ('SENSOR_ERROR', 'Sensor Error'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    device_id = models.CharField(max_length=80, default='ESP32_WATER_REFILL_001')
+    container_status = models.CharField(max_length=10, choices=CONTAINER_STATUS_CHOICES, default='UNKNOWN')
+    source_status = models.CharField(max_length=12, choices=SOURCE_STATUS_CHOICES, default='UNKNOWN')
+    refill_state = models.CharField(max_length=15, choices=REFILL_STATE_CHOICES, default='SENSOR_ERROR')
+    pump_on = models.BooleanField(default=False)
+    sensor_valid = models.BooleanField(default=False)
+    last_error = models.TextField(blank=True, default='')
+    last_reported_at = models.DateTimeField(null=True, blank=True)
+    last_refill_started_at = models.DateTimeField(null=True, blank=True)
+    last_refill_completed_at = models.DateTimeField(null=True, blank=True)
+    last_refill_failed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        status, _ = cls.objects.get_or_create(pk=1)
+        return status
+
+    def __str__(self):
+        return f"{self.device_id} - {self.refill_state}"
+
 class Sale(models.Model):
     SALE_TYPE_CHOICES = [
         ('POS', 'Point of Sale'),

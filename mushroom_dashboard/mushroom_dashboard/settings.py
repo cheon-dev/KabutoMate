@@ -286,6 +286,16 @@ ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', EMAIL_HOST_USER)
 
 # ESP32 device authentication.
 ESP32_API_KEY = os.getenv('ESP32_API_KEY', '').strip()
+WATER_REFILL_API_KEY = os.getenv('WATER_REFILL_API_KEY', '').strip()
+WATER_REFILL_DEVICE_ID = os.getenv(
+    'WATER_REFILL_DEVICE_ID', 'ESP32_WATER_REFILL_001'
+).strip()
+try:
+    WATER_REFILL_OFFLINE_SECONDS = max(
+        60, int(os.getenv('WATER_REFILL_OFFLINE_SECONDS', '300'))
+    )
+except ValueError:
+    WATER_REFILL_OFFLINE_SECONDS = 300
 
 # Sensor processing can be disabled while no ESP32 device is connected. When
 # enabled, the receive endpoint stores at most one reading per device during

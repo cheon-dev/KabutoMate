@@ -1266,7 +1266,7 @@ def dashboard_summary_api(request):
     
     # --- DYNAMIC DEVICES ONLINE CALCULATION ---
     devices_online = 0
-    total_devices = 8
+    total_devices = 6
     
     # Check if sensors are active (recent reading within last 5 minutes)
     recent_sensor = SensorReading.objects.filter(
@@ -1282,12 +1282,9 @@ def dashboard_summary_api(request):
         devices_online += 1  # Fan/Ventilation
     if env_settings.humidifier_on:
         devices_online += 1  # Humidifier
-    if env_settings.heater_on:
-        devices_online += 1  # Heater
-    if env_settings.co2_on:
-        devices_online += 1  # CO2 system
     if env_settings.lights_on:
         devices_online += 1  # Lights
+    devices_online = min(devices_online, total_devices)
     
     # Determine system status
     if devices_online == total_devices:

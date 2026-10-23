@@ -15,3 +15,7 @@ provides internet access, but the hotspot itself must be configured for 2.4 GHz.
 
 The Wi-Fi credentials are not managed or stored by the dashboard. Changing the
 network requires editing the firmware constants and uploading it again.
+
+The firmware uses an active buzzer on GPIO 14. It sounds three short beeps when
+the sensor API reports a new environmental alert. Use a transistor or relay for
+a larger siren; do not connect a high-current device directly to the ESP32.

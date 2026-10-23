@@ -3,7 +3,8 @@ from .models import (
     Product, SensorReading, Sale, ProductionBatch, Notification, 
     EnvironmentSettings, DiseaseDetection, ProductReview, Wishlist,
     ProductImage, RecentlyViewed, ReviewMedia, NotificationSettings,
-    NotificationLog, EnvironmentalAlertState, CustomerAddress
+    NotificationLog, EnvironmentalAlertState, CustomerAddress,
+    WaterRefillLog,
 )
 
 # Inline for ProductImage in Product admin
@@ -134,6 +135,24 @@ class EnvironmentalAlertStateAdmin(admin.ModelAdmin):
     list_display = ('alert_key', 'alert_name', 'is_active', 'last_alert_sent_at', 'last_recovery_sent_at', 'updated_at')
     list_filter = ('is_active', 'updated_at')
     search_fields = ('alert_key', 'alert_name')
+
+
+@admin.register(WaterRefillLog)
+class WaterRefillLogAdmin(admin.ModelAdmin):
+    list_display = ('timestamp', 'event', 'message', 'duration_display_admin', 'container_status', 'source_status', 'refill_state', 'device_id')
+    list_filter = ('event', 'device_id', 'timestamp')
+    search_fields = ('message', 'device_id', 'refill_state')
+    readonly_fields = (
+        'event', 'timestamp', 'device_id', 'message', 'container_status',
+        'source_status', 'refill_state', 'pump_on', 'duration_seconds',
+    )
+    date_hierarchy = 'timestamp'
+    ordering = ('-timestamp',)
+
+    def duration_display_admin(self, obj):
+        return obj.duration_display
+    duration_display_admin.short_description = 'Pump run time'
+
 
 
 # Review Media Admin for moderation

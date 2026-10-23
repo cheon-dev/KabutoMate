@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .models import WaterRefillStatus
+from .models import WaterRefillLog, WaterRefillStatus
 from .notification_service import (
     evaluate_water_refill_notifications,
     evaluate_water_refill_offline_notification,
@@ -35,6 +35,50 @@ def _api_key_error(request):
     if not hmac.compare_digest(provided, expected):
         return JsonResponse({'status': 'error', 'message': 'Invalid device API key.'}, status=401)
     return None
+
+
+RECENT_LOG_LIMIT = 20
+
+
+def _failure_message(status):
+    """Explain why a refill stopped before the container reached its target."""
+    if status.refill_state == 'SOURCE_EMPTY' or status.source_status == 'LOW':
+        return 'Refill stopped: the source jug is empty.'
+    if status.refill_state == 'TIMEOUT':
+        return 'Refill stopped: pump runtime limit reached. Inspect the line and pump.'
+    if status.refill_state == 'SENSOR_ERROR' or not status.sensor_valid:
+        return 'Refill stopped: float-switch readings are invalid.'
+    return f'Refill stopped before completion (state: {status.refill_state}).'
+
+
+def _log_event(status, event, message, when, duration_seconds=None):
+    return WaterRefillLog.objects.create(
+        event=event,
+        timestamp=when,
+        device_id=status.device_id,
+        message=message,
+        container_status=status.container_status,
+        source_status=status.source_status,
+        refill_state=status.refill_state,
+        pump_on=status.pump_on,
+        duration_seconds=duration_seconds,
+    )
+
+
+def _serialize_log(log):
+    return {
+        'id': log.id,
+        'event': log.event,
+        'event_label': log.get_event_display(),
+        'timestamp': log.timestamp.isoformat(),
+        'message': log.message,
+        'container_status': log.container_status,
+        'source_status': log.source_status,
+        'refill_state': log.refill_state,
+        'pump_on': log.pump_on,
+        'duration_seconds': log.duration_seconds,
+        'duration_display': log.duration_display,
+    }
 
 
 def _serialize_status(status, now=None):
@@ -111,6 +155,12 @@ def receive_water_refill_status(request):
 
             if pump_on and not previous_pump_on:
                 status.last_refill_started_at = now
+                _log_event(
+                    status,
+                    'REFILL_STARTED',
+                    'Pump turned on; refilling the misting container.',
+                    now,
+                )
             elif (
                 previous_pump_on
                 and not pump_on
@@ -119,9 +169,35 @@ def receive_water_refill_status(request):
                 and refill_state == 'IDLE'
             ):
                 status.last_refill_completed_at = now
+                duration = None
+                if status.last_refill_started_at:
+                    duration = max(0, int((now - status.last_refill_started_at).total_seconds()))
+                _log_event(
+                    status,
+                    'REFILL_COMPLETED',
+                    'Misting container reached its target level.',
+                    now,
+                    duration_seconds=duration,
+                )
+            elif previous_pump_on and not pump_on:
+                duration = None
+                if status.last_refill_started_at:
+                    duration = max(0, int((now - status.last_refill_started_at).total_seconds()))
+                _log_event(
+                    status,
+                    'REFILL_FAILED',
+                    _failure_message(status),
+                    now,
+                    duration_seconds=duration,
+                )
 
             if refill_state in {'TIMEOUT', 'SENSOR_ERROR'}:
                 status.last_refill_failed_at = now
+                # The firmware normally switches the pump off first, which is
+                # already logged above. This covers a fault reported while the
+                # pump is still running.
+                if not (previous_pump_on and not pump_on) and previous_refill_state == 'REFILLING':
+                    _log_event(status, 'REFILL_FAILED', _failure_message(status), now)
 
             status.save()
             events = evaluate_water_refill_notifications(
@@ -147,7 +223,7 @@ def receive_water_refill_status(request):
 @admin_required
 @require_http_methods(['GET'])
 def water_refill_status_api(request):
-    """Return water-refill status for the admin environment dashboard."""
+    """Return water-refill status and recent pump logs for the admin dashboard."""
     status = WaterRefillStatus.objects.first()
     if status is None:
         status = WaterRefillStatus(
@@ -161,4 +237,26 @@ def water_refill_status_api(request):
             payload['connection_status'] == 'ONLINE',
         )
 
+    payload['recent_logs'] = [
+        _serialize_log(log) for log in WaterRefillLog.objects.all()[:RECENT_LOG_LIMIT]
+    ]
     return JsonResponse({'success': True, 'data': payload})
+
+
+@admin_required
+@require_http_methods(['GET'])
+def water_refill_logs_api(request):
+    """Return paginated water-refill pump logs, newest first."""
+    try:
+        limit = int(request.GET.get('limit', 50))
+    except (TypeError, ValueError):
+        limit = 50
+    limit = max(1, min(limit, 200))
+
+    queryset = WaterRefillLog.objects.all()
+    event = str(request.GET.get('event', '')).upper()
+    if event in dict(WaterRefillLog.EVENT_CHOICES):
+        queryset = queryset.filter(event=event)
+
+    logs = [_serialize_log(log) for log in queryset[:limit]]
+    return JsonResponse({'success': True, 'count': len(logs), 'logs': logs})

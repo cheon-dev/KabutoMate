@@ -108,6 +108,7 @@ urlpatterns = [
     # Dedicated water-refill ESP32
     path('api/water-refill/report/', water_refill_api.receive_water_refill_status, name='water-refill-report'),
     path('api/water-refill/status/', water_refill_api.water_refill_status_api, name='water-refill-status'),
+    path('api/water-refill/logs/', water_refill_api.water_refill_logs_api, name='water-refill-logs'),
     
     # Sensor data for dashboard charts (GET)
     path('api/sensor-data/', views.sensor_data_api, name='sensor-api'),

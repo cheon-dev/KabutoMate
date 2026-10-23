@@ -291,6 +291,49 @@ class WaterRefillStatus(models.Model):
     def __str__(self):
         return f"{self.device_id} - {self.refill_state}"
 
+
+class WaterRefillLog(models.Model):
+    """Timestamped history of pump activity reported by the water-refill ESP32."""
+
+    EVENT_CHOICES = [
+        ('REFILL_STARTED', 'Refill Started'),
+        ('REFILL_COMPLETED', 'Refill Completed'),
+        ('REFILL_FAILED', 'Refill Failed'),
+    ]
+
+    event = models.CharField(max_length=20, choices=EVENT_CHOICES)
+    timestamp = models.DateTimeField(default=timezone.now)
+    device_id = models.CharField(max_length=80, default='ESP32_WATER_REFILL_001')
+    message = models.CharField(max_length=255, blank=True, default='')
+    container_status = models.CharField(max_length=10, blank=True, default='')
+    source_status = models.CharField(max_length=12, blank=True, default='')
+    refill_state = models.CharField(max_length=15, blank=True, default='')
+    pump_on = models.BooleanField(default=False)
+    duration_seconds = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="How long the pump ran, when both start and stop were observed.",
+    )
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['-timestamp'], name='water_refill_log_ts_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.get_event_display()} at {self.timestamp:%Y-%m-%d %H:%M:%S}"
+
+    @property
+    def duration_display(self):
+        if self.duration_seconds is None:
+            return '—'
+        minutes, seconds = divmod(self.duration_seconds, 60)
+        if minutes:
+            return f"{minutes}m {seconds}s"
+        return f"{seconds}s"
+
+
 class Sale(models.Model):
     SALE_TYPE_CHOICES = [
         ('POS', 'Point of Sale'),

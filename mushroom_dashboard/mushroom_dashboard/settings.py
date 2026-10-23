@@ -39,7 +39,7 @@ elif DEBUG:
     # Development default: allow LAN access without extra configuration.
     ALLOWED_HOSTS = ['*']
 else:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.8.34']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.8.39']
 
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()

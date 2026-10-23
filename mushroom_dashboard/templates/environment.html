@@ -209,6 +209,67 @@
             margin: 14px 0 0;
         }
 
+        .refill-log-section {
+            margin-top: 22px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 16px;
+        }
+
+        .refill-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .refill-log-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .refill-log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+
+        .refill-log-table th {
+            text-align: left;
+            color: #64748b;
+            font-weight: 600;
+            font-size: 0.76rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .refill-log-table td {
+            padding: 10px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+        }
+
+        .refill-log-empty {
+            color: #94a3b8;
+            padding: 14px 10px;
+        }
+
+        .refill-log-badge {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .refill-log-badge.started { background: #dbeafe; color: #1d4ed8; }
+        .refill-log-badge.completed { background: #dcfce7; color: #15803d; }
+        .refill-log-badge.failed { background: #fee2e2; color: #b91c1c; }
+
         /* --- Control Grid --- */
         .control-grid {
             display: grid;
@@ -867,6 +928,28 @@
             </div>
             <p id="water-refill-last-report" style="color: #64748b; margin: 14px 0 0;"></p>
             <p id="water-refill-error" class="refill-status-error"></p>
+
+            <div class="refill-log-section">
+                <div class="refill-log-header">
+                    <span class="refill-log-title"><i class="fa-solid fa-clock-rotate-left"></i> Refill Logs</span>
+                    <span id="water-refill-log-count" style="color: #64748b; font-size: 0.82rem;"></span>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="refill-log-table">
+                        <thead>
+                            <tr>
+                                <th>Date &amp; Time</th>
+                                <th>Event</th>
+                                <th>Details</th>
+                                <th>Pump run</th>
+                            </tr>
+                        </thead>
+                        <tbody id="water-refill-log-body">
+                            <tr><td colspan="4" class="refill-log-empty">No refill activity recorded yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
         
         <div class="card ai-recommendations" style="margin-top: 20px;">
@@ -946,6 +1029,51 @@
     </main>
 
     <script>
+    function escapeRefillLogText(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function renderWaterRefillLogs(logs) {
+        const body = document.getElementById('water-refill-log-body');
+        const count = document.getElementById('water-refill-log-count');
+        if (!body) {
+            return;
+        }
+        if (!Array.isArray(logs) || logs.length === 0) {
+            body.innerHTML = '<tr><td colspan="4" class="refill-log-empty">No refill activity recorded yet.</td></tr>';
+            if (count) {
+                count.textContent = '';
+            }
+            return;
+        }
+        const badgeClasses = {
+            REFILL_STARTED: 'started',
+            REFILL_COMPLETED: 'completed',
+            REFILL_FAILED: 'failed',
+        };
+        body.innerHTML = logs.map((log) => {
+            const badgeClass = badgeClasses[log.event] || '';
+            const label = escapeRefillLogText(log.event_label || log.event);
+            const when = log.timestamp
+                ? escapeRefillLogText(new Date(log.timestamp).toLocaleString())
+                : '—';
+            return `<tr>
+                <td>${when}</td>
+                <td><span class="refill-log-badge ${badgeClass}">${label}</span></td>
+                <td>${escapeRefillLogText(log.message)}</td>
+                <td>${escapeRefillLogText(log.duration_display || '—')}</td>
+            </tr>`;
+        }).join('');
+        if (count) {
+            count.textContent = `${logs.length} most recent`;
+        }
+    }
+
     async function updateWaterRefillStatus() {
         try {
             const response = await fetch('/api/water-refill/status/');
@@ -963,6 +1091,7 @@
                 ? `Last report: ${new Date(status.last_reported_at).toLocaleString()}`
                 : 'No report received yet.';
             document.getElementById('water-refill-error').textContent = status.last_error || '';
+            renderWaterRefillLogs(status.recent_logs);
         } catch (error) {
             document.getElementById('water-refill-connection').textContent = 'UNAVAILABLE';
             document.getElementById('water-refill-error').textContent = 'Unable to load water-refill status.';

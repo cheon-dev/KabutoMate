@@ -18,6 +18,7 @@ from .models import (
     Sale,
     SensorReading,
     StoreSettings,
+    WaterRefillLog,
     WaterRefillStatus,
     YieldTrainingSample,
 )
@@ -171,6 +172,111 @@ class WaterRefillApiTests(TestCase):
                 for event in second_response.json()['notification_events'])
         )
         self.assertTrue(Notification.objects.filter(title='Water Refill Completed').exists())
+
+    def _report(self, **overrides):
+        payload = {**self.payload, **overrides}
+        return self.client.post(
+            '/api/water-refill/report/',
+            data=json.dumps(payload),
+            content_type='application/json',
+            HTTP_X_API_KEY='water-test-key',
+        )
+
+    def _login_admin(self):
+        admin = get_user_model().objects.create_user(
+            username='water-refill-log-admin',
+            password='StrongPass123!',
+        )
+        admin.profile.role = 'ADMIN'
+        admin.profile.save()
+        self.client.force_login(admin)
+        return admin
+
+    @override_settings(
+        WATER_REFILL_API_KEY='water-test-key',
+        WATER_REFILL_DEVICE_ID='ESP32_WATER_REFILL_001',
+    )
+    def test_pump_start_creates_refill_log_with_timestamp(self):
+        response = self._report()
+
+        self.assertEqual(response.status_code, 200)
+        log = WaterRefillLog.objects.get()
+        self.assertEqual(log.event, 'REFILL_STARTED')
+        self.assertEqual(log.refill_state, 'REFILLING')
+        self.assertTrue(log.pump_on)
+        self.assertIsNotNone(log.timestamp)
+        self.assertIn('Pump turned on', log.message)
+
+    @override_settings(
+        WATER_REFILL_API_KEY='water-test-key',
+        WATER_REFILL_DEVICE_ID='ESP32_WATER_REFILL_001',
+    )
+    def test_completed_refill_logs_duration(self):
+        self._report()
+        self._report(container_status='NORMAL', refill_state='IDLE', pump_on=False)
+
+        logs = list(WaterRefillLog.objects.order_by('timestamp', 'id'))
+        self.assertEqual([log.event for log in logs], ['REFILL_STARTED', 'REFILL_COMPLETED'])
+        self.assertIsNotNone(logs[1].duration_seconds)
+        self.assertGreaterEqual(logs[1].duration_seconds, 0)
+
+    @override_settings(
+        WATER_REFILL_API_KEY='water-test-key',
+        WATER_REFILL_DEVICE_ID='ESP32_WATER_REFILL_001',
+    )
+    def test_empty_source_logs_failed_refill(self):
+        self._report()
+        self._report(source_status='LOW', refill_state='SOURCE_EMPTY', pump_on=False)
+
+        log = WaterRefillLog.objects.get(event='REFILL_FAILED')
+        self.assertIn('source jug is empty', log.message)
+        self.assertFalse(log.pump_on)
+
+    @override_settings(
+        WATER_REFILL_API_KEY='water-test-key',
+        WATER_REFILL_DEVICE_ID='ESP32_WATER_REFILL_001',
+    )
+    def test_steady_reports_do_not_duplicate_logs(self):
+        self._report()
+        self._report()
+        self._report()
+
+        self.assertEqual(WaterRefillLog.objects.filter(event='REFILL_STARTED').count(), 1)
+
+    @override_settings(
+        WATER_REFILL_API_KEY='water-test-key',
+        WATER_REFILL_DEVICE_ID='ESP32_WATER_REFILL_001',
+    )
+    def test_status_api_includes_recent_logs(self):
+        self._report()
+        self._login_admin()
+
+        response = self.client.get('/api/water-refill/status/')
+
+        self.assertEqual(response.status_code, 200)
+        logs = response.json()['data']['recent_logs']
+        self.assertEqual(len(logs), 1)
+        self.assertEqual(logs[0]['event'], 'REFILL_STARTED')
+        self.assertIn('timestamp', logs[0])
+
+    @override_settings(
+        WATER_REFILL_API_KEY='water-test-key',
+        WATER_REFILL_DEVICE_ID='ESP32_WATER_REFILL_001',
+    )
+    def test_logs_endpoint_requires_admin_and_returns_newest_first(self):
+        self._report()
+        self._report(container_status='NORMAL', refill_state='IDLE', pump_on=False)
+
+        anonymous_response = self.client.get('/api/water-refill/logs/')
+        self.assertEqual(anonymous_response.status_code, 302)
+
+        self._login_admin()
+        response = self.client.get('/api/water-refill/logs/')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['count'], 2)
+        self.assertEqual([log['event'] for log in payload['logs']], ['REFILL_COMPLETED', 'REFILL_STARTED'])
 
 
 class ShippingDistanceTests(TestCase):

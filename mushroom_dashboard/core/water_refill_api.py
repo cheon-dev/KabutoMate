@@ -38,6 +38,7 @@ def _api_key_error(request):
 
 
 RECENT_LOG_LIMIT = 20
+WATER_REFILL_LOG_PAGE_SIZE = 10
 
 
 def _failure_message(status):
@@ -240,23 +241,45 @@ def water_refill_status_api(request):
     payload['recent_logs'] = [
         _serialize_log(log) for log in WaterRefillLog.objects.all()[:RECENT_LOG_LIMIT]
     ]
+    payload['log_total'] = WaterRefillLog.objects.count()
     return JsonResponse({'success': True, 'data': payload})
 
 
 @admin_required
 @require_http_methods(['GET'])
 def water_refill_logs_api(request):
-    """Return paginated water-refill pump logs, newest first."""
+    """Return paginated water-refill pump logs, newest first, max 10 per page."""
     try:
-        limit = int(request.GET.get('limit', 50))
+        page = int(request.GET.get('page', 1))
     except (TypeError, ValueError):
-        limit = 50
-    limit = max(1, min(limit, 200))
+        page = 1
+    try:
+        page_size = int(request.GET.get('page_size', WATER_REFILL_LOG_PAGE_SIZE))
+    except (TypeError, ValueError):
+        page_size = WATER_REFILL_LOG_PAGE_SIZE
+    page_size = max(1, min(page_size, WATER_REFILL_LOG_PAGE_SIZE))
 
     queryset = WaterRefillLog.objects.all()
     event = str(request.GET.get('event', '')).upper()
     if event in dict(WaterRefillLog.EVENT_CHOICES):
         queryset = queryset.filter(event=event)
 
-    logs = [_serialize_log(log) for log in queryset[:limit]]
-    return JsonResponse({'success': True, 'count': len(logs), 'logs': logs})
+    total = queryset.count()
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * page_size
+    logs = [_serialize_log(log) for log in queryset[start:start + page_size]]
+
+    return JsonResponse({
+        'success': True,
+        'count': len(logs),
+        'logs': logs,
+        'pagination': {
+            'page': page,
+            'page_size': page_size,
+            'total': total,
+            'total_pages': total_pages,
+            'has_previous': page > 1,
+            'has_next': page < total_pages,
+        },
+    })

@@ -29,7 +29,7 @@ def _disabled_response():
             'mode': 'disabled',
             'reason': 'Sensor processing is disabled on the server',
         }
-        for name in ('fan', 'humidifier', 'heater', 'lights')
+        for name in ('fan', 'humidifier', 'lights')
     }
     return JsonResponse({
         'status': 'disabled',
@@ -38,14 +38,12 @@ def _disabled_response():
         'relays': {
             'fan': False,
             'humidifier': False,
-            'heater': False,
             'co2': False,
             'lights': False,
         },
         'auto_modes': {
             'fan_auto': False,
             'humidifier_auto': False,
-            'heater_auto': False,
             'co2_auto': False,
             'lights_auto': False,
         },
@@ -277,7 +275,7 @@ def get_sensor_statistics(request):
 def get_control_states(request):
     """
     API endpoint for ESP32 to fetch current control states.
-    The ESP32 polls this endpoint to know when to turn fan/humidifier/heater ON/OFF.
+    The ESP32 polls this endpoint to know when to turn fan/humidifier ON/OFF.
     
     Returns JSON:
     {
@@ -286,7 +284,6 @@ def get_control_states(request):
             "fan_on": true/false,
             "fan_value": 0-100,
             "humidifier_on": true/false,
-            "heater_on": true/false,
             "co2_on": true/false,
             "lights_on": true/false
         }
@@ -311,9 +308,6 @@ def get_control_states(request):
                 'humidifier_on': settings.humidifier_on,
                 'humidifier_auto': settings.humidifier_auto,
                 'humidifier_value': settings.humidifier_value,
-                'heater_on': settings.heater_on,
-                'heater_auto': settings.heater_auto,
-                'heater_value': settings.heater_value,
                 'co2_on': settings.co2_on,
                 'lights_on': settings.lights_on,
             }
@@ -407,7 +401,6 @@ def get_automation_decision(request):
                 "reason": "explanation"
             },
             "humidifier": {...},
-            "heater": {...},
             "lights": {...}
         },
         "sensor_readings": {
@@ -544,37 +537,6 @@ def get_automation_decision(request):
                 'reason': 'Manual control - dashboard switch state'
             }
         
-        # --- Heater Control ---
-        if settings.heater_auto:
-            heater_should_be_on = decisions['heater_should_be_on']
-            if heater_should_be_on is not None and heater_should_be_on != settings.heater_on:
-                settings.heater_on = heater_should_be_on
-                state_changed = True
-                
-                action = 'HEATER_ON' if heater_should_be_on else 'HEATER_OFF'
-                AutomationLog.objects.create(
-                    action=action,
-                    reason=f"Auto: {'; '.join([r for r in decisions['reasons'] if 'Temperature' in r and 'threshold' in r][:1]) or 'Threshold check'}",
-                    temperature_before=temperature,
-                    humidity_before=humidity,
-                    co2_before=air_quality_ppm or 0,
-                    confidence=100.0
-                )
-            
-            controls_response['heater'] = {
-                'should_be_on': heater_should_be_on if heater_should_be_on is not None else settings.heater_on,
-                'current_state': settings.heater_on,
-                'mode': 'automatic',
-                'reason': next((r for r in decisions['reasons'] if 'heater' in r.lower() or ('temperature' in r.lower() and 'below' in r.lower())), 'Within target range')
-            }
-        else:
-            controls_response['heater'] = {
-                'should_be_on': settings.heater_on,
-                'current_state': settings.heater_on,
-                'mode': 'manual',
-                'reason': 'Manual control - dashboard switch state'
-            }
-
         # --- Grow Light Control (Lux-based) ---
         if settings.lights_auto:
             # Map UI value (0-100%) to an ambient lux target (100-1000 lux).
@@ -630,13 +592,10 @@ def get_automation_decision(request):
                 'fan_air_quality_threshold': settings.fan_air_quality_threshold,
                 'humidifier_low_threshold': float(settings.humidifier_low_threshold),
                 'humidifier_high_threshold': float(settings.humidifier_high_threshold),
-                'heater_low_threshold': float(settings.heater_low_threshold),
-                'heater_high_threshold': float(settings.heater_high_threshold),
             },
             'target_values': decisions.get('target_values', {
                 'fan_target_temp': settings.fan_value,
                 'target_humidity': settings.humidifier_value,
-                'target_temperature': settings.heater_value,
                 'target_co2': settings.co2_value,
                 'light_intensity': settings.lights_value,
                 'light_target_lux': 100.0 + (max(0.0, min(float(settings.lights_value), 100.0)) / 100.0) * 900.0
@@ -669,7 +628,6 @@ def get_relay_command(request):
     {
         "fan": true/false,
         "humidifier": true/false,
-        "heater": true/false,
         "co2": true/false,
         "lights": true/false
     }
@@ -689,21 +647,18 @@ def get_relay_command(request):
             'relays': {
                 'fan': settings.fan_on,
                 'humidifier': settings.humidifier_on,
-                'heater': settings.heater_on,
                 'co2': settings.co2_on,
                 'lights': settings.lights_on
             },
             'target_values': {
                 'fan_target_temp': settings.fan_value,
                 'target_humidity': settings.humidifier_value,
-                'target_temperature': settings.heater_value,
                 'target_co2': settings.co2_value,
                 'light_intensity': settings.lights_value
             },
             'auto_modes': {
                 'fan_auto': settings.fan_auto,
                 'humidifier_auto': settings.humidifier_auto,
-                'heater_auto': settings.heater_auto,
                 'co2_auto': settings.co2_auto,
                 'lights_auto': settings.lights_auto
             }

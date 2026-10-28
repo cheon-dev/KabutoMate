@@ -635,24 +635,20 @@ class EnvironmentSettings(models.Model):
         
         Target values are actively used:
         - humidifier_value: Target humidity % - humidifier runs until this is reached
-        - heater_value: Target temperature °C - heater runs until this is reached
-        - fan_value: Fan speed % when ON (for PWM control)
+        - fan_value: Target temperature °C - fan turns on above this
         
         Returns dict with:
         - fan_should_be_on: bool or None (None = no change / not in auto mode)
         - humidifier_should_be_on: bool or None
-        - heater_should_be_on: bool or None
         - target_values: dict with target settings for hardware
         - reasons: list of explanations
         """
         decisions = {
             'fan_should_be_on': None,
             'humidifier_should_be_on': None,
-            'heater_should_be_on': None,
             'target_values': {
                 'fan_target_temp': self.fan_value,
                 'target_humidity': self.humidifier_value,
-                'target_temperature': self.heater_value,
                 'target_co2': self.co2_value,
                 'light_intensity': self.lights_value
             },
@@ -661,7 +657,6 @@ class EnvironmentSettings(models.Model):
         
         hysteresis = float(self.hysteresis_margin)
         target_humidity = float(self.humidifier_value)
-        target_temperature = float(self.heater_value)
         fan_target_temp = float(self.fan_value)
         
         # Fan Automation Logic - Uses target temperature (fan_value)
@@ -713,24 +708,6 @@ class EnvironmentSettings(models.Model):
             # Otherwise keep current state
             else:
                 decisions['humidifier_should_be_on'] = self.humidifier_on
-        
-        # Heater Automation Logic - Uses target value (heater_value)
-        if self.heater_auto:
-            # Turn ON if temperature is below target minus hysteresis
-            if temperature < target_temperature - hysteresis:
-                decisions['heater_should_be_on'] = True
-                decisions['reasons'].append(f"Temperature {temperature}°C below target {target_temperature}°C (activating)")
-            # Turn OFF if temperature reaches or exceeds target
-            elif temperature >= target_temperature:
-                decisions['heater_should_be_on'] = False
-                decisions['reasons'].append(f"Temperature {temperature}°C reached target {target_temperature}°C (deactivating)")
-            # Keep running if already ON and still below target
-            elif self.heater_on and temperature < target_temperature:
-                decisions['heater_should_be_on'] = True
-                decisions['reasons'].append(f"Temperature {temperature}°C approaching target {target_temperature}°C (maintaining)")
-            # Otherwise keep current state
-            else:
-                decisions['heater_should_be_on'] = self.heater_on
         
         return decisions
 

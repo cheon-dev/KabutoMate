@@ -316,10 +316,6 @@
                     <div class="status-item-title">Humidifier</div>
                     <div id="status-humidifier" class="status-indicator">Active</div>
                 </div>
-                <div class="status-item">
-                    <div class="status-item-title">Heater</div>
-                    <div id="status-heater" class="status-indicator">Active</div>
-                </div>
                  <div class="status-item">
                     <div class="status-item-title">Sensors</div>
                     <div id="status-sensors" class="status-indicator">Active</div>
@@ -613,7 +609,6 @@
                     // Update system status indicators (if elements exist)
                     const statusFan = document.getElementById('status-fan');
                     const statusHumidifier = document.getElementById('status-humidifier');
-                    const statusHeater = document.getElementById('status-heater');
                     const statusSensors = document.getElementById('status-sensors');
                     
                     if (summary.device_statuses) {
@@ -639,17 +634,6 @@
                             }
                         }
 
-                        // Heater
-                        if (statusHeater) {
-                            if (summary.device_statuses.heater) {
-                                statusHeater.className = 'status-indicator';
-                                statusHeater.textContent = 'Active';
-                            } else {
-                                statusHeater.className = 'status-indicator inactive';
-                                statusHeater.textContent = 'Inactive';
-                            }
-                        }
-                        
                         // Sensors
                         if (statusSensors) {
                             if (summary.device_statuses.sensors) {

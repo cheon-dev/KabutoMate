@@ -316,9 +316,9 @@ def _admin_context():
     if settings:
         lines.extend([
             f'- Devices: fan={settings.fan_on}, humidifier={settings.humidifier_on}, '
-            f'heater={settings.heater_on}, CO2={settings.co2_on}, lights={settings.lights_on}',
+            f'CO2={settings.co2_on}, lights={settings.lights_on}',
             f'- Automation: fan={settings.fan_auto}, humidifier={settings.humidifier_auto}, '
-            f'heater={settings.heater_auto}, CO2={settings.co2_auto}, lights={settings.lights_auto}',
+            f'CO2={settings.co2_auto}, lights={settings.lights_auto}',
             f'- Main thresholds: temperature {settings.heater_low_threshold}-{settings.heater_high_threshold} C, '
             f'humidity {settings.humidifier_low_threshold}-{settings.humidifier_high_threshold}%, '
             f'air quality maximum {settings.fan_air_quality_threshold} ppm',

@@ -1,11 +1,12 @@
 import json
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.test import Client, TestCase, override_settings
+from django.utils import timezone
 
 from .ai_service import ask_gemini
 from .ai_context import build_ai_context
@@ -278,6 +279,35 @@ class WaterRefillApiTests(TestCase):
         self.assertEqual(payload['count'], 2)
         self.assertEqual([log['event'] for log in payload['logs']], ['REFILL_COMPLETED', 'REFILL_STARTED'])
 
+    @override_settings(
+        WATER_REFILL_API_KEY='water-test-key',
+        WATER_REFILL_DEVICE_ID='ESP32_WATER_REFILL_001',
+    )
+    def test_logs_endpoint_paginates_ten_per_page(self):
+        now = timezone.now()
+        for index in range(12):
+            WaterRefillLog.objects.create(
+                event='REFILL_STARTED',
+                timestamp=now - timedelta(minutes=index),
+                message=f'log {index}',
+            )
+        self._login_admin()
+
+        first = self.client.get('/api/water-refill/logs/').json()
+        self.assertEqual(first['count'], 10)
+        self.assertEqual(first['pagination']['page'], 1)
+        self.assertEqual(first['pagination']['page_size'], 10)
+        self.assertEqual(first['pagination']['total'], 12)
+        self.assertEqual(first['pagination']['total_pages'], 2)
+        self.assertTrue(first['pagination']['has_next'])
+        self.assertFalse(first['pagination']['has_previous'])
+
+        second = self.client.get('/api/water-refill/logs/?page=2').json()
+        self.assertEqual(second['count'], 2)
+        self.assertEqual(second['pagination']['page'], 2)
+        self.assertFalse(second['pagination']['has_next'])
+        self.assertTrue(second['pagination']['has_previous'])
+
 
 class ShippingDistanceTests(TestCase):
     @patch('core.shipping.requests.get')
@@ -410,7 +440,7 @@ class SensorProcessingControlTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'disabled')
-        self.assertEqual(response.json()['relays']['heater'], False)
+        self.assertEqual(response.json()['relays']['fan'], False)
         self.assertEqual(SensorReading.objects.count(), 0)
 
     @override_settings(

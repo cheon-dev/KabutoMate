@@ -175,16 +175,11 @@ def predict_preventive_action():
         pred_vent = models['ventilation'].predict(input_data)[0]
         conf_vent = max(models['ventilation'].predict_proba(input_data)[0]) * 100
         
-        pred_heat = models['heater'].predict(input_data)[0]
-        conf_heat = max(models['heater'].predict_proba(input_data)[0]) * 100
-        
         return {
             'activate_humidifier': bool(pred_hum),
             'activate_ventilation': bool(pred_vent),
-            'activate_heater': bool(pred_heat),
             'confidence_humidifier': round(conf_hum, 1),
             'confidence_ventilation': round(conf_vent, 1),
-            'confidence_heater': round(conf_heat, 1),
             'current_conditions': {
                 'temperature': float(latest.temperature),
                 'humidity': float(latest.humidity),
@@ -1301,7 +1296,6 @@ def dashboard_summary_api(request):
     device_statuses = {
         'fan': env_settings.fan_on,
         'humidifier': env_settings.humidifier_on,
-        'heater': env_settings.heater_on,
         'watering': False,  # Set to False by default, will be True only during watering cycle
         'sensors': sensors_online
     }
@@ -2221,9 +2215,6 @@ def environment_api(request):
             settings_obj.humidifier_on = data.get('humidifier_on', settings_obj.humidifier_on)
             settings_obj.humidifier_auto = data.get('humidifier_auto', settings_obj.humidifier_auto)
             settings_obj.humidifier_value = data.get('humidifier_value', settings_obj.humidifier_value)
-            settings_obj.heater_on = data.get('heater_on', settings_obj.heater_on)
-            settings_obj.heater_auto = data.get('heater_auto', settings_obj.heater_auto)
-            settings_obj.heater_value = data.get('heater_value', settings_obj.heater_value)
             settings_obj.co2_on = data.get('co2_on', settings_obj.co2_on)
             settings_obj.co2_auto = data.get('co2_auto', settings_obj.co2_auto)
             settings_obj.co2_value = data.get('co2_value', settings_obj.co2_value)
@@ -2242,10 +2233,6 @@ def environment_api(request):
                 settings_obj.humidifier_low_threshold = data['humidifier_low_threshold']
             if 'humidifier_high_threshold' in data:
                 settings_obj.humidifier_high_threshold = data['humidifier_high_threshold']
-            if 'heater_low_threshold' in data:
-                settings_obj.heater_low_threshold = data['heater_low_threshold']
-            if 'heater_high_threshold' in data:
-                settings_obj.heater_high_threshold = data['heater_high_threshold']
             if 'hysteresis_margin' in data:
                 settings_obj.hysteresis_margin = data['hysteresis_margin']
             
@@ -2314,27 +2301,6 @@ def environment_api(request):
                     co2_before=predictions['current_conditions']['co2'] or 0,
                     confidence=predictions['confidence_ventilation']
                 )
-        
-        if predictions['activate_heater']:
-            recommendations.append(
-                f"🤖 ML Alert: Temperature predicted to drop soon (currently {predictions['current_conditions']['temperature']}°C). "
-                f"Activating heater preventively. (Confidence: {predictions['confidence_heater']}%)"
-            )
-            
-            # Auto-activate heater if in auto mode
-            if settings_obj.heater_auto:
-                settings_obj.heater_on = True
-                settings_obj.save()
-                
-                from core.models import AutomationLog
-                AutomationLog.objects.create(
-                    action='HEATER_ON',
-                    reason='Predictive ML model detected temperature will drop below threshold',
-                    temperature_before=predictions['current_conditions']['temperature'],
-                    humidity_before=predictions['current_conditions']['humidity'],
-                    co2_before=predictions['current_conditions']['co2'] or 0,
-                    confidence=predictions['confidence_heater']
-                )
     
     # Traditional reactive recommendations (still included as fallback)
     if latest_reading:
@@ -2349,8 +2315,10 @@ def environment_api(request):
         if latest_reading.humidity < (settings_obj.humidifier_value - 10):
             recommendations.append(f"Humidity is low ({latest_reading.humidity}%). Increase humidifier.")
         
-        if latest_reading.temperature < (settings_obj.heater_value - 2):
-            recommendations.append(f"Temperature is low ({latest_reading.temperature}°C). Increase heater target.")
+        if latest_reading.temperature < 13:
+            recommendations.append(
+                f"Temperature is low ({latest_reading.temperature}°C). Fruiting mushrooms prefer 13-18°C."
+            )
 
     if not recommendations:
         recommendations.append("System is stable. All sensors within optimal range.")
@@ -2359,7 +2327,6 @@ def environment_api(request):
         'settings': {
             'fan_on': settings_obj.fan_on, 'fan_auto': settings_obj.fan_auto, 'fan_value': settings_obj.fan_value,
             'humidifier_on': settings_obj.humidifier_on, 'humidifier_auto': settings_obj.humidifier_auto, 'humidifier_value': settings_obj.humidifier_value,
-            'heater_on': settings_obj.heater_on, 'heater_auto': settings_obj.heater_auto, 'heater_value': settings_obj.heater_value,
             'co2_on': settings_obj.co2_on, 'co2_auto': settings_obj.co2_auto, 'co2_value': settings_obj.co2_value,
             'lights_on': settings_obj.lights_on, 'lights_auto': settings_obj.lights_auto, 'lights_value': settings_obj.lights_value,
         },
@@ -2369,8 +2336,6 @@ def environment_api(request):
             'fan_air_quality_threshold': settings_obj.fan_air_quality_threshold,
             'humidifier_low_threshold': float(settings_obj.humidifier_low_threshold),
             'humidifier_high_threshold': float(settings_obj.humidifier_high_threshold),
-            'heater_low_threshold': float(settings_obj.heater_low_threshold),
-            'heater_high_threshold': float(settings_obj.heater_high_threshold),
             'hysteresis_margin': float(settings_obj.hysteresis_margin),
         },
         'notification_settings': {

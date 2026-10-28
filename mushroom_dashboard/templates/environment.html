@@ -270,6 +270,56 @@
         .refill-log-badge.completed { background: #dcfce7; color: #15803d; }
         .refill-log-badge.failed { background: #fee2e2; color: #b91c1c; }
 
+        .refill-log-pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding-top: 12px;
+        }
+
+        .refill-log-range {
+            color: #64748b;
+            font-size: 0.82rem;
+        }
+
+        .refill-log-pager {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        .refill-pager-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            color: #334155;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .refill-pager-btn:hover:not(:disabled) { background: #f8fafc; }
+
+        .refill-pager-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .refill-log-page {
+            font-size: 0.82rem;
+            color: #475569;
+            min-width: 92px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
         /* --- Control Grid --- */
         .control-grid {
             display: grid;
@@ -373,6 +423,16 @@
 
         input:checked + .toggle-slider:before {
             transform: translateX(22px);
+        }
+
+        /* Manual switch is locked while automation is enabled */
+        .toggle-switch input:disabled + .toggle-slider {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .toggle-switch:has(input:disabled) {
+            cursor: not-allowed;
         }
 
         /* --- Custom Range Slider --- */
@@ -847,33 +907,6 @@
             <div class="card control-card">
                 <div class="control-header">
                     <div class="icon-title">
-                        <div class="icon-bg"><i class="fa-solid fa-temperature-high"></i></div>
-                        <span class="control-title">Heater</span>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="heater-on-toggle">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div class="control-section">
-                    <label for="heater-slider">Target Temperature</label>
-                    <div class="slider-container">
-                        <input type="range" id="heater-slider" min="10" max="40" value="22">
-                        <span id="heater-slider-value" class="slider-value">22°C</span>
-                    </div>
-                </div>
-                <div class="automation-section">
-                    <span>Automation</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="heater-auto-toggle">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="card control-card">
-                <div class="control-header">
-                    <div class="icon-title">
                         <div class="icon-bg"><i class="fa-solid fa-lightbulb"></i></div>
                         <span class="control-title">Grow Lights</span>
                     </div>
@@ -949,6 +982,18 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="refill-log-pagination">
+                    <span id="water-refill-log-range" class="refill-log-range"></span>
+                    <div class="refill-log-pager">
+                        <button type="button" id="water-refill-log-prev" class="refill-pager-btn" disabled>
+                            <i class="fa-solid fa-chevron-left"></i> Prev
+                        </button>
+                        <span id="water-refill-log-page" class="refill-log-page">Page 1 of 1</span>
+                        <button type="button" id="water-refill-log-next" class="refill-pager-btn" disabled>
+                            Next <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -1014,7 +1059,6 @@
                     <ul style="margin: 15px 0; padding-left: 25px;">
                         <li>Ventilation Fan</li>
                         <li>Humidifier</li>
-                        <li>Heater</li>
                         <li>Lights</li>
                     </ul>
                     <p style="color: #dc2626; font-weight: 600;">Are you sure you want to proceed?</p>
@@ -1038,19 +1082,56 @@
             .replace(/'/g, '&#39;');
     }
 
-    function renderWaterRefillLogs(logs) {
+    const WATER_REFILL_LOG_PAGE_SIZE = 10;
+    const waterRefillLogState = {
+        page: 1,
+        totalPages: 1,
+        total: 0,
+        loaded: false,
+        loading: false,
+    };
+
+    function renderWaterRefillLogs(logs, pagination) {
         const body = document.getElementById('water-refill-log-body');
         const count = document.getElementById('water-refill-log-count');
         if (!body) {
             return;
         }
+
+        const page = pagination && pagination.page ? pagination.page : 1;
+        const totalPages = pagination && pagination.total_pages ? pagination.total_pages : 1;
+        const total = pagination && typeof pagination.total === 'number' ? pagination.total : (logs ? logs.length : 0);
+
+        waterRefillLogState.page = page;
+        waterRefillLogState.totalPages = totalPages;
+        waterRefillLogState.total = total;
+
+        const pageLabel = document.getElementById('water-refill-log-page');
+        const rangeLabel = document.getElementById('water-refill-log-range');
+        const prevBtn = document.getElementById('water-refill-log-prev');
+        const nextBtn = document.getElementById('water-refill-log-next');
+
+        if (pageLabel) {
+            pageLabel.textContent = `Page ${page} of ${totalPages}`;
+        }
+        if (prevBtn) {
+            prevBtn.disabled = page <= 1 || waterRefillLogState.loading;
+        }
+        if (nextBtn) {
+            nextBtn.disabled = page >= totalPages || waterRefillLogState.loading;
+        }
+
         if (!Array.isArray(logs) || logs.length === 0) {
             body.innerHTML = '<tr><td colspan="4" class="refill-log-empty">No refill activity recorded yet.</td></tr>';
             if (count) {
-                count.textContent = '';
+                count.textContent = '0 logs';
+            }
+            if (rangeLabel) {
+                rangeLabel.textContent = '';
             }
             return;
         }
+
         const badgeClasses = {
             REFILL_STARTED: 'started',
             REFILL_COMPLETED: 'completed',
@@ -1069,8 +1150,66 @@
                 <td>${escapeRefillLogText(log.duration_display || '—')}</td>
             </tr>`;
         }).join('');
+
+        const first = (page - 1) * WATER_REFILL_LOG_PAGE_SIZE + 1;
+        const last = first + logs.length - 1;
         if (count) {
-            count.textContent = `${logs.length} most recent`;
+            count.textContent = `${total} log${total === 1 ? '' : 's'}`;
+        }
+        if (rangeLabel) {
+            rangeLabel.textContent = `Showing ${first}-${last} of ${total}`;
+        }
+    }
+
+    async function loadWaterRefillLogs(page) {
+        const targetPage = Math.max(1, parseInt(page, 10) || 1);
+        waterRefillLogState.loading = true;
+        renderWaterRefillLogs(null, {
+            page: waterRefillLogState.page,
+            total_pages: waterRefillLogState.totalPages,
+            total: waterRefillLogState.total,
+        });
+        try {
+            const response = await fetch(
+                `/api/water-refill/logs/?page=${targetPage}&page_size=${WATER_REFILL_LOG_PAGE_SIZE}`
+            );
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const payload = await response.json();
+            waterRefillLogState.loading = false;
+            waterRefillLogState.loaded = true;
+            renderWaterRefillLogs(payload.logs, payload.pagination);
+        } catch (error) {
+            waterRefillLogState.loading = false;
+            const body = document.getElementById('water-refill-log-body');
+            if (body) {
+                body.innerHTML = '<tr><td colspan="4" class="refill-log-empty">Unable to load refill logs.</td></tr>';
+            }
+            const prevBtn = document.getElementById('water-refill-log-prev');
+            const nextBtn = document.getElementById('water-refill-log-next');
+            if (prevBtn) prevBtn.disabled = true;
+            if (nextBtn) nextBtn.disabled = true;
+            console.error('Failed to load water-refill logs:', error);
+        }
+    }
+
+    function bindWaterRefillLogPagination() {
+        const prevBtn = document.getElementById('water-refill-log-prev');
+        const nextBtn = document.getElementById('water-refill-log-next');
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                if (waterRefillLogState.page > 1) {
+                    loadWaterRefillLogs(waterRefillLogState.page - 1);
+                }
+            });
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                if (waterRefillLogState.page < waterRefillLogState.totalPages) {
+                    loadWaterRefillLogs(waterRefillLogState.page + 1);
+                }
+            });
         }
     }
 
@@ -1091,7 +1230,16 @@
                 ? `Last report: ${new Date(status.last_reported_at).toLocaleString()}`
                 : 'No report received yet.';
             document.getElementById('water-refill-error').textContent = status.last_error || '';
-            renderWaterRefillLogs(status.recent_logs);
+
+            // Reload the table only when the number of logs actually changed,
+            // so the 15s status poll does not add a second request every cycle.
+            if (
+                waterRefillLogState.loaded &&
+                typeof status.log_total === 'number' &&
+                status.log_total !== waterRefillLogState.total
+            ) {
+                loadWaterRefillLogs(waterRefillLogState.page);
+            }
         } catch (error) {
             document.getElementById('water-refill-connection').textContent = 'UNAVAILABLE';
             document.getElementById('water-refill-error').textContent = 'Unable to load water-refill status.';
@@ -1139,11 +1287,6 @@
             humidifier_value: document.getElementById('humidifier-slider'),
             humidifier_value_display: document.getElementById('humidifier-slider-value'),
             
-            heater_on: document.getElementById('heater-on-toggle'),
-            heater_auto: document.getElementById('heater-auto-toggle'),
-            heater_value: document.getElementById('heater-slider'),
-            heater_value_display: document.getElementById('heater-slider-value'),
-            
             lights_on: document.getElementById('lights-on-toggle'),
             lights_auto: document.getElementById('lights-auto-toggle'),
             lights_value: document.getElementById('lights-slider'),
@@ -1160,6 +1303,25 @@
             .split('; ')
             .find(row => row.startsWith('csrftoken='))
             ?.split('=')[1];
+
+        // Manual ON/OFF is only meaningful when automation is off. While the
+        // automation toggle is on, the backend recomputes and overwrites the
+        // switch on every poll, so the manual switch is locked instead of
+        // silently doing nothing.
+        function syncManualToggles() {
+            const pairs = [
+                { on: controls.fan_on, auto: controls.fan_auto, label: 'the fan' },
+                { on: controls.humidifier_on, auto: controls.humidifier_auto, label: 'the humidifier' },
+                { on: controls.lights_on, auto: controls.lights_auto, label: 'the grow light' },
+            ];
+            pairs.forEach(pair => {
+                if (!pair.on || !pair.auto) return;
+                pair.on.disabled = pair.auto.checked;
+                pair.on.closest('.toggle-switch').title = pair.auto.checked
+                    ? `Automation is ON - switch it off to control ${pair.label} manually`
+                    : `Manual control for ${pair.label}`;
+            });
+        }
             
         // --- 1. Load Current Settings & Recommendations ---
         async function loadData() {
@@ -1182,11 +1344,6 @@
                 controls.humidifier_value.value = settings.humidifier_value;
                 controls.humidifier_value_display.textContent = `${settings.humidifier_value}%`;
                 
-                controls.heater_on.checked = settings.heater_on;
-                controls.heater_auto.checked = settings.heater_auto;
-                controls.heater_value.value = settings.heater_value;
-                controls.heater_value_display.textContent = `${settings.heater_value}°C`;
-                
                 controls.lights_on.checked = settings.lights_on;
                 controls.lights_auto.checked = settings.lights_auto;
                 controls.lights_value.value = settings.lights_value;
@@ -1196,6 +1353,8 @@
                 controls.notification_recipients.value = notificationSettings.recipient_emails || '';
                 controls.alert_cooldown_minutes.value = notificationSettings.alert_cooldown_minutes || 60;
                 controls.recovery_email_enabled.checked = notificationSettings.recovery_email_enabled !== false;
+
+                syncManualToggles();
 
                 // Populate AI Recommendations
                 aiList.innerHTML = ''; 
@@ -1228,14 +1387,6 @@
                             icon: '💨',
                             text: 'Ventilation activation predicted',
                             confidence: mlPredictions.confidence_ventilation
-                        });
-                    }
-                    
-                    if (mlPredictions.activate_heater) {
-                        activeActions.push({
-                            icon: '🔥',
-                            text: 'Heater activation predicted',
-                            confidence: mlPredictions.confidence_heater
                         });
                     }
                     
@@ -1304,9 +1455,6 @@
                 humidifier_on: controls.humidifier_on.checked,
                 humidifier_auto: controls.humidifier_auto.checked,
                 humidifier_value: parseInt(controls.humidifier_value.value, 10),
-                heater_on: controls.heater_on.checked,
-                heater_auto: controls.heater_auto.checked,
-                heater_value: parseInt(controls.heater_value.value, 10),
                 lights_on: controls.lights_on.checked,
                 lights_auto: controls.lights_auto.checked,
                 lights_value: parseInt(controls.lights_value.value, 10),
@@ -1342,7 +1490,6 @@
         
         linkSlider(controls.fan_value, controls.fan_value_display, '°C');
         linkSlider(controls.humidifier_value, controls.humidifier_value_display, '%');
-        linkSlider(controls.heater_value, controls.heater_value_display, '°C');
         linkSlider(controls.lights_value, controls.lights_value_display, '%');
 
         controls.notification_recipients.addEventListener('change', saveSettings);
@@ -1351,7 +1498,10 @@
         // --- 4. Add Event Listeners to all Toggles ---
         for (const key in controls) {
             if (controls[key].type === 'checkbox') {
-                controls[key].addEventListener('change', saveSettings);
+                controls[key].addEventListener('change', () => {
+                    syncManualToggles();
+                    saveSettings();
+                });
             }
         }
         
@@ -1370,16 +1520,13 @@
                 const emergencySettings = {
                     fan_on: false,
                     humidifier_on: false,
-                    heater_on: false,
                     co2_on: false,
                     lights_on: false,
                     fan_auto: controls.fan_auto.checked,
                     humidifier_auto: controls.humidifier_auto.checked,
-                    heater_auto: controls.heater_auto.checked,
                     lights_auto: controls.lights_auto.checked,
                     fan_value: controls.fan_value.value,
                     humidifier_value: controls.humidifier_value.value,
-                    heater_value: controls.heater_value.value,
                     lights_value: controls.lights_value.value
                 };
                 
@@ -1428,6 +1575,8 @@
 
         // --- Initial Load ---
         loadData();
+        bindWaterRefillLogPagination();
+        loadWaterRefillLogs(1);
         updateWaterRefillStatus();
         
         // --- Auto-refresh every 15 seconds to update ML predictions ---

@@ -1,20 +1,20 @@
-/*
- * ESP32 DHT22 + MQ-135 + BH1750 + Fan + Misting + HEATER + GROW LIGHT Control
+﻿/*
+ * ESP32 DHT22 + MQ-135 + BH1750 + Fan + Misting + GROW LIGHT Control
  * for Mushroom Farming Dashboard
  * 
  * This sketch reads temperature/humidity from DHT22, air quality from MQ-135,
  * and light intensity (lux) from BH1750,
- * sends the data to your Django server, and controls fan, misting system, heater,
- * and grow lights
+ * sends the data to your Django server, and controls fan, misting system, and
+ * grow lights
  * via relays based on dashboard settings with AUTOMATIC and MANUAL mode support.
  * 
  * =============================================================================
- * AUTOMATION MODES (applies to Fan, Misting, Heater, and Grow Lights):
+ * AUTOMATION MODES (applies to Fan, Misting, and Grow Lights):
  * =============================================================================
  * - AUTOMATIC MODE: Actuators turn ON/OFF based on sensor readings vs thresholds
  *   - Fan: ON when temperature > threshold OR humidity > threshold OR air quality > threshold
  *   - Misting: ON when humidity < low threshold, OFF when humidity > high threshold
- *   - Heater: ON when temperature < low threshold, OFF when temperature > high threshold
+ *   - Mist: ON when humidity < low threshold, OFF when humidity > high threshold
  * - MANUAL MODE: Actuators respond only to dashboard switch (user control)
  * 
  * =============================================================================
@@ -28,10 +28,11 @@
  * - 5V USB Fan (connected via Relay 1)
  * - Two 24V DC Misting Actuators (connected via Relays 2 and 5)
  * - Mist fan (connected via Relay 6)
- * - Heater (connected via Relay 3) - See HEATER_INTEGRATION_GUIDE.md
+ * - Active buzzer (connected to GPIO 14)
+ * - Relay 3 is unused (kept OFF)
  * - 24V DC 1A Power Supply for misting
  * - 5V Power Supply for fan
- * - Power supply for heater (AC or DC depending on heater type)
+ * - Power supply for fan and grow light
  * 
  * =============================================================================
  * WIRING DIAGRAM:
@@ -73,11 +74,19 @@
  * │ GND         │ GND            │
  * │ IN1 (Fan)   │ GPIO 26        │
  * │ IN2 (Mist 1)│ GPIO 27        │
- * │ IN3 (Heat)  │ GPIO 25        │
+ * │ IN3 (unused)│ GPIO 25        │
  * │ IN4 (Light) │ GPIO 33        │
  * │ IN5 (Mist 2)│ GPIO 32        │
  * │ IN6 (Mist Fan)│ GPIO 13      │
  * └─────────────┴────────────────┘
+ *
+ * ACTIVE BUZZER:
+ * ┌──────────────┬────────────────┐
+ * │ Buzzer Pin   │ ESP32 Pin      │
+ * ├──────────────┼────────────────┤
+ * │ Signal       │ GPIO 14        │
+ * │ GND          │ GND            │
+ * └──────────────┴────────────────┘
  * 
  * =============================================================================
  * RELAY 1 → FAN (5V USB Fan):
@@ -168,14 +177,14 @@
 // =============================================================================
 
 // WiFi credentials
-const char* ssid = "YOUR_WIFI_SSID";       // Replace with your WiFi network name
-const char* password = "YOUR_WIFI_PASSWORD"; // Replace with your WiFi password
+const char* ssid = "Converge_2.4GHz_sH5Hfb";           // Replace with your WiFi network name
+const char* password = "PQKZz6TT";   // Replace with your WiFi password
 
 // Server settings
 const char* serverUrl = "https://kabutomate-dan-f468.vercel.app/api/sensor-data/receive/";
 const char* automationDecisionUrl = "https://kabutomate-dan-f468.vercel.app/api/automation-decision/";
 const char* relayCommandUrl = "https://kabutomate-dan-f468.vercel.app/api/relay-command/";
-const char* apiKey = "YOUR_API_KEY";  // Replace with the dashboard API key
+const char* apiKey = "6h544gCB1x0hH8lStsH95_e-5Jwmum6GwLxA24F5j1I";
 const char* deviceId = "ESP32_FARM_001";
 
 // =============================================================================
@@ -196,7 +205,7 @@ const char* deviceId = "ESP32_FARM_001";
 // Relay Control Pins
 #define FAN_RELAY_PIN 26      // GPIO pin for Fan Relay (Relay 1)
 #define MIST1_RELAY_PIN 27    // GPIO pin for Misting Relay 1 (Relay 2)
-#define HEATER_RELAY_PIN 25   // GPIO pin for Heater Relay (Relay 3)
+#define SPARE_RELAY_PIN 25    // Relay 3 - unused (heater removed), held OFF
 #define LIGHT_RELAY_PIN 33    // GPIO pin for Grow Light Relay (Relay 4)
 #define MIST2_RELAY_PIN 32    // GPIO pin for Misting Relay 2 (Relay 5)
 #define MIST_FAN_RELAY_PIN 13 // GPIO pin for the fan that runs with misting (Relay 6)
@@ -205,14 +214,15 @@ const char* deviceId = "ESP32_FARM_001";
 // Set to true if your relay module activates on LOW signal
 #define RELAY_ACTIVE_LOW false
 
+// Active buzzer for environmental alerts
+#define BUZZER_PIN 14
+
 // =============================================================================
-// HEATER SAFETY LIMITS
+// SENSOR FRESHNESS
 // =============================================================================
-#define MAX_SAFE_TEMPERATURE 30.0       // Soft limit: Auto mode won't turn heater ON above this
-#define ABSOLUTE_MAX_TEMPERATURE 50.0   // Hard limit: Even manual mode can't exceed this (fire safety)
-#define MIN_HEATER_INTERVAL 30000       // Minimum 30 seconds between heater state changes
-#define WATCHDOG_TIMEOUT 60000          // Turn off heater if no server response for 60 seconds
-#define MANUAL_TEST_TIMEOUT 60000       // Auto-disable manual test mode after 60 seconds
+// Automation stops acting on sensor data that has gone stale, so a dead DHT22
+// cannot leave the board driving relays from an old reading forever.
+#define SENSOR_STALE_TIMEOUT 90000      // Ignore readings older than 90 seconds
 
 // =============================================================================
 // GLOBAL OBJECTS AND VARIABLES
@@ -222,16 +232,19 @@ DHT dht(DHTPIN, DHTTYPE);
 BH1750 lightMeter;
 WiFiClientSecure secureClient;
 void connectWiFi();
+void triggerEnvironmentalAlert();
+void updateAlertBuzzer();
 
 // Timing intervals (milliseconds)
-const unsigned long sensorReadInterval = 5000;    // Read/send sensor data every 5 seconds
-const unsigned long automationPollInterval = 3000; // Poll automation decision every 3 seconds
+const unsigned long sensorReadInterval = 5000;      // Read sensors locally every 5 seconds (no network cost)
+const unsigned long sensorUploadInterval = 600000;  // POST a reading to Vercel every 10 minutes
+const unsigned long automationPollInterval = 30000; // Poll automation + relay command every 30 seconds (Vercel CPU budget)
 const unsigned long wifiReconnectInterval = 30000; // Retry hardcoded Wi-Fi after outages
 unsigned long lastSensorReadTime = 0;
+unsigned long lastSensorUploadTime = 0;
+unsigned long lastGoodSensorRead = 0;
 unsigned long lastAutomationPollTime = 0;
 unsigned long lastWifiReconnectTime = 0;
-unsigned long lastServerResponse = 0;        // Watchdog timer for heater safety
-unsigned long lastHeaterStateChange = 0;      // Prevent rapid heater cycling
 
 // Control states - Fan
 bool fanOn = false;
@@ -241,15 +254,14 @@ bool fanAutoMode = true;
 bool mistOn = false;
 bool mistAutoMode = true;
 
-// Control states - Heater
-bool heaterOn = false;
-bool heaterAutoMode = true;
-bool heaterManualTestMode = false;    // For hardware testing via Serial
-unsigned long manualTestModeStart = 0; // When manual test mode was enabled
-
 // Control states - Grow Light
 bool lightsOn = false;
 bool lightsAutoMode = true;
+
+// Alert buzzer state (three short beeps, handled without blocking the main loop)
+bool alertBuzzerOn = false;
+uint8_t alertBeepsRemaining = 0;
+unsigned long nextAlertBuzzerChange = 0;
 
 // Current sensor readings (stored for automation polling)
 float currentTemperature = 0;
@@ -257,6 +269,7 @@ float currentHumidity = 0;
 float currentAirQualityPPM = 0;
 float currentLightLux = 0;
 bool bh1750Initialized = false;
+bool hasSensorData = false;   // True once the DHT22 has produced a valid reading
 
 // =============================================================================
 // SETUP
@@ -267,9 +280,8 @@ void setup() {
   delay(1000);
   
   Serial.println("\n=============================================");
-  Serial.println("ESP32 DHT22 + MQ-135 + Fan + Mist + HEATER + LIGHT");
+  Serial.println("ESP32 DHT22 + MQ-135 + BH1750 + Fan + Mist + Light");
   Serial.println("Mushroom Farming Dashboard v2.0");
-  Serial.println("WITH HEATER AUTOMATION SUPPORT");
   Serial.println("=============================================\n");
   
   // Initialize DHT sensor
@@ -292,13 +304,14 @@ void setup() {
   // Initialize relay pins
   pinMode(FAN_RELAY_PIN, OUTPUT);
   pinMode(MIST1_RELAY_PIN, OUTPUT);
-  pinMode(HEATER_RELAY_PIN, OUTPUT);
+  pinMode(SPARE_RELAY_PIN, OUTPUT);   // Relay 3 - unused, driven OFF
   pinMode(LIGHT_RELAY_PIN, OUTPUT);
   pinMode(MIST2_RELAY_PIN, OUTPUT);
   pinMode(MIST_FAN_RELAY_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
   Serial.println("✓ Fan relay pin (GPIO 26) initialized");
   Serial.println("✓ Misting relay 1 pin (GPIO 27) initialized");
-  Serial.println("✓ Heater relay pin (GPIO 25) initialized");
   Serial.println("✓ Grow light relay pin (GPIO 33) initialized");
   Serial.println("✓ Misting relay 2 pin (GPIO 32) initialized");
   Serial.println("✓ Misting fan relay pin (GPIO 13) initialized");
@@ -321,14 +334,6 @@ void setup() {
   Serial.println("Test: Misting Relays and Mist Fan OFF");
   setMistSystemState(false);
   delay(500);
-  
-  Serial.println("Test: Heater Relay ON");
-  setRelay(HEATER_RELAY_PIN, true);
-  delay(1000);
-  
-  Serial.println("Test: Heater Relay OFF");
-  setRelay(HEATER_RELAY_PIN, false);
-  delay(500);
 
   Serial.println("Test: Light Relay ON");
   setRelay(LIGHT_RELAY_PIN, true);
@@ -344,7 +349,7 @@ void setup() {
   // Start with all actuators OFF
   setRelay(FAN_RELAY_PIN, false);
   setMistSystemState(false);
-  setRelay(HEATER_RELAY_PIN, false);
+  setRelay(SPARE_RELAY_PIN, false);
   setRelay(LIGHT_RELAY_PIN, false);
   Serial.println("✓ All relays set to OFF");
   
@@ -361,16 +366,16 @@ void setup() {
     Serial.println("Hardcoded Wi-Fi is unavailable; the ESP32 will keep retrying.");
   }
   
-  // Initialize watchdog timer
-  lastServerResponse = millis();
-  
-  // Print help for heater testing commands
-  Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  Serial.println("💡 HEATER MANUAL TEST COMMANDS:");
-  Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  Serial.println("  Type 'HELP' in Serial Monitor");
-  Serial.println("  for heater testing commands");
-  Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  // Read sensors immediately on boot instead of waiting one full interval.
+  // The first reading is also uploaded right away (one extra request per boot)
+  // so the dashboard shows fresh data immediately.
+  lastSensorReadTime = millis() - sensorReadInterval;
+  lastSensorUploadTime = millis() - sensorUploadInterval;
+
+  Serial.print("✓ Local sensor read every ");
+  Serial.print(sensorReadInterval / 1000);
+  Serial.println("s, upload to server every 10 min");
+  Serial.println("✓ Dashboard manual control works even without sensor data\n");
 }
 
 // =============================================================================
@@ -380,17 +385,10 @@ void setup() {
 void loop() {
   unsigned long currentTime = millis();
 
-  // Task 0: Process Serial commands for manual heater testing
-  processSerialCommands();
-  
-  // Task 0.5: Auto-disable manual test mode after timeout (safety feature)
-  if (heaterManualTestMode && (currentTime - manualTestModeStart >= MANUAL_TEST_TIMEOUT)) {
-    Serial.println("\n⏰ MANUAL TEST MODE TIMEOUT - Returning to automatic mode");
-    heaterManualTestMode = false;
-    setHeaterStateWithOverride(false, "Test mode timeout - auto safety shutoff", true);
-  }
-  
-  // Task 1: Read and send sensor data every 5 seconds
+  updateAlertBuzzer();
+
+  // Task 1: Read sensors locally every 5 s (free - no network traffic).
+  // Upload to the server stays on the 10-minute interval below.
   if (currentTime - lastSensorReadTime >= sensorReadInterval) {
     lastSensorReadTime = currentTime;
     
@@ -418,37 +416,38 @@ void loop() {
     
     // Check if readings are valid
     if (isnan(humidity) || isnan(temperature)) {
-      Serial.println("❌ Failed to read from DHT sensor!");
+      static unsigned long lastDhtError = 0;
+      if (millis() - lastDhtError > 30000) {
+        lastDhtError = millis();
+        Serial.println("❌ Failed to read from DHT sensor! Check wiring / pull-up resistor.");
+      }
     } else {
       // Store current readings for automation polling
       currentTemperature = temperature;
       currentHumidity = humidity;
       currentAirQualityPPM = airQualityPPM;
       currentLightLux = lightLux;
-      
-      // Display readings
-      printSensorReadings(temperature, humidity, airQualityRaw, airQualityPPM, lightLux);
-      
-      // Check mushroom growing conditions
-      checkGrowingConditions(temperature, humidity, airQualityPPM);
-      
-      // HEATER SAFETY CHECK: Force heater OFF if temperature exceeds absolute limit
-      // This cannot be bypassed even in manual test mode
-      if (temperature >= ABSOLUTE_MAX_TEMPERATURE && heaterOn) {
-        Serial.println("\n🚨🚨🚨 ABSOLUTE SAFETY CUTOFF 🚨🚨🚨");
-        Serial.println("Temperature exceeds absolute maximum - FORCING HEATER OFF!");
-        heaterManualTestMode = false; // Exit test mode for safety
-        setHeaterStateWithOverride(false, "ABSOLUTE safety cutoff - max temperature exceeded", true);
-      }
-      // Soft safety check for automatic mode (not test mode)
-      else if (temperature >= MAX_SAFE_TEMPERATURE && heaterOn && !heaterManualTestMode) {
-        Serial.println("\n🚨 SAFETY CUTOFF: Temperature too high, forcing heater OFF!");
-        setHeaterState(false, "Safety cutoff - max temperature reached");
+      lastGoodSensorRead = currentTime;
+
+      if (!hasSensorData) {
+        hasSensorData = true;
+        Serial.println("✓ Valid sensor data received - automation polling enabled");
       }
       
-      // Send data to server
+      // Keep the serial log readable: full report every 30 s, not every 5 s
+      static unsigned long lastSensorPrint = 0;
+      if (currentTime - lastSensorPrint >= 30000) {
+        lastSensorPrint = currentTime;
+        printSensorReadings(temperature, humidity, airQualityRaw, airQualityPPM, lightLux);
+        checkGrowingConditions(temperature, humidity, airQualityPPM);
+      }
+      
+      // Upload a reading to the server only every 10 minutes
       if (WiFi.status() == WL_CONNECTED) {
-        sendSensorData(temperature, humidity, airQualityPPM, lightLux);
+        if (currentTime - lastSensorUploadTime >= sensorUploadInterval) {
+          lastSensorUploadTime = currentTime;
+          sendSensorData(temperature, humidity, airQualityPPM, lightLux);
+        }
       } else {
         Serial.println("❌ WiFi disconnected! Attempting to reconnect...");
         connectWiFi();
@@ -456,24 +455,17 @@ void loop() {
     }
   }
   
-  // Task 2: Poll automation decision every 3 seconds
+  // Task 2: Poll automation decision + relay commands every 30 seconds
   if (currentTime - lastAutomationPollTime >= automationPollInterval) {
     lastAutomationPollTime = currentTime;
     pollAutomationDecision();
-    pollRelayCommandLights();
+    pollRelayCommands();
   }
 
   if (WiFi.status() != WL_CONNECTED &&
       currentTime - lastWifiReconnectTime >= wifiReconnectInterval) {
     lastWifiReconnectTime = currentTime;
     connectWiFi();
-  }
-  
-  // Task 3: Watchdog - turn off heater if no server response (safety feature)
-  // Does not apply in manual test mode (allows testing without server)
-  if (!heaterManualTestMode && currentTime - lastServerResponse >= WATCHDOG_TIMEOUT && heaterOn) {
-    Serial.println("\n🚨 WATCHDOG: No server response, turning heater OFF for safety!");
-    setHeaterState(false, "Watchdog timeout - no server response");
   }
 }
 
@@ -498,181 +490,45 @@ void setMistSystemState(bool on) {
   setRelay(MIST_FAN_RELAY_PIN, on);
 }
 
-// =============================================================================
-// HEATER CONTROL WITH SAFETY FEATURES
-// =============================================================================
-
-void setHeaterState(bool newState, const char* reason) {
-  setHeaterStateWithOverride(newState, reason, false);
-}
-
-// Overloaded function that allows bypassing soft safety limit (for manual testing)
-void setHeaterStateWithOverride(bool newState, const char* reason, bool bypassSoftLimit) {
-  unsigned long currentTime = millis();
-  
-  // ABSOLUTE SAFETY: Never exceed ABSOLUTE_MAX_TEMPERATURE (fire prevention)
-  // This cannot be bypassed even in manual test mode
-  if (newState && currentTemperature >= ABSOLUTE_MAX_TEMPERATURE) {
-    Serial.println("\n🚨🚨🚨 ABSOLUTE SAFETY LIMIT 🚨🚨🚨");
-    Serial.print("❌ Heater ON BLOCKED - Temperature ");
-    Serial.print(currentTemperature);
-    Serial.print("°C exceeds absolute max ");
-    Serial.print(ABSOLUTE_MAX_TEMPERATURE);
-    Serial.println("°C");
-    Serial.println("This limit cannot be bypassed for fire safety!");
+void triggerEnvironmentalAlert() {
+  // Do not restart the pattern if the same alert is already sounding.
+  if (alertBuzzerOn || alertBeepsRemaining > 0) {
     return;
   }
-  
-  // Soft safety limit - only applies in automatic mode (can be bypassed in manual/test mode)
-  if (!bypassSoftLimit && newState && currentTemperature >= MAX_SAFE_TEMPERATURE) {
-    if (heaterAutoMode && !heaterManualTestMode) {
-      Serial.println("⚠️  Heater ON blocked - temperature at or above safety limit (AUTO mode)");
-      Serial.println("💡 Tip: Use 'HEATER TEST ON' in Serial Monitor to bypass for testing");
-      return;
-    }
-  }
-  
-  // Prevent rapid cycling (minimum interval between state changes) - can be bypassed in test mode
-  if (!heaterManualTestMode && currentTime - lastHeaterStateChange < MIN_HEATER_INTERVAL && lastHeaterStateChange != 0) {
-    Serial.println("⚠️  Heater state change blocked - minimum interval not met");
-    Serial.println("💡 Tip: Use 'HEATER TEST ON/OFF' to bypass timing restriction");
+
+  alertBeepsRemaining = 3;
+  alertBuzzerOn = true;
+  digitalWrite(BUZZER_PIN, HIGH);
+  nextAlertBuzzerChange = millis() + 300;
+}
+
+void updateAlertBuzzer() {
+  if (alertBeepsRemaining == 0 || millis() < nextAlertBuzzerChange) {
     return;
   }
-  
-  // Apply the state change
-  if (heaterOn != newState) {
-    heaterOn = newState;
-    setRelay(HEATER_RELAY_PIN, heaterOn);
-    lastHeaterStateChange = currentTime;
-    
-    Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    Serial.print("🔥 HEATER ");
-    Serial.print(heaterOn ? "ON" : "OFF");
-    Serial.print(" (");
-    if (heaterManualTestMode) {
-      Serial.print("TEST MODE");
-    } else {
-      Serial.print(heaterAutoMode ? "AUTO" : "MANUAL");
-    }
-    Serial.println(")");
-    Serial.print("📝 Reason: ");
-    Serial.println(reason);
-    Serial.print("🌡️  Current Temp: ");
-    Serial.print(currentTemperature);
-    Serial.println("°C");
-    if (heaterManualTestMode) {
-      Serial.println("⚠️  TEST MODE ACTIVE - Will auto-disable in 60 seconds");
-    }
-    Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  if (alertBuzzerOn) {
+    digitalWrite(BUZZER_PIN, LOW);
+    alertBuzzerOn = false;
+    alertBeepsRemaining--;
+    nextAlertBuzzerChange = millis() + 200;
+  } else if (alertBeepsRemaining > 0) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    alertBuzzerOn = true;
+    nextAlertBuzzerChange = millis() + 300;
   }
-}
-
-// =============================================================================
-// SERIAL COMMAND PROCESSING
-// =============================================================================
-// Commands for testing heater hardware via Serial Monitor:
-//   HEATER TEST ON   - Force heater ON (bypasses soft safety limit)
-//   HEATER TEST OFF  - Force heater OFF
-//   HEATER AUTO      - Return to automatic mode
-//   HEATER STATUS    - Show current heater status
-//   HELP             - Show available commands
-
-void processSerialCommands() {
-  if (Serial.available() > 0) {
-    String command = Serial.readStringUntil('\n');
-    command.trim();
-    command.toUpperCase();
-    
-    if (command == "HEATER TEST ON") {
-      Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      Serial.println("🔧 HEATER TEST MODE ACTIVATED");
-      Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      heaterManualTestMode = true;
-      manualTestModeStart = millis();
-      setHeaterStateWithOverride(true, "Manual test via Serial", true);
-      
-    } else if (command == "HEATER TEST OFF") {
-      Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      Serial.println("🔧 HEATER TEST - TURNING OFF");
-      Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      heaterManualTestMode = true;
-      manualTestModeStart = millis();
-      setHeaterStateWithOverride(false, "Manual test via Serial", true);
-      
-    } else if (command == "HEATER AUTO") {
-      Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      Serial.println("🔄 RETURNING TO AUTOMATIC MODE");
-      Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      heaterManualTestMode = false;
-      // Turn heater off when returning to auto mode for safety
-      setHeaterStateWithOverride(false, "Returning to auto mode", true);
-      
-    } else if (command == "HEATER STATUS") {
-      printHeaterStatus();
-
-    } else if (command == "HELP" || command == "?") {
-      printHelpCommands();
-      
-    } else if (command.length() > 0) {
-      Serial.print("❓ Unknown command: ");
-      Serial.println(command);
-      Serial.println("Type 'HELP' for available commands");
-    }
-  }
-}
-
-void printHeaterStatus() {
-  Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  Serial.println("📊 HEATER STATUS");
-  Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  Serial.print("   State: ");
-  Serial.println(heaterOn ? "ON 🔥" : "OFF");
-  Serial.print("   Mode: ");
-  if (heaterManualTestMode) {
-    Serial.println("TEST MODE ⚠️");
-  } else if (heaterAutoMode) {
-    Serial.println("AUTOMATIC");
-  } else {
-    Serial.println("MANUAL (Dashboard)");
-  }
-  Serial.print("   Current Temperature: ");
-  Serial.print(currentTemperature);
-  Serial.println("°C");
-  Serial.print("   Soft Safety Limit: ");
-  Serial.print(MAX_SAFE_TEMPERATURE);
-  Serial.println("°C");
-  Serial.print("   Absolute Safety Limit: ");
-  Serial.print(ABSOLUTE_MAX_TEMPERATURE);
-  Serial.println("°C");
-  Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-}
-
-void printHelpCommands() {
-  Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  Serial.println("📋 AVAILABLE SERIAL COMMANDS");
-  Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  Serial.println("  HEATER TEST ON  - Force heater ON (test mode)");
-  Serial.println("  HEATER TEST OFF - Force heater OFF (test mode)");
-  Serial.println("  HEATER AUTO     - Return to automatic mode");
-  Serial.println("  HEATER STATUS   - Show heater status");
-  Serial.println("  HELP            - Show this help");
-  Serial.println("");
-  Serial.println("⚠️  Test mode auto-disables after 60 seconds");
-  Serial.println("⚠️  Absolute safety limit (50°C) cannot be bypassed");
-  Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 }
 
 // =============================================================================
 // AUTOMATION DECISION POLLING
 // =============================================================================
 // This function sends current sensor readings to the backend and receives
-// automation decisions for fan, misting, and heater.
+// automation decisions for fan and misting.
 //
 // The backend decides based on:
 // - AUTOMATIC MODE: Compare sensor values to thresholds
 //   - Fan: ON when temp > threshold OR humidity > threshold OR air quality > threshold
 //   - Mist: ON when humidity < low_threshold, OFF when humidity > high_threshold
-//   - Heater: ON when temp < low_threshold, OFF when temp > high_threshold
 // - MANUAL MODE: Use dashboard switch state (sensor data ignored)
 
 void pollAutomationDecision() {
@@ -681,9 +537,13 @@ void pollAutomationDecision() {
     return;
   }
   
-  // Skip if we don't have valid sensor readings yet
-  if (currentTemperature == 0 && currentHumidity == 0) {
-    Serial.println("⚠️  No sensor data yet, skipping automation poll");
+  // Skip if we don't have a recent valid sensor reading
+  if (!hasSensorData || millis() - lastGoodSensorRead > SENSOR_STALE_TIMEOUT) {
+    static unsigned long lastNoDataWarn = 0;
+    if (millis() - lastNoDataWarn > 30000) {
+      lastNoDataWarn = millis();
+      Serial.println("⚠️  No fresh sensor data, skipping automation poll");
+    }
     return;
   }
   
@@ -775,36 +635,6 @@ void pollAutomationDecision() {
         }
       }
       
-      // ─────────────────────────────────────────────────────────────
-      // PROCESS HEATER CONTROL
-      // ─────────────────────────────────────────────────────────────
-      if (responseDoc.containsKey("controls") && responseDoc["controls"].containsKey("heater")) {
-        JsonObject heaterControl = responseDoc["controls"]["heater"];
-        
-        bool shouldBeOn = heaterControl["should_be_on"];
-        const char* mode = heaterControl["mode"];
-        const char* reason = heaterControl["reason"];
-        
-        // Update mode tracking
-        heaterAutoMode = (strcmp(mode, "automatic") == 0);
-        bool isManualMode = (strcmp(mode, "manual") == 0);
-        
-        // Use safety-checked heater control function
-        // In manual mode from dashboard, bypass soft limit (but absolute limit still applies)
-        if (heaterOn != shouldBeOn) {
-          if (isManualMode) {
-            // Manual dashboard control - bypass soft safety limit
-            setHeaterStateWithOverride(shouldBeOn, reason, true);
-          } else {
-            // Automatic mode - enforce all safety limits
-            setHeaterState(shouldBeOn, reason);
-          }
-        }
-      }
-      
-      // Update server response time for watchdog
-      lastServerResponse = millis();
-      
       // Print thresholds for debugging (every 30 seconds)
       static unsigned long lastThresholdPrint = 0;
       if (millis() - lastThresholdPrint > 30000) {
@@ -824,12 +654,6 @@ void pollAutomationDecision() {
           Serial.print("   Mist High Threshold: ");
           Serial.print((float)thresholds["humidifier_high_threshold"]);
           Serial.println("% (turns OFF above this)");
-          Serial.print("   Heater Low Threshold: ");
-          Serial.print((float)thresholds["heater_low_threshold"]);
-          Serial.println("°C (turns ON below this)");
-          Serial.print("   Heater High Threshold: ");
-          Serial.print((float)thresholds["heater_high_threshold"]);
-          Serial.println("°C (turns OFF above this)");
         }
       }
     } else {
@@ -846,12 +670,14 @@ void pollAutomationDecision() {
 }
 
 // =============================================================================
-// RELAY COMMAND POLLING (GROW LIGHT + HUMIDIFIER FALLBACK)
+// RELAY COMMAND POLLING (MANUAL FALLBACK)
 // =============================================================================
-// Uses /api/relay-command/ to fetch relay states that should always be honored.
-// This keeps manual dashboard control working even when sensor readings are
-// unavailable and automation-decision polling is skipped.
-void pollRelayCommandLights() {
+// Uses /api/relay-command/ to fetch the dashboard switch state directly.
+// Devices whose automation toggle is OFF are applied here, so manual control
+// keeps working even when sensor readings are unavailable and the
+// automation-decision poll is skipped. Automatic devices are left alone so the
+// two pollers can never fight over the same relay.
+void pollRelayCommands() {
   if (WiFi.status() != WL_CONNECTED) {
     return;
   }
@@ -870,15 +696,52 @@ void pollRelayCommandLights() {
 
     if (!error && relayDoc.containsKey("relays")) {
       JsonObject relays = relayDoc["relays"];
+      JsonObject autoModes = relayDoc["auto_modes"];
 
-      // Keep grow light behavior driven by relay-command payload.
+      bool fanAuto = autoModes.containsKey("fan_auto") ? (bool)autoModes["fan_auto"] : true;
+      bool humidifierAuto = autoModes.containsKey("humidifier_auto") ? (bool)autoModes["humidifier_auto"] : true;
+
+      fanAutoMode = fanAuto;
+      mistAutoMode = humidifierAuto;
+      if (autoModes.containsKey("lights_auto")) {
+        lightsAutoMode = autoModes["lights_auto"];
+      }
+
+      // ── FAN: manual fallback (works with no sensor data at all) ──
+      if (!fanAuto && relays.containsKey("fan")) {
+        bool shouldBeOn = relays["fan"];
+        if (fanOn != shouldBeOn) {
+          fanOn = shouldBeOn;
+          setRelay(FAN_RELAY_PIN, fanOn);
+
+          Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+          Serial.print("🌀 FAN ");
+          Serial.print(fanOn ? "ON" : "OFF");
+          Serial.println(" (MANUAL mode)");
+          Serial.println("📝 Source: /api/relay-command/ (fallback)");
+          Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        }
+      }
+
+      // ── MISTING: manual fallback ──
+      if (!humidifierAuto && relays.containsKey("humidifier")) {
+        bool shouldMistBeOn = relays["humidifier"];
+        if (mistOn != shouldMistBeOn) {
+          mistOn = shouldMistBeOn;
+          setMistSystemState(mistOn);
+
+          Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+          Serial.print("💧 MISTING ");
+          Serial.print(mistOn ? "ON" : "OFF");
+          Serial.println(" (MANUAL mode)");
+          Serial.println("📝 Source: /api/relay-command/ (fallback)");
+          Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        }
+      }
+
+      // ── GROW LIGHT: always driven by this endpoint ──
       if (relays.containsKey("lights")) {
         bool shouldBeOn = relays["lights"];
-
-        if (relayDoc.containsKey("auto_modes") && relayDoc["auto_modes"].containsKey("lights_auto")) {
-          lightsAutoMode = relayDoc["auto_modes"]["lights_auto"];
-        }
-
         if (lightsOn != shouldBeOn) {
           lightsOn = shouldBeOn;
           setRelay(LIGHT_RELAY_PIN, lightsOn);
@@ -890,29 +753,6 @@ void pollRelayCommandLights() {
           Serial.print(lightsAutoMode ? "AUTO" : "MANUAL");
           Serial.println(" mode)");
           Serial.println("📝 Source: /api/relay-command/");
-          Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        }
-      }
-
-      // Fallback path for humidifier so manual mode still works without DHT22 updates.
-      if (relays.containsKey("humidifier")) {
-        bool shouldMistBeOn = relays["humidifier"];
-
-        if (relayDoc.containsKey("auto_modes") && relayDoc["auto_modes"].containsKey("humidifier_auto")) {
-          mistAutoMode = relayDoc["auto_modes"]["humidifier_auto"];
-        }
-
-        if (mistOn != shouldMistBeOn) {
-          mistOn = shouldMistBeOn;
-          setMistSystemState(mistOn);
-
-          Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-          Serial.print("💧 MISTING ");
-          Serial.print(mistOn ? "ON" : "OFF");
-          Serial.print(" (");
-          Serial.print(mistAutoMode ? "AUTO" : "MANUAL");
-          Serial.println(" mode)");
-          Serial.println("📝 Source: /api/relay-command/ (fallback)");
           Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         }
       }
@@ -959,12 +799,6 @@ void printSensorReadings(float temperature, float humidity, int airQualityRaw, f
   Serial.print(mistAutoMode ? "AUTO" : "MANUAL");
   Serial.println(")");
   
-  Serial.print("🔥 Heater: ");
-  Serial.print(heaterOn ? "ON" : "OFF");
-  Serial.print(" (");
-  Serial.print(heaterAutoMode ? "AUTO" : "MANUAL");
-  Serial.println(")");
-
   Serial.print("💡 Grow Light: ");
   Serial.print(lightsOn ? "ON" : "OFF");
   Serial.print(" (");
@@ -1048,6 +882,17 @@ void sendSensorData(float temperature, float humidity, float airQuality, float l
   if (httpResponseCode > 0) {
     Serial.print("✓ Server Response: ");
     Serial.println(httpResponseCode);
+
+    // The API sets this flag when it creates a new environmental alert/email.
+    if (httpResponseCode == 201) {
+      String response = http.getString();
+      StaticJsonDocument<1536> responseDoc;
+      DeserializationError error = deserializeJson(responseDoc, response);
+      if (!error && responseDoc["data"]["environmental_alert"] == true) {
+        Serial.println("⚠️  Environmental alert received - sounding buzzer");
+        triggerEnvironmentalAlert();
+      }
+    }
   } else {
     Serial.print("❌ Error: ");
     Serial.println(http.errorToString(httpResponseCode));
@@ -1067,7 +912,7 @@ void checkGrowingConditions(float temperature, float humidity, float airQuality)
   
   // Temperature check
   if (temperature < 13) {
-    Serial.println("🌡️  ⚠️  Temperature TOO LOW - heater needed");
+    Serial.println("🌡️  ⚠️  Temperature TOO LOW - below optimal range");
   } else if (temperature > 18) {
     Serial.println("🌡️  ⚠️  Temperature TOO HIGH - ventilation needed");
   } else {

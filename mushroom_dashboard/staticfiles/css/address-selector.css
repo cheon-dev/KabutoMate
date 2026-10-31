@@ -1,0 +1,32 @@
+.ph-address-selector {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 0.9rem;
+}
+
+.ph-address-selector .ph-address-field { min-width: 0; }
+.ph-address-selector label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-weight: 700;
+    color: #374151;
+}
+.ph-address-selector select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.7rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    font: inherit;
+}
+.ph-address-selector select:disabled { background: #f3f4f6; color: #94a3b8; }
+.ph-address-selector select:focus { outline: 2px solid rgba(12, 75, 51, 0.2); border-color: #0c4b33; }
+.ph-address-help { color: #64748b; font-size: 0.82rem; margin: 0 0 0.8rem; }
+.ph-address-legacy { color: #92400e; font-size: 0.82rem; margin: 0 0 0.8rem; }
+
+@media (max-width: 640px) {
+    .ph-address-selector { grid-template-columns: 1fr; gap: 0.65rem; }
+    .ph-address-selector select { min-height: 48px; }
+}

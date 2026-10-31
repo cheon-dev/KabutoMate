@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from urllib.parse import urlsplit
 
 import dj_database_url
 from dotenv import load_dotenv
@@ -156,7 +157,35 @@ WSGI_APPLICATION = 'mushroom_dashboard.wsgi.application'
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 
+
+def _use_supabase_transaction_pooler(url):
+    """Point Supabase pooler URLs at the transaction port.
+
+    Supabase's session-mode pooler (port 5432) hard-caps concurrent clients at
+    the pool size (15 on the free/small compute tiers) and rejects the overflow
+    with "FATAL: (EMAXCONNSESSION) max clients reached in session mode". Each
+    serverless function instance opens its own connection, so Vercel exhausts
+    that cap and every extra request fails with a 500.
+
+    The transaction pooler (same host, port 6543) multiplexes many clients onto
+    the same server connections and is the supported choice for serverless
+    Django. Set SUPABASE_USE_SESSION_POOLER=1 to keep the original port.
+    """
+    if os.getenv('SUPABASE_USE_SESSION_POOLER', '').strip() == '1':
+        return url
+
+    parts = urlsplit(url)
+    host = parts.hostname or ''
+    if host.endswith('.pooler.supabase.com') and parts.port == 5432:
+        netloc = parts.netloc
+        if netloc.endswith(':5432'):
+            return parts._replace(netloc=netloc[: -len(':5432')] + ':6543').geturl()
+    return url
+
+
 if DATABASE_URL:
+    DATABASE_URL = _use_supabase_transaction_pooler(DATABASE_URL)
+
     # Reuse the database connection between requests when the hosting worker
     # stays warm. This avoids paying the connection setup cost for every API call.
     db_conn_max_age = int(os.getenv('DB_CONN_MAX_AGE', '60'))
@@ -168,6 +197,11 @@ if DATABASE_URL:
             ssl_require=True,
         ),
     }
+
+    # The transaction pooler hands a client a different server connection for
+    # each transaction, so server-side cursors cannot survive between queries.
+    if DATABASES['default'].get('HOST', '').endswith('.pooler.supabase.com'):
+        DISABLE_SERVER_SIDE_CURSORS = True
 else:
     DATABASES = {
         'default': {

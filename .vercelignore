@@ -1,0 +1,10 @@
+.git
+mushroom_dashboard/.env
+mushroom_dashboard/.env.local
+mushroom_dashboard/.env.*.local
+**/__pycache__
+**/*.pyc
+mushroom_dashboard/arduino
+mushroom_dashboard/*.ipynb
+mushroom_dashboard/*.log
+mushroom_dashboard/.vercel

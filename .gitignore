@@ -18,6 +18,8 @@ venv/
 
 # Database dumps
 *.sql
+# ...but keep the Supabase hardening scripts under version control
+!mushroom_dashboard/sql/*.sql
 
 media/
 .vercel

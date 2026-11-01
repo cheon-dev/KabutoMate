@@ -131,6 +131,7 @@ Simplified endpoint for simple microcontrollers that just need ON/OFF states.
 ```json
 {
     "status": "success",
+    "poll_after_ms": 10000,
     "relays": {
         "fan": true,
         "humidifier": false,
@@ -147,6 +148,19 @@ Simplified endpoint for simple microcontrollers that just need ON/OFF states.
     }
 }
 ```
+
+`poll_after_ms` is the delay the device should wait before polling again:
+`2000` while an admin has the Environment Control page open, `10000`
+otherwise. The ESP32 firmware uses it instead of a hardcoded interval, which
+is what makes manual toggles apply in about two seconds without paying for a
+fast poll all day.
+
+**Endpoint:** `POST /api/manual-watch/` (admin session, empty body)
+
+Sent by the Environment Control page every 20 s. It arms the fast window for
+two minutes; the window expires by itself so idle polling (and the Vercel CPU
+cost) returns to normal when the page is closed. Any settings change re-arms it
+as well.
 
 ### 3. Confirm Action
 

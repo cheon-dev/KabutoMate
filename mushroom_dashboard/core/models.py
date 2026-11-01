@@ -616,6 +616,14 @@ class EnvironmentSettings(models.Model):
     # Timestamp for last automation action
     last_automation_update = models.DateTimeField(auto_now=True)
 
+    # Short-lived "an admin is watching this page" flag. The ESP32 asks
+    # /api/relay-command/ how long to wait before its next poll; while this is
+    # in the future the answer is 2 s instead of the idle interval, so manual
+    # dashboard toggles reach the relays almost immediately. It expires on its
+    # own when the admin closes the page, so idle polling (and the Vercel CPU
+    # cost) returns to normal without any manual reset.
+    manual_watch_until = models.DateTimeField(null=True, blank=True)
+
     def save(self, *args, **kwargs):
         self.pk = 1 
         super(EnvironmentSettings, self).save(*args, **kwargs)

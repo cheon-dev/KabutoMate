@@ -1578,6 +1578,31 @@
         bindWaterRefillLogPagination();
         loadWaterRefillLogs(1);
         updateWaterRefillStatus();
+
+        // --- Instant manual control ---
+        // The ESP32 asks /api/relay-command/ how long to wait before its next
+        // poll. While this heartbeat is fresh the server answers 2 s instead of
+        // the idle 10 s, so fan/misting/light toggles reach the relays almost
+        // immediately. Closing or hiding the tab stops the heartbeat and the
+        // flag expires on its own, restoring the cheaper cadence.
+        function sendControlHeartbeat() {
+            if (document.hidden) {
+                return;
+            }
+            fetch('/api/manual-watch/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                keepalive: true
+            }).catch(() => {});
+        }
+
+        sendControlHeartbeat();
+        setInterval(sendControlHeartbeat, 20000);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                sendControlHeartbeat();
+            }
+        });
         
         // --- Auto-refresh every 15 seconds to update ML predictions ---
         setInterval(() => {

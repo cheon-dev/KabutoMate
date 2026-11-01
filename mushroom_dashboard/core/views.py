@@ -29,6 +29,7 @@ from django.contrib.auth import views as auth_views
 from .yield_model import calculate_predicted_yield as calculate_history_predicted_yield
 from .philippine_locations import get_locations
 from .shipping import calculate_shipping_fee
+from .sensor_api import MANUAL_WATCH_SECONDS, RELAY_POLL_FAST_MS
 
 
 # Helper function to merge session cart into user cart
@@ -2200,6 +2201,27 @@ def mark_all_notifications_read(request):
     return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
             
 @admin_required
+def manual_watch_api(request):
+    """Keep the relays responsive while an admin has the control page open.
+
+    The page posts a heartbeat every 20 s. Each one pushes manual_watch_until
+    two minutes into the future; /api/relay-command/ then tells the ESP32 to
+    poll every 2 s instead of the idle 10 s. When the tab closes the flag simply
+    expires and the device goes back to the cheaper cadence.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    try:
+        settings_obj = EnvironmentSettings.load()
+        settings_obj.manual_watch_until = timezone.now() + timedelta(seconds=MANUAL_WATCH_SECONDS)
+        settings_obj.save(update_fields=['manual_watch_until'])
+        return JsonResponse({'success': True, 'poll_after_ms': RELAY_POLL_FAST_MS})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@admin_required
 def environment_api(request):
     settings_obj = EnvironmentSettings.load()
     notification_settings = NotificationSettings.load()
@@ -2235,7 +2257,12 @@ def environment_api(request):
                 settings_obj.humidifier_high_threshold = data['humidifier_high_threshold']
             if 'hysteresis_margin' in data:
                 settings_obj.hysteresis_margin = data['hysteresis_margin']
-            
+
+            # A manual change doubles as a "page is open" heartbeat: keep the
+            # ESP32 polling fast for another couple of minutes so follow-up
+            # toggles stay instant even if heartbeats are throttled.
+            settings_obj.manual_watch_until = timezone.now() + timedelta(seconds=MANUAL_WATCH_SECONDS)
+
             settings_obj.save()
             
             notification_settings.email_enabled = data.get('email_enabled', notification_settings.email_enabled)

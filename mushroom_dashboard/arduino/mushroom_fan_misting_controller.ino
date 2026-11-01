@@ -238,12 +238,19 @@ void updateAlertBuzzer();
 // Timing intervals (milliseconds)
 const unsigned long sensorReadInterval = 5000;      // Read sensors locally every 5 seconds (no network cost)
 const unsigned long sensorUploadInterval = 600000;  // POST a reading to Vercel every 10 minutes
-const unsigned long automationPollInterval = 30000; // Poll automation + relay command every 30 seconds (Vercel CPU budget)
+const unsigned long automationPollInterval = 30000; // Poll automation decision every 30 seconds (Vercel CPU budget)
+// Relay commands run on their own schedule: the server returns poll_after_ms
+// with every reply, asking for 2 s while an admin has the control page open and
+// the idle interval otherwise. These constants are the fallbacks.
+const unsigned long relayPollIdleInterval = 10000;
+const unsigned long relayPollFastInterval = 2000;
+unsigned long relayPollInterval = relayPollIdleInterval;
 const unsigned long wifiReconnectInterval = 30000; // Retry hardcoded Wi-Fi after outages
 unsigned long lastSensorReadTime = 0;
 unsigned long lastSensorUploadTime = 0;
 unsigned long lastGoodSensorRead = 0;
 unsigned long lastAutomationPollTime = 0;
+unsigned long lastRelayCommandPollTime = 0;
 unsigned long lastWifiReconnectTime = 0;
 
 // Control states - Fan
@@ -455,10 +462,17 @@ void loop() {
     }
   }
   
-  // Task 2: Poll automation decision + relay commands every 30 seconds
+  // Task 2: Poll the automation decision every 30 seconds
   if (currentTime - lastAutomationPollTime >= automationPollInterval) {
     lastAutomationPollTime = currentTime;
     pollAutomationDecision();
+  }
+
+  // Task 3: Poll relay commands on the cadence the server asks for. This drops
+  // to 2 s while the dashboard is open so manual toggles feel instant, and
+  // returns to 10 s once the admin closes the page.
+  if (currentTime - lastRelayCommandPollTime >= relayPollInterval) {
+    lastRelayCommandPollTime = currentTime;
     pollRelayCommands();
   }
 
@@ -691,8 +705,18 @@ void pollRelayCommands() {
   if (httpCode == 200) {
     String response = http.getString();
 
-    StaticJsonDocument<512> relayDoc;
+    StaticJsonDocument<768> relayDoc;
     DeserializationError error = deserializeJson(relayDoc, response);
+
+    if (!error) {
+      // The server decides how soon to poll again: 2 s while a dashboard is
+      // open, the idle interval otherwise. Clamp it so a bad value cannot
+      // hammer the API or stall manual control.
+      long pollAfter = relayDoc["poll_after_ms"] | (long)relayPollIdleInterval;
+      if (pollAfter < (long)relayPollFastInterval) pollAfter = (long)relayPollFastInterval;
+      if (pollAfter > (long)relayPollIdleInterval) pollAfter = (long)relayPollIdleInterval;
+      relayPollInterval = (unsigned long)pollAfter;
+    }
 
     if (!error && relayDoc.containsKey("relays")) {
       JsonObject relays = relayDoc["relays"];
@@ -757,6 +781,10 @@ void pollRelayCommands() {
         }
       }
     }
+  } else {
+    // Fall back to the idle cadence when the server is unreachable so an
+    // outage cannot turn into a request storm.
+    relayPollInterval = relayPollIdleInterval;
   }
 
   http.end();

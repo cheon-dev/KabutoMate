@@ -143,6 +143,7 @@ urlpatterns = [
     
     # --- NEW URL ---
     path('api/environment/', views.environment_api, name='environment-api'),
+    path('api/manual-watch/', views.manual_watch_api, name='manual-watch-api'),
     path('api/dashboard-summary/', views.dashboard_summary_api, name='dashboard-summary-api'),
     path('api/start-watering/', views.watering_api, name='watering-api'),
 ]

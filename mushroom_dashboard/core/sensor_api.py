@@ -15,6 +15,12 @@ import json
 from .models import EnvironmentSettings, SensorReading, Notification
 from .notification_service import evaluate_environment_notifications
 
+# Relay-command polling. The device reads poll_after_ms from each response, so
+# the interval can change at runtime without reflashing.
+RELAY_POLL_IDLE_MS = 10000      # Normal cadence: cheap single-row query
+RELAY_POLL_FAST_MS = 2000       # While an admin has the control page open
+MANUAL_WATCH_SECONDS = 120      # How long a heartbeat keeps fast polling alive
+
 
 def _sensor_processing_enabled():
     return getattr(settings, 'SENSOR_PROCESSING_ENABLED', False)
@@ -641,9 +647,14 @@ def get_relay_command(request):
             return auth_error
         from .models import EnvironmentSettings
         settings = EnvironmentSettings.load()
-        
+
+        watch_active = bool(
+            settings.manual_watch_until and settings.manual_watch_until > timezone.now()
+        )
+
         return JsonResponse({
             'status': 'success',
+            'poll_after_ms': RELAY_POLL_FAST_MS if watch_active else RELAY_POLL_IDLE_MS,
             'relays': {
                 'fan': settings.fan_on,
                 'humidifier': settings.humidifier_on,

@@ -11,6 +11,7 @@ from django.utils import timezone
 from .ai_service import ask_gemini
 from .ai_context import build_ai_context
 from .models import (
+    EnvironmentSettings,
     Notification,
     Order,
     OrderItem,
@@ -521,3 +522,63 @@ class GrowthDayTests(TestCase):
         batch.refresh_from_db()
 
         self.assertEqual(batch.yield_kg, Decimal('0.675'))
+
+
+@override_settings(SENSOR_PROCESSING_ENABLED=True, ESP32_API_KEY='')
+class ManualRelayControlTests(TestCase):
+    """The ESP32 learns its next poll delay from /api/relay-command/."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.admin = User.objects.create_user(
+            username='relay-admin',
+            password='StrongPass123!',
+            is_staff=True,
+        )
+        self.client.force_login(self.admin)
+
+    def _relay_poll_interval(self):
+        response = self.client.get('/api/relay-command/')
+        self.assertEqual(response.status_code, 200)
+        return response.json()['poll_after_ms']
+
+    def test_device_polls_idly_when_no_dashboard_is_open(self):
+        EnvironmentSettings.load()
+
+        self.assertEqual(self._relay_poll_interval(), 10000)
+
+    def test_heartbeat_switches_the_device_to_fast_polling(self):
+        response = self.client.post('/api/manual-watch/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['poll_after_ms'], 2000)
+        self.assertEqual(self._relay_poll_interval(), 2000)
+
+    def test_expired_heartbeat_returns_to_idle_polling(self):
+        settings_obj = EnvironmentSettings.load()
+        settings_obj.manual_watch_until = timezone.now() - timedelta(seconds=1)
+        settings_obj.save(update_fields=['manual_watch_until'])
+
+        self.assertEqual(self._relay_poll_interval(), 10000)
+
+    def test_manual_toggle_rearms_the_fast_poll_window(self):
+        response = self.client.post(
+            '/api/environment/',
+            data=json.dumps({'fan_on': True, 'fan_auto': False}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._relay_poll_interval(), 2000)
+
+    def test_customers_cannot_arm_fast_polling(self):
+        customer = get_user_model().objects.create_user(
+            username='relay-customer',
+            password='StrongPass123!',
+        )
+        self.client.force_login(customer)
+
+        response = self.client.post('/api/manual-watch/')
+
+        self.assertEqual(response.status_code, 302)
+

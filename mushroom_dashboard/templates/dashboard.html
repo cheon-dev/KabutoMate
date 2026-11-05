@@ -638,9 +638,7 @@
                         if (statusSensors) {
                             if (summary.device_statuses.sensors) {
                                 statusSensors.className = 'status-indicator';
-                                statusSensors.textContent = summary.sensor_data_source === 'simulated'
-                                    ? 'Simulated'
-                                    : 'Online';
+                                statusSensors.textContent = 'Active';
                             } else {
                                 statusSensors.className = 'status-indicator inactive';
                                 statusSensors.textContent = 'Offline';

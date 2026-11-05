@@ -243,6 +243,24 @@ class SensorReading(models.Model):
             return "CRITICAL"
 
 
+class SensorSimulationSettings(models.Model):
+    temperature_min = models.DecimalField(max_digits=4, decimal_places=1, default=20.0)
+    temperature_max = models.DecimalField(max_digits=4, decimal_places=1, default=24.0)
+    humidity_min = models.DecimalField(max_digits=4, decimal_places=1, default=80.0)
+    humidity_max = models.DecimalField(max_digits=4, decimal_places=1, default=90.0)
+    air_quality_min = models.PositiveIntegerField(default=250)
+    air_quality_max = models.PositiveIntegerField(default=390)
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class WaterRefillStatus(models.Model):
     """Latest status reported by the dedicated water-refill ESP32."""
 

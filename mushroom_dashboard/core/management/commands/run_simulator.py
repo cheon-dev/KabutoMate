@@ -1,10 +1,11 @@
 import time
 import random
 from django.core.management.base import BaseCommand
-from core.models import SensorReading, Notification, EnvironmentSettings 
+from core.models import Notification, EnvironmentSettings
+from core.sensor_simulation import create_simulated_sensor_reading
 
 class Command(BaseCommand):
-    help = 'Runs the IoT sensor simulator'
+    help = 'Generates simulated sensor readings for the admin dashboard'
 
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.SUCCESS('Starting sensor simulator...'))
@@ -19,27 +20,13 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS('Created "System Started" notification.'))
 
-        temp_norm = 23.0
-        hum_norm = 82.0
-        co2_norm = 900
-
         while True:
             try:
-                # 1. Generate a new random sensor reading
-                new_temp = temp_norm + random.uniform(-1.5, 1.5)
-                new_hum = hum_norm + random.uniform(-3.0, 3.0)
-                new_co2 = co2_norm + random.randint(-50, 50)
-
-                # 2. Create and save the new reading
-                reading = SensorReading.objects.create(
-                    temperature=round(new_temp, 1),
-                    humidity=round(new_hum, 1),
-                    co2_ppm=new_co2
-                )
+                reading = create_simulated_sensor_reading(force=True)
                 
                 self.stdout.write(
                     f"Saved new reading: {reading.temperature}°C, "
-                    f"{reading.humidity}%, {reading.co2_ppm}ppm"
+                    f"{reading.humidity}%, {reading.air_quality_ppm}ppm"
                 )
                 
                 # --- UPDATED: EQUIPMENT NOTIFICATION ---

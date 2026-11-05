@@ -112,6 +112,11 @@ urlpatterns = [
     
     # Sensor data for dashboard charts (GET)
     path('api/sensor-data/', views.sensor_data_api, name='sensor-api'),
+    path(
+        'api/sensor-simulation-settings/',
+        views.sensor_simulation_settings_api,
+        name='sensor-simulation-settings-api',
+    ),
     
     path('api/inventory/', views.inventory_api, name='inventory-api'),
     path('api/inventory/<int:pk>/', views.inventory_api_detail, name='inventory-api-detail'),

@@ -1,10 +1,12 @@
 import json
+from io import StringIO
 from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.core.management import call_command
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
@@ -19,6 +21,7 @@ from .models import (
     ProductionBatch,
     Sale,
     SensorReading,
+    SensorSimulationSettings,
     StoreSettings,
     WaterRefillLog,
     WaterRefillStatus,
@@ -27,6 +30,7 @@ from .models import (
 from .shipping import calculate_shipping_fee
 from .yield_model import _build_harvest_history_frame
 from .views import calculate_growth_days
+from .sensor_simulation import create_simulated_sensor_reading
 
 
 class LoginAuthenticationTests(TestCase):
@@ -473,6 +477,173 @@ class SensorProcessingControlTests(TestCase):
         self.assertEqual(SensorReading.objects.count(), 1)
 
 
+class SensorSimulationTests(TestCase):
+    @patch(
+        'core.management.commands.run_simulator.time.sleep',
+        side_effect=KeyboardInterrupt,
+    )
+    @patch(
+        'core.sensor_simulation.random.uniform',
+        side_effect=[0.1, 0.4],
+    )
+    @patch(
+        'core.sensor_simulation.random.randint',
+        side_effect=[5, 100],
+    )
+    def test_simulator_provides_gradual_data_to_dashboard(
+        self, _randint, _uniform, _sleep
+    ):
+        previous = SensorReading.objects.create(
+            temperature=16.2,
+            humidity=85.5,
+            air_quality_ppm=355,
+            device_id='SIMULATED_ESP32',
+        )
+        SensorSimulationSettings.objects.create(
+            temperature_min=13,
+            temperature_max=18,
+            humidity_min=80,
+            humidity_max=90,
+        )
+
+        call_command('run_simulator', stdout=StringIO())
+
+        latest = SensorReading.objects.order_by('-timestamp', '-id').first()
+        self.assertNotEqual(latest.id, previous.id)
+        self.assertEqual(latest.device_id, 'SIMULATED_ESP32')
+        self.assertIsNotNone(latest.air_quality_ppm)
+        self.assertLessEqual(
+            abs(float(latest.temperature) - float(previous.temperature)), 0.2
+        )
+        self.assertLessEqual(
+            abs(float(latest.humidity) - float(previous.humidity)), 0.5
+        )
+        self.assertLessEqual(
+            abs(latest.air_quality_ppm - previous.air_quality_ppm), 8
+        )
+
+        admin = get_user_model().objects.create_user(
+            username='simulator-admin',
+            password='StrongPass123!',
+        )
+        self.client.force_login(admin)
+
+        chart_response = self.client.get('/api/sensor-data/')
+        summary_response = self.client.get('/api/dashboard-summary/')
+        self.assertEqual(chart_response.status_code, 200)
+        self.assertEqual(summary_response.status_code, 200)
+        self.assertEqual(chart_response.json()['temp'][-1], float(latest.temperature))
+        self.assertEqual(chart_response.json()['humidity'][-1], float(latest.humidity))
+        self.assertEqual(chart_response.json()['air_quality'][-1], latest.air_quality_ppm)
+        self.assertEqual(summary_response.json()['air_quality_ppm'], latest.air_quality_ppm)
+        self.assertTrue(summary_response.json()['device_statuses']['sensors'])
+        self.assertEqual(summary_response.json()['sensor_data_source'], 'simulated')
+
+    def test_dashboard_automatically_generates_fallback_when_sensors_are_stale(self):
+        admin = get_user_model().objects.create_user(
+            username='automatic-simulator-admin',
+            password='StrongPass123!',
+        )
+        self.client.force_login(admin)
+
+        with patch(
+            'core.sensor_simulation.random.uniform', side_effect=[0.1, 0.4]
+        ), patch(
+            'core.sensor_simulation.random.randint', return_value=5
+        ):
+            summary_response = self.client.get('/api/dashboard-summary/')
+            chart_response = self.client.get('/api/sensor-data/')
+
+        self.assertEqual(summary_response.status_code, 200)
+        self.assertEqual(chart_response.status_code, 200)
+        self.assertEqual(SensorReading.objects.count(), 1)
+        self.assertEqual(
+            SensorReading.objects.get().device_id,
+            'SIMULATED_ESP32',
+        )
+        self.assertEqual(summary_response.json()['sensor_data_source'], 'simulated')
+        self.assertEqual(chart_response.json()['temp'][-1], 22.1)
+
+    def test_dashboard_uses_recent_physical_reading_without_simulating(self):
+        SensorReading.objects.create(
+            temperature=17.0,
+            humidity=86.0,
+            air_quality_ppm=360,
+            device_id='ESP32_LIVE',
+        )
+        admin = get_user_model().objects.create_user(
+            username='live-sensor-admin',
+            password='StrongPass123!',
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get('/api/dashboard-summary/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(SensorReading.objects.count(), 1)
+        self.assertEqual(response.json()['sensor_data_source'], 'live')
+
+    def test_admin_can_save_simulation_ranges_and_values_stay_inside_them(self):
+        admin = get_user_model().objects.create_user(
+            username='simulation-settings-admin',
+            password='StrongPass123!',
+            is_staff=True,
+        )
+        self.client.force_login(admin)
+        settings_payload = {
+            'temperature_min': 20,
+            'temperature_max': 24,
+            'humidity_min': 80,
+            'humidity_max': 90,
+            'air_quality_min': 300,
+            'air_quality_max': 400,
+        }
+
+        response = self.client.post(
+            '/api/sensor-simulation-settings/',
+            data=json.dumps(settings_payload),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        with patch(
+            'core.sensor_simulation.random.uniform', side_effect=[0.1, 0.4]
+        ), patch(
+            'core.sensor_simulation.random.randint', return_value=5
+        ):
+            reading = create_simulated_sensor_reading(force=True)
+
+        self.assertGreaterEqual(float(reading.temperature), 20)
+        self.assertLessEqual(float(reading.temperature), 24)
+        self.assertGreaterEqual(float(reading.humidity), 80)
+        self.assertLessEqual(float(reading.humidity), 90)
+        self.assertGreaterEqual(reading.air_quality_ppm, 300)
+        self.assertLessEqual(reading.air_quality_ppm, 400)
+
+    def test_simulation_range_endpoint_rejects_invalid_ranges(self):
+        admin = get_user_model().objects.create_user(
+            username='invalid-simulation-range-admin',
+            password='StrongPass123!',
+            is_staff=True,
+        )
+        self.client.force_login(admin)
+        response = self.client.post(
+            '/api/sensor-simulation-settings/',
+            data=json.dumps({
+                'temperature_min': 24,
+                'temperature_max': 20,
+                'humidity_min': 80,
+                'humidity_max': 90,
+                'air_quality_min': 300,
+                'air_quality_max': 400,
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Minimum temperature', response.json()['error'])
+
+
 class YieldTrainingSampleTests(TestCase):
     def test_gram_samples_are_converted_to_kg_for_training(self):
         product = Product.objects.create(
@@ -581,4 +752,3 @@ class ManualRelayControlTests(TestCase):
         response = self.client.post('/api/manual-watch/')
 
         self.assertEqual(response.status_code, 302)
-

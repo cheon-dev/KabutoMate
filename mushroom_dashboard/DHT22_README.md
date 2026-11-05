@@ -90,6 +90,21 @@ This integration package provides everything you need to connect a DHT22 tempera
 3. Add your IP to ALLOWED_HOSTS in settings.py
 4. Start server: `python manage.py runserver 0.0.0.0:8000`
 
+### Sensor Simulation
+The admin dashboard automatically generates simulated sensor readings when
+there has been no physical sensor reading for five minutes. It refreshes the
+simulated values gradually while the dashboard is open, and labels the sensor
+status `Simulated`. Real sensor readings take precedence as soon as they resume.
+
+On the Environmental Control page, tap the page title five times within two
+seconds to open the simulated sensor range settings. Configure temperature,
+humidity, and air-quality minimums and maximums there; simulated readings stay
+inside those ranges. Run `python manage.py migrate` once after updating the
+application to create the settings table.
+
+The optional `python manage.py run_simulator` command is still available for
+continuous simulated data independent of dashboard visits.
+
 ### Testing (2 minutes)
 1. Open Serial Monitor in Arduino IDE
 2. Watch for successful data transmission

@@ -615,6 +615,28 @@
             background-color: var(--mid-green);
         }
 
+        .simulation-range-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .simulation-range-grid .form-group {
+            min-width: 0;
+        }
+
+        .simulation-note {
+            color: #64748b;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 520px) {
+            .simulation-range-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
     /* --- Logout Modal --- */
     .logout-modal {
         display: none;
@@ -842,7 +864,7 @@
 
     <main class="main-content">
         <header class="main-header">
-            <h1>Environmental Control</h1>
+            <h1 id="environment-control-title">Environmental Control</h1>
             <button id="emergency-stop-btn" class="btn-emergency">
                 <i class="fa-solid fa-power-off"></i> Emergency Stop
             </button>
@@ -1070,6 +1092,48 @@
             </div>
         </div>
 
+        <div id="sensor-simulation-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="sensor-simulation-title">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="sensor-simulation-title">Simulated Sensor Ranges</h2>
+                    <button type="button" class="close-btn" data-modal="sensor-simulation-modal" aria-label="Close">&times;</button>
+                </div>
+                <p class="simulation-note">
+                    These ranges apply only when physical sensor readings are unavailable.
+                    Simulated values change gradually and stay within the saved limits.
+                </p>
+                <form id="sensor-simulation-form" class="modal-form">
+                    <div class="simulation-range-grid">
+                        <div class="form-group">
+                            <label for="simulation-temperature-min">Temperature minimum (°C)</label>
+                            <input type="number" id="simulation-temperature-min" name="temperature_min" min="-10" max="60" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="simulation-temperature-max">Temperature maximum (°C)</label>
+                            <input type="number" id="simulation-temperature-max" name="temperature_max" min="-10" max="60" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="simulation-humidity-min">Humidity minimum (%)</label>
+                            <input type="number" id="simulation-humidity-min" name="humidity_min" min="0" max="100" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="simulation-humidity-max">Humidity maximum (%)</label>
+                            <input type="number" id="simulation-humidity-max" name="humidity_max" min="0" max="100" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="simulation-air-quality-min">Air quality minimum (ppm)</label>
+                            <input type="number" id="simulation-air-quality-min" name="air_quality_min" min="0" max="5000" step="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="simulation-air-quality-max">Air quality maximum (ppm)</label>
+                            <input type="number" id="simulation-air-quality-max" name="air_quality_max" min="0" max="5000" step="1" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-submit">Save Simulated Ranges</button>
+                </form>
+            </div>
+        </div>
+
     </main>
 
     <script>
@@ -1275,6 +1339,66 @@
     }
     
     document.addEventListener('DOMContentLoaded', () => {
+        const simulationModal = document.getElementById('sensor-simulation-modal');
+        const simulationForm = document.getElementById('sensor-simulation-form');
+        const simulationTitle = document.getElementById('environment-control-title');
+        let titleTapCount = 0;
+        let titleTapTimer;
+
+        async function loadSimulationSettings() {
+            try {
+                const response = await fetch('/api/sensor-simulation-settings/');
+                const settings = await response.json();
+                if (!response.ok) {
+                    throw new Error(settings.error || 'Failed to load simulated sensor ranges.');
+                }
+                Object.entries(settings).forEach(([name, value]) => {
+                    const input = simulationForm.elements.namedItem(name);
+                    if (input) input.value = value;
+                });
+            } catch (error) {
+                console.error('Failed to load simulated sensor ranges:', error);
+                showToast(error.message || 'Failed to load simulated sensor ranges.', 'error');
+            }
+        }
+
+        simulationTitle.addEventListener('click', () => {
+            titleTapCount += 1;
+            clearTimeout(titleTapTimer);
+            if (titleTapCount >= 5) {
+                titleTapCount = 0;
+                simulationModal.style.display = 'block';
+                loadSimulationSettings();
+                return;
+            }
+            titleTapTimer = setTimeout(() => {
+                titleTapCount = 0;
+            }, 2000);
+        });
+
+        simulationForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            const settings = Object.fromEntries(new FormData(simulationForm).entries());
+            try {
+                const response = await fetch('/api/sensor-simulation-settings/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify(settings)
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Failed to save simulated sensor ranges.');
+                }
+                showToast(result.message, 'success');
+            } catch (error) {
+                console.error('Failed to save simulated sensor ranges:', error);
+                showToast(error.message || 'Failed to save simulated sensor ranges.', 'error');
+            }
+        });
+
         // --- Get All Control Elements ---
         const controls = {
             fan_on: document.getElementById('fan-on-toggle'),

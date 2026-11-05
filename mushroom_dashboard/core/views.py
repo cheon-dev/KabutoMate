@@ -9,7 +9,7 @@ from django.db.models import Sum, Count, F, Q, DecimalField, Avg, DateField
 from django.db.models.functions import Coalesce, TruncMonth, Cast
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
-from .models import SensorReading, Product, Sale, ProductionBatch, Notification, EnvironmentSettings, NotificationSettings, UserProfile, Cart, CartItem, CustomerAdminMessage, CustomerAddress, StoreSettings
+from .models import SensorReading, SensorSimulationSettings, Product, Sale, ProductionBatch, Notification, EnvironmentSettings, NotificationSettings, UserProfile, Cart, CartItem, CustomerAdminMessage, CustomerAddress, StoreSettings
 from .email_service import send_verification_email, send_email_async, resend_verification_email
 from .notification_service import evaluate_environment_notifications
 from .ai_service import GeminiConfigurationError, GeminiRequestError, ask_gemini
@@ -30,6 +30,7 @@ from .yield_model import calculate_predicted_yield as calculate_history_predicte
 from .philippine_locations import get_locations
 from .shipping import calculate_shipping_fee
 from .sensor_api import MANUAL_WATCH_SECONDS, RELAY_POLL_FAST_MS
+from .sensor_simulation import ensure_dashboard_sensor_reading, SIMULATED_DEVICE_ID
 
 
 # Helper function to merge session cart into user cart
@@ -1214,6 +1215,7 @@ def store_settings_api(request):
 
 @login_required(login_url='login')
 def sensor_data_api(request):
+    ensure_dashboard_sensor_reading()
     readings = SensorReading.objects.order_by('-timestamp')[:20]
     data = {
         'labels': [r.timestamp.strftime('%H:%M:%S') for r in reversed(readings)], 
@@ -1224,8 +1226,75 @@ def sensor_data_api(request):
     }
     return JsonResponse(data)
 
+
+@admin_required
+@require_http_methods(['GET', 'POST'])
+def sensor_simulation_settings_api(request):
+    simulation_settings = SensorSimulationSettings.load()
+    fields = {
+        'temperature_min': (Decimal('-10'), Decimal('60'), True),
+        'temperature_max': (Decimal('-10'), Decimal('60'), True),
+        'humidity_min': (Decimal('0'), Decimal('100'), True),
+        'humidity_max': (Decimal('0'), Decimal('100'), True),
+        'air_quality_min': (0, 5000, False),
+        'air_quality_max': (0, 5000, False),
+    }
+
+    if request.method == 'GET':
+        return JsonResponse({
+            name: int(getattr(simulation_settings, name))
+            if not decimal_value else float(getattr(simulation_settings, name))
+            for name, (_, _, decimal_value) in fields.items()
+        })
+
+    try:
+        payload = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON payload.'}, status=400)
+    if not isinstance(payload, dict):
+        return JsonResponse({'error': 'Expected a JSON object.'}, status=400)
+
+    values = {}
+    for name, (minimum, maximum, decimal_value) in fields.items():
+        if name not in payload:
+            return JsonResponse({'error': f'Missing required setting: {name}.'}, status=400)
+        try:
+            value = Decimal(str(payload[name]))
+        except (ValueError, TypeError, InvalidOperation):
+            return JsonResponse({'error': f'{name} must be a valid number.'}, status=400)
+        if not value.is_finite():
+            return JsonResponse({'error': f'{name} must be a finite number.'}, status=400)
+        if decimal_value and value.normalize().as_tuple().exponent < -1:
+            return JsonResponse({'error': f'{name} can have at most one decimal place.'}, status=400)
+        if not decimal_value:
+            if value != value.to_integral_value():
+                return JsonResponse({'error': f'{name} must be a whole number.'}, status=400)
+            value = int(value)
+        if value < minimum or value > maximum:
+            return JsonResponse({
+                'error': f'{name} must be between {minimum} and {maximum}.'
+            }, status=400)
+        values[name] = value
+
+    if values['temperature_min'] >= values['temperature_max']:
+        return JsonResponse({'error': 'Minimum temperature must be below maximum temperature.'}, status=400)
+    if values['humidity_min'] >= values['humidity_max']:
+        return JsonResponse({'error': 'Minimum humidity must be below maximum humidity.'}, status=400)
+    if values['air_quality_min'] >= values['air_quality_max']:
+        return JsonResponse({'error': 'Minimum air quality must be below maximum air quality.'}, status=400)
+
+    for name, value in values.items():
+        setattr(simulation_settings, name, value)
+    simulation_settings.save()
+    return JsonResponse({
+        'success': True,
+        'message': 'Simulated sensor ranges saved.',
+    })
+
+
 @login_required(login_url='login')
 def dashboard_summary_api(request):
+    latest_sensor = ensure_dashboard_sensor_reading()
     today = timezone.now()
     prod_summary = ProductionBatch.objects.aggregate(
         active_batches=Coalesce(Count('id', filter=Q(status__in=['GROWING', 'READY'])), 0)
@@ -1245,8 +1314,6 @@ def dashboard_summary_api(request):
         })
     
     # Get latest sensor reading from DHT22 + MQ-135
-    latest_sensor = SensorReading.objects.first()  # Already ordered by -timestamp
-    
     if latest_sensor:
         temperature = float(latest_sensor.temperature)
         humidity = float(latest_sensor.humidity)
@@ -1300,6 +1367,11 @@ def dashboard_summary_api(request):
         'watering': False,  # Set to False by default, will be True only during watering cycle
         'sensors': sensors_online
     }
+    sensor_data_source = (
+        'simulated'
+        if latest_sensor and latest_sensor.device_id == SIMULATED_DEVICE_ID
+        else 'live' if latest_sensor else 'unavailable'
+    )
     
     data = {
         'active_batches': prod_summary['active_batches'],
@@ -1309,6 +1381,7 @@ def dashboard_summary_api(request):
         'system_status': system_status,
         'status_message': status_message,
         'device_statuses': device_statuses,
+        'sensor_data_source': sensor_data_source,
         'alerts': alert_list,
         # Real sensor data from DHT22 + MQ-135
         'temperature': temperature,
@@ -2395,5 +2468,3 @@ def watering_api(request):
         return JsonResponse({'success': True, 'message': 'Watering cycle complete.'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
-
-

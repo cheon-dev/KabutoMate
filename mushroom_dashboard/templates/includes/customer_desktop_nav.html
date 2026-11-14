@@ -1,43 +1,64 @@
 {% load static %}
 <style>
-    .customer-shared-navbar {
-        display: flex;
+    /* Single source of truth for the customer header. Page-level .navbar /
+       .logo-circle rules differ per template, so these use higher specificity
+       and !important on the properties that used to drift between pages. */
+    .navbar.customer-shared-navbar {
+        position: sticky !important;
+        top: 0;
+        z-index: 1000;
+        display: flex !important;
         width: 100%;
+        box-sizing: border-box;
         align-items: center;
         justify-content: space-between;
         gap: 1.25rem;
+        height: auto !important;
+        min-height: 68px;
+        padding: .75rem 4% !important;
+        background: rgba(255, 255, 255, .96) !important;
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid #e2e8f0 !important;
+        box-shadow: 0 2px 10px rgba(15, 23, 42, .04) !important;
     }
     .customer-shared-navbar .logo-section {
         display: flex;
         min-width: 0;
         align-items: center;
-        gap: 12px;
+        gap: 10px !important;
     }
     .customer-shared-navbar .logo-circle {
         display: flex;
-        width: 45px;
-        height: 45px;
-        flex: 0 0 45px;
+        box-sizing: border-box;
+        width: 42px !important;
+        height: 42px !important;
+        min-width: 42px !important;
+        max-width: 42px !important;
+        flex: 0 0 42px !important;
         align-items: center;
         justify-content: center;
         overflow: hidden;
-        border-radius: 12px;
+        border-radius: 12px !important;
         background: var(--primary, #0c4b33);
+        transform: none !important;
+        box-shadow: none !important;
     }
     .customer-shared-navbar .logo-circle img {
         display: block;
-        width: 30px;
-        height: 30px;
+        width: 26px !important;
+        height: 26px !important;
         max-width: none;
         object-fit: contain;
     }
     .customer-shared-navbar .brand-name {
         min-width: 0;
         overflow: hidden;
-        color: var(--primary, #0c4b33);
-        font-size: 1.25rem;
+        color: var(--primary, #0c4b33) !important;
+        font-size: 1.3rem !important;
         font-weight: 800;
-        letter-spacing: -.02em;
+        line-height: 1.1;
+        letter-spacing: -.02em !important;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
@@ -87,12 +108,25 @@
         .customer-shared-navbar .customer-shared-nav-links a span { display: none; }
     }
     @media screen and (max-width: 767px) {
-        .customer-shared-navbar { flex-wrap: wrap; height: auto !important; min-height: 58px; }
+        .navbar.customer-shared-navbar {
+            flex-wrap: wrap !important;
+            gap: .6rem;
+            min-height: 60px;
+            padding: .6rem 1rem !important;
+        }
         .customer-shared-navbar .customer-shared-nav-links { display: none !important; }
         .customer-shared-navbar .header-search { display: block; flex: 0 0 100%; order: 3; max-width: none; margin: 0; }
-        .customer-shared-navbar .logo-circle { width: 38px; height: 38px; flex-basis: 38px; }
-        .customer-shared-navbar .logo-circle img { width: 25px; height: 25px; }
-        .customer-shared-navbar .brand-name { font-size: 1.1rem; }
+        .customer-shared-navbar .logo-section { flex: 1 1 auto; }
+        .customer-shared-navbar .logo-circle {
+            width: 36px !important;
+            height: 36px !important;
+            min-width: 36px !important;
+            max-width: 36px !important;
+            flex-basis: 36px !important;
+            border-radius: 10px !important;
+        }
+        .customer-shared-navbar .logo-circle img { width: 22px !important; height: 22px !important; }
+        .customer-shared-navbar .brand-name { font-size: 1.1rem !important; }
     }
 </style>
 <nav class="navbar customer-shared-navbar">

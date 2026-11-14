@@ -8,7 +8,7 @@
     <title>Mushroom IoT Dashboard - Control</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <link rel="stylesheet" href="{% static 'css/admin.css' %}?v=sidebar-toggle-2">
+    <link rel="stylesheet" href="{% static 'css/admin.css' %}?v=sidebar-brand-header-1">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -848,17 +848,7 @@
     </div>
 
     <aside class="sidebar">
-        <!-- Sidebar Toggle Button -->
-        <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">
-            <i class="fa-solid fa-chevron-left"></i>
-        </button>
-
-        <div class="sidebar-logo">
-            <div class="logo">
-                <img src="{% static 'images/Screenshot_2025-11-01_124726-removebg-preview.png' %}" alt="Mushroom Logo">
-            </div>
-            <span>KABUTOMATE</span>
-        </div>
+        {% include 'includes/admin_sidebar_brand.html' %}
 
         <nav class="sidebar-nav">
             <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" data-tooltip="Dashboard">
@@ -887,9 +877,6 @@
             </a>
             <a href="{% url 'weather' %}" class="{% if request.resolver_match.url_name == 'weather' %}active{% endif %}" data-tooltip="Weather">
                 <i class="fa-solid fa-cloud-sun icon"></i> <span>Weather</span>
-            </a>
-            <a href="{% url 'notifications' %}" class="{% if request.resolver_match.url_name == 'notifications' %}active{% endif %}" data-tooltip="Notifications">
-                <i class="fa-solid fa-bell icon"></i> <span>Notifications</span>
             </a>
             <a href="{% url 'store_settings' %}" class="{% if request.resolver_match.url_name == 'store_settings' %}active{% endif %}" data-tooltip="Store Settings">
                 <i class="fa-solid fa-store icon"></i> <span>Store Settings</span>

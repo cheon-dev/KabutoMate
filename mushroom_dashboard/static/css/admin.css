@@ -87,24 +87,6 @@ body {
     display: none;
 }
 
-.sidebar.collapsed .sidebar-logo .logo {
-    width: 50px;
-    height: 50px;
-    margin: 0 auto;
-    border-radius: 14px;
-}
-
-.sidebar.collapsed .sidebar-logo .logo img {
-    width: 36px;
-    height: 36px;
-}
-
-.sidebar.collapsed .sidebar-logo {
-    padding-bottom: 20px;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
 .sidebar.collapsed .sidebar-nav {
     align-items: center;
     gap: 2px;
@@ -214,30 +196,6 @@ body {
     transform: scale(0.95);
 }
 
-/* Toggle button position when sidebar is collapsed */
-.sidebar.collapsed .sidebar-toggle {
-    position: fixed;
-    top: 84px;
-    left: calc(var(--sidebar-collapsed-width) - 18px);
-    right: auto;
-    width: 34px;
-    height: 34px;
-    background: var(--primary-dark);
-    border-color: var(--accent-light);
-    transform: none;
-}
-
-body.sidebar-collapsed .sidebar.collapsed .sidebar-toggle {
-    position: fixed !important;
-    top: 84px !important;
-    left: calc(var(--sidebar-collapsed-width) - 18px) !important;
-    right: auto !important;
-}
-
-.sidebar.collapsed .sidebar-toggle:hover {
-    transform: scale(1.1);
-}
-
 .sidebar-toggle i {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -288,6 +246,118 @@ body.sidebar-collapsed .sidebar.collapsed .sidebar-toggle {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+}
+
+.sidebar-brand-row {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-brand-row .sidebar-logo {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.sidebar-brand-row .sidebar-logo .logo {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 8px;
+    border-radius: 16px;
+}
+
+.sidebar-brand-row .sidebar-logo .logo img {
+    width: 48px;
+    height: 48px;
+}
+
+.sidebar-toggle,
+.sidebar-notification-link {
+    position: static;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    text-decoration: none;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.sidebar-toggle {
+    z-index: 1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-notification-link {
+    font-size: 1rem;
+}
+
+.sidebar-toggle:hover,
+.sidebar-notification-link:hover,
+.sidebar-notification-link.active {
+    background: var(--accent);
+    border-color: var(--accent-light);
+    color: var(--primary-dark);
+    transform: scale(1.05);
+}
+
+.sidebar.collapsed .sidebar-brand-row {
+    grid-template-columns: 24px minmax(32px, 1fr) 24px;
+    gap: 0;
+    margin: 0 -8px 20px;
+    padding: 0 0 16px;
+}
+
+.sidebar.collapsed .sidebar-brand-row .sidebar-logo {
+    padding: 0;
+    margin: 0;
+    text-align: center;
+}
+
+.sidebar.collapsed .sidebar-brand-row .sidebar-logo .logo {
+    width: 32px;
+    height: 32px;
+    margin: 0 auto;
+    border-radius: 9px;
+}
+
+.sidebar.collapsed .sidebar-brand-row .sidebar-logo .logo img {
+    width: 24px;
+    height: 24px;
+}
+
+.sidebar.collapsed .sidebar-brand-row .sidebar-toggle,
+.sidebar.collapsed .sidebar-brand-row .sidebar-notification-link {
+    width: 24px;
+    height: 28px;
+    font-size: 0.8rem;
+}
+
+.sidebar.collapsed .sidebar-brand-row .sidebar-toggle {
+    box-shadow: none;
+}
+
+.sidebar.collapsed .sidebar-brand-row .sidebar-toggle:hover,
+.sidebar.collapsed .sidebar-brand-row .sidebar-notification-link:hover,
+.sidebar.collapsed .sidebar-brand-row .sidebar-notification-link.active {
+    transform: none;
+}
+
+.sidebar.collapsed .sidebar-brand-row .sidebar-toggle i {
+    transform: rotate(180deg);
 }
 
 .sidebar-nav {
@@ -1393,6 +1463,29 @@ header h1::before {
     
     .sidebar.collapsed {
         width: 300px;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row {
+        grid-template-columns: 36px minmax(0, 1fr) 36px;
+        gap: 8px;
+        margin: 0 0 24px;
+        padding: 0 0 20px;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row .sidebar-logo .logo {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 8px;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row .sidebar-logo .logo img {
+        width: 48px;
+        height: 48px;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row .sidebar-notification-link {
+        width: 36px;
+        height: 36px;
     }
     
     .sidebar.collapsed .sidebar-logo span,

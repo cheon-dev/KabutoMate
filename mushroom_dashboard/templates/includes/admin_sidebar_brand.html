@@ -1,0 +1,19 @@
+{% load static %}
+<div class="sidebar-brand-row">
+    <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar" aria-label="Toggle sidebar">
+        <i class="fa-solid fa-chevron-left"></i>
+    </button>
+    <div class="sidebar-logo">
+        <div class="logo">
+            <img src="{% static 'images/Screenshot_2025-11-01_124726-removebg-preview.png' %}" alt="Mushroom Logo">
+        </div>
+        <span>KABUTOMATE</span>
+    </div>
+    <a href="{% url 'notifications' %}"
+       class="sidebar-notification-link{% if request.resolver_match.url_name == 'notifications' %} active{% endif %}"
+       data-tooltip="Notifications"
+       title="Notifications"
+       aria-label="Notifications">
+        <i class="fa-solid fa-bell"></i>
+    </a>
+</div>

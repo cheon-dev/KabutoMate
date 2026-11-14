@@ -1438,6 +1438,28 @@ header h1::before {
     .sidebar-toggle {
         display: none;
     }
+
+    /* Toggle is hidden here, so the brand row only has the logo + bell.
+       Use a 2-column grid so the bell stays on the right instead of
+       sliding into the logo's column and overlapping the title. */
+    .sidebar .sidebar-brand-row,
+    .sidebar.collapsed .sidebar-brand-row {
+        grid-template-columns: minmax(0, 1fr) 36px;
+    }
+
+    .sidebar .sidebar-brand-row .sidebar-notification-link,
+    .sidebar.collapsed .sidebar-brand-row .sidebar-notification-link {
+        display: flex;
+        grid-column: 2;
+        justify-self: end;
+        width: 36px;
+        height: 36px;
+    }
+
+    .sidebar .sidebar-brand-row .sidebar-logo span {
+        min-width: 0;
+        white-space: nowrap;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1447,7 +1469,7 @@ header h1::before {
     }
 
     .sidebar .sidebar-brand-row {
-        grid-template-columns: 48px minmax(0, 1fr) 36px;
+        grid-template-columns: minmax(0, 1fr) 36px;
         gap: 10px;
         margin: 0 0 24px;
         padding: 0 0 20px;
@@ -1545,7 +1567,7 @@ header h1::before {
     }
 
     .sidebar.collapsed .sidebar-brand-row {
-        grid-template-columns: 48px minmax(0, 1fr) 36px;
+        grid-template-columns: minmax(0, 1fr) 36px;
     }
     
     .sidebar.collapsed .sidebar-logo span,

@@ -506,8 +506,10 @@
                     const apiData = await response.json();
 
                     // Update top metric cards (but NOT air quality - it comes from dashboard-summary)
-                    cardTemp.innerHTML = `${apiData.temp[apiData.temp.length - 1]}<span class="unit">°C</span>`;
-                    cardHumidity.innerHTML = `${apiData.humidity[apiData.humidity.length - 1]}<span class="unit">%</span>`;
+                    if (apiData.temp.length && apiData.humidity.length) {
+                        cardTemp.innerHTML = `${apiData.temp[apiData.temp.length - 1]}<span class="unit">°C</span>`;
+                        cardHumidity.innerHTML = `${apiData.humidity[apiData.humidity.length - 1]}<span class="unit">%</span>`;
+                    }
                     // Don't update cardCo2 here - it's updated by updateSummaryData() with air_quality_ppm
 
                     // --- Update Chart 1: Temperature and Humidity ---

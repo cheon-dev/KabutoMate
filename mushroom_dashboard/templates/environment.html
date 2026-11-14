@@ -631,6 +631,50 @@
             line-height: 1.5;
         }
 
+        .simulation-toggle-row,
+        .simulation-preset-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .simulation-toggle-row label {
+            font-weight: 600;
+        }
+
+        .simulation-preset-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .simulation-preset-row {
+            padding: 6px 8px;
+        }
+
+        .simulation-preset-apply,
+        .simulation-preset-delete {
+            border: 0;
+            border-radius: 6px;
+            padding: 8px 10px;
+            cursor: pointer;
+        }
+
+        .simulation-preset-apply {
+            background: #e8f4ee;
+            color: var(--dark-green);
+            font-weight: 600;
+        }
+
+        .simulation-preset-delete {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
         @media (max-width: 520px) {
             .simulation-range-grid {
                 grid-template-columns: 1fr;
@@ -1102,6 +1146,13 @@
                     These ranges apply only when physical sensor readings are unavailable.
                     Simulated values change gradually and stay within the saved limits.
                 </p>
+                <div class="simulation-toggle-row">
+                    <label for="sensor-simulation-enabled">Generate sensor readings</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="sensor-simulation-enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
                 <form id="sensor-simulation-form" class="modal-form">
                     <div class="simulation-range-grid">
                         <div class="form-group">
@@ -1131,6 +1182,17 @@
                     </div>
                     <button type="submit" class="btn-submit">Save Simulated Ranges</button>
                 </form>
+                <form id="sensor-simulation-preset-form" class="modal-form" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label for="sensor-simulation-preset-name">Add a quick-select button for these ranges</label>
+                        <input type="text" id="sensor-simulation-preset-name" name="name" maxlength="50" placeholder="For example: Warm and humid" required>
+                    </div>
+                    <button type="submit" class="btn-submit">Add Range Button</button>
+                </form>
+                <div>
+                    <h3>Saved range buttons</h3>
+                    <div id="sensor-simulation-presets" class="simulation-preset-list"></div>
+                </div>
             </div>
         </div>
 
@@ -1341,9 +1403,87 @@
     document.addEventListener('DOMContentLoaded', () => {
         const simulationModal = document.getElementById('sensor-simulation-modal');
         const simulationForm = document.getElementById('sensor-simulation-form');
+        const simulationPresetForm = document.getElementById('sensor-simulation-preset-form');
+        const simulationPresetList = document.getElementById('sensor-simulation-presets');
+        const simulationEnabledToggle = document.getElementById('sensor-simulation-enabled');
         const simulationTitle = document.getElementById('environment-control-title');
         let titleTapCount = 0;
         let titleTapTimer;
+
+        function simulationRangesFromForm() {
+            return Object.fromEntries(new FormData(simulationForm).entries());
+        }
+
+        async function sendSimulationSettings(payload) {
+            const response = await fetch('/api/sensor-simulation-settings/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to update sensor settings.');
+            }
+            return result;
+        }
+
+        function renderSimulationPresets(presets) {
+            simulationPresetList.replaceChildren();
+            presets.forEach(preset => {
+                const row = document.createElement('div');
+                row.className = 'simulation-preset-row';
+
+                const applyButton = document.createElement('button');
+                applyButton.type = 'button';
+                applyButton.className = 'simulation-preset-apply';
+                applyButton.textContent = preset.name;
+                applyButton.title = `Temperature ${preset.temperature_min}-${preset.temperature_max}°C, humidity ${preset.humidity_min}-${preset.humidity_max}%`;
+                applyButton.addEventListener('click', async () => {
+                    try {
+                        const result = await sendSimulationSettings({
+                            action: 'apply_preset',
+                            preset_id: preset.id
+                        });
+                        await loadSimulationSettings();
+                        showToast(result.message, 'success');
+                    } catch (error) {
+                        console.error('Failed to apply sensor range button:', error);
+                        showToast(error.message || 'Failed to apply sensor range.', 'error');
+                    }
+                });
+
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'simulation-preset-delete';
+                deleteButton.textContent = '×';
+                deleteButton.setAttribute('aria-label', `Delete ${preset.name} range button`);
+                deleteButton.addEventListener('click', async () => {
+                    try {
+                        const result = await sendSimulationSettings({
+                            action: 'delete_preset',
+                            preset_id: preset.id
+                        });
+                        await loadSimulationSettings();
+                        showToast(result.message, 'success');
+                    } catch (error) {
+                        console.error('Failed to delete sensor range button:', error);
+                        showToast(error.message || 'Failed to delete sensor range.', 'error');
+                    }
+                });
+
+                row.append(applyButton, deleteButton);
+                simulationPresetList.appendChild(row);
+            });
+            if (presets.length === 0) {
+                const emptyMessage = document.createElement('p');
+                emptyMessage.className = 'simulation-note';
+                emptyMessage.textContent = 'No saved range buttons yet.';
+                simulationPresetList.appendChild(emptyMessage);
+            }
+        }
 
         async function loadSimulationSettings() {
             try {
@@ -1356,6 +1496,8 @@
                     const input = simulationForm.elements.namedItem(name);
                     if (input) input.value = value;
                 });
+                simulationEnabledToggle.checked = settings.enabled;
+                renderSimulationPresets(settings.presets || []);
             } catch (error) {
                 console.error('Failed to load simulated sensor ranges:', error);
                 showToast(error.message || 'Failed to load simulated sensor ranges.', 'error');
@@ -1376,26 +1518,53 @@
             }, 2000);
         });
 
+        simulationEnabledToggle.addEventListener('change', async () => {
+            const requestedValue = simulationEnabledToggle.checked;
+            simulationEnabledToggle.disabled = true;
+            try {
+                const result = await sendSimulationSettings({
+                    action: 'toggle',
+                    enabled: requestedValue
+                });
+                showToast(
+                    requestedValue ? 'Sensor reading generation enabled.' : 'Sensor reading generation disabled.',
+                    'success'
+                );
+            } catch (error) {
+                simulationEnabledToggle.checked = !requestedValue;
+                console.error('Failed to change sensor reading generation:', error);
+                showToast(error.message || 'Failed to update sensor generation.', 'error');
+            } finally {
+                simulationEnabledToggle.disabled = false;
+            }
+        });
+
         simulationForm.addEventListener('submit', async event => {
             event.preventDefault();
-            const settings = Object.fromEntries(new FormData(simulationForm).entries());
             try {
-                const response = await fetch('/api/sensor-simulation-settings/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    },
-                    body: JSON.stringify(settings)
-                });
-                const result = await response.json();
-                if (!response.ok || !result.success) {
-                    throw new Error(result.error || 'Failed to save simulated sensor ranges.');
-                }
+                const result = await sendSimulationSettings(simulationRangesFromForm());
                 showToast(result.message, 'success');
             } catch (error) {
                 console.error('Failed to save simulated sensor ranges:', error);
                 showToast(error.message || 'Failed to save simulated sensor ranges.', 'error');
+            }
+        });
+
+        simulationPresetForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            const name = simulationPresetForm.elements.namedItem('name').value.trim();
+            try {
+                const result = await sendSimulationSettings({
+                    ...simulationRangesFromForm(),
+                    action: 'add_preset',
+                    name
+                });
+                simulationPresetForm.reset();
+                await loadSimulationSettings();
+                showToast(result.message, 'success');
+            } catch (error) {
+                console.error('Failed to add sensor range button:', error);
+                showToast(error.message || 'Failed to add sensor range button.', 'error');
             }
         });
 

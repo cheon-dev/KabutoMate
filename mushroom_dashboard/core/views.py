@@ -9,7 +9,7 @@ from django.db.models import Sum, Count, F, Q, DecimalField, Avg, DateField
 from django.db.models.functions import Coalesce, TruncMonth, Cast
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
-from .models import SensorReading, SensorSimulationSettings, Product, Sale, ProductionBatch, Notification, EnvironmentSettings, NotificationSettings, UserProfile, Cart, CartItem, CustomerAdminMessage, CustomerAddress, StoreSettings
+from .models import SensorReading, SensorSimulationPreset, SensorSimulationSettings, Product, Sale, ProductionBatch, Notification, EnvironmentSettings, NotificationSettings, UserProfile, Cart, CartItem, CustomerAdminMessage, CustomerAddress, StoreSettings
 from .email_service import send_verification_email, send_email_async, resend_verification_email
 from .notification_service import evaluate_environment_notifications
 from .ai_service import GeminiConfigurationError, GeminiRequestError, ask_gemini
@@ -1216,7 +1216,10 @@ def store_settings_api(request):
 @login_required(login_url='login')
 def sensor_data_api(request):
     ensure_dashboard_sensor_reading()
-    readings = SensorReading.objects.order_by('-timestamp')[:20]
+    readings_query = SensorReading.objects.all()
+    if not SensorSimulationSettings.load().enabled:
+        readings_query = readings_query.exclude(device_id=SIMULATED_DEVICE_ID)
+    readings = readings_query.order_by('-timestamp')[:20]
     data = {
         'labels': [r.timestamp.strftime('%H:%M:%S') for r in reversed(readings)], 
         'humidity': [float(r.humidity) for r in reversed(readings)], 
@@ -1241,11 +1244,25 @@ def sensor_simulation_settings_api(request):
     }
 
     if request.method == 'GET':
-        return JsonResponse({
+        settings_data = {
             name: int(getattr(simulation_settings, name))
             if not decimal_value else float(getattr(simulation_settings, name))
             for name, (_, _, decimal_value) in fields.items()
-        })
+        }
+        settings_data['enabled'] = simulation_settings.enabled
+        settings_data['presets'] = [
+            {
+                'id': preset.id,
+                'name': preset.name,
+                **{
+                    name: int(getattr(preset, name))
+                    if not decimal_value else float(getattr(preset, name))
+                    for name, (_, _, decimal_value) in fields.items()
+                },
+            }
+            for preset in SensorSimulationPreset.objects.all()
+        ]
+        return JsonResponse(settings_data)
 
     try:
         payload = json.loads(request.body)
@@ -1254,34 +1271,71 @@ def sensor_simulation_settings_api(request):
     if not isinstance(payload, dict):
         return JsonResponse({'error': 'Expected a JSON object.'}, status=400)
 
-    values = {}
-    for name, (minimum, maximum, decimal_value) in fields.items():
-        if name not in payload:
-            return JsonResponse({'error': f'Missing required setting: {name}.'}, status=400)
-        try:
-            value = Decimal(str(payload[name]))
-        except (ValueError, TypeError, InvalidOperation):
-            return JsonResponse({'error': f'{name} must be a valid number.'}, status=400)
-        if not value.is_finite():
-            return JsonResponse({'error': f'{name} must be a finite number.'}, status=400)
-        if decimal_value and value.normalize().as_tuple().exponent < -1:
-            return JsonResponse({'error': f'{name} can have at most one decimal place.'}, status=400)
-        if not decimal_value:
-            if value != value.to_integral_value():
-                return JsonResponse({'error': f'{name} must be a whole number.'}, status=400)
-            value = int(value)
-        if value < minimum or value > maximum:
-            return JsonResponse({
-                'error': f'{name} must be between {minimum} and {maximum}.'
-            }, status=400)
-        values[name] = value
+    action = payload.get('action', 'save_ranges')
+    if action == 'toggle':
+        if not isinstance(payload.get('enabled'), bool):
+            return JsonResponse({'error': 'enabled must be true or false.'}, status=400)
+        simulation_settings.enabled = payload['enabled']
+        simulation_settings.save(update_fields=['enabled'])
+        return JsonResponse({'success': True, 'enabled': simulation_settings.enabled})
 
-    if values['temperature_min'] >= values['temperature_max']:
-        return JsonResponse({'error': 'Minimum temperature must be below maximum temperature.'}, status=400)
-    if values['humidity_min'] >= values['humidity_max']:
-        return JsonResponse({'error': 'Minimum humidity must be below maximum humidity.'}, status=400)
-    if values['air_quality_min'] >= values['air_quality_max']:
-        return JsonResponse({'error': 'Minimum air quality must be below maximum air quality.'}, status=400)
+    if action == 'apply_preset':
+        try:
+            preset = SensorSimulationPreset.objects.get(pk=int(payload.get('preset_id')))
+        except (SensorSimulationPreset.DoesNotExist, TypeError, ValueError):
+            return JsonResponse({'error': 'The selected range preset was not found.'}, status=404)
+        for name in fields:
+            setattr(simulation_settings, name, getattr(preset, name))
+        simulation_settings.save()
+        return JsonResponse({'success': True, 'message': f'{preset.name} range applied.'})
+
+    if action == 'delete_preset':
+        try:
+            preset = SensorSimulationPreset.objects.get(pk=int(payload.get('preset_id')))
+        except (SensorSimulationPreset.DoesNotExist, TypeError, ValueError):
+            return JsonResponse({'error': 'The selected range preset was not found.'}, status=404)
+        preset.delete()
+        return JsonResponse({'success': True, 'message': 'Range preset deleted.'})
+
+    if not isinstance(action, str) or action not in {'save_ranges', 'add_preset'}:
+        return JsonResponse({'error': 'Unknown sensor settings action.'}, status=400)
+
+    try:
+        values = _parse_sensor_simulation_ranges(payload, fields)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
+    if action == 'add_preset':
+        name = payload.get('name', '')
+        if not isinstance(name, str):
+            return JsonResponse({'error': 'Preset name must be text.'}, status=400)
+        name = name.strip()
+        if not name or len(name) > 50:
+            return JsonResponse({'error': 'Preset name must be between 1 and 50 characters.'}, status=400)
+        if SensorSimulationPreset.objects.count() >= 20:
+            return JsonResponse({'error': 'You can save up to 20 range presets.'}, status=400)
+        preset, created = SensorSimulationPreset.objects.get_or_create(
+            name=name,
+            defaults=values,
+        )
+        if not created:
+            return JsonResponse({'error': 'A preset with that name already exists.'}, status=400)
+        for key, value in values.items():
+            setattr(simulation_settings, key, value)
+        simulation_settings.save()
+        return JsonResponse({
+            'success': True,
+            'message': f'{name} range button added.',
+            'preset': {
+                'id': preset.id,
+                'name': preset.name,
+                **{
+                    key: int(getattr(preset, key))
+                    if not decimal_value else float(getattr(preset, key))
+                    for key, (_, _, decimal_value) in fields.items()
+                },
+            },
+        })
 
     for name, value in values.items():
         setattr(simulation_settings, name, value)
@@ -1290,6 +1344,36 @@ def sensor_simulation_settings_api(request):
         'success': True,
         'message': 'Simulated sensor ranges saved.',
     })
+
+
+def _parse_sensor_simulation_ranges(payload, fields):
+    values = {}
+    for name, (minimum, maximum, decimal_value) in fields.items():
+        if name not in payload:
+            raise ValueError(f'Missing required setting: {name}.')
+        try:
+            value = Decimal(str(payload[name]))
+        except (ValueError, TypeError, InvalidOperation):
+            raise ValueError(f'{name} must be a valid number.') from None
+        if not value.is_finite():
+            raise ValueError(f'{name} must be a finite number.')
+        if decimal_value and value.normalize().as_tuple().exponent < -1:
+            raise ValueError(f'{name} can have at most one decimal place.')
+        if not decimal_value:
+            if value != value.to_integral_value():
+                raise ValueError(f'{name} must be a whole number.')
+            value = int(value)
+        if value < minimum or value > maximum:
+            raise ValueError(f'{name} must be between {minimum} and {maximum}.')
+        values[name] = value
+
+    if values['temperature_min'] >= values['temperature_max']:
+        raise ValueError('Minimum temperature must be below maximum temperature.')
+    if values['humidity_min'] >= values['humidity_max']:
+        raise ValueError('Minimum humidity must be below maximum humidity.')
+    if values['air_quality_min'] >= values['air_quality_max']:
+        raise ValueError('Minimum air quality must be below maximum air quality.')
+    return values
 
 
 @login_required(login_url='login')
@@ -1332,9 +1416,14 @@ def dashboard_summary_api(request):
     total_devices = 6
     
     # Check if sensors are active (recent reading within last 5 minutes)
-    recent_sensor = SensorReading.objects.filter(
+    recent_sensor_query = SensorReading.objects.filter(
         timestamp__gte=timezone.now() - timedelta(minutes=5)
-    ).exists()
+    )
+    if not SensorSimulationSettings.load().enabled:
+        recent_sensor_query = recent_sensor_query.exclude(
+            device_id=SIMULATED_DEVICE_ID
+        )
+    recent_sensor = recent_sensor_query.exists()
     sensors_online = recent_sensor
     if recent_sensor:
         devices_online += 3  # Temperature, Humidity, CO2 sensors

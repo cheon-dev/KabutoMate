@@ -21,6 +21,7 @@ from .models import (
     ProductionBatch,
     Sale,
     SensorReading,
+    SensorSimulationPreset,
     SensorSimulationSettings,
     StoreSettings,
     WaterRefillLog,
@@ -30,7 +31,10 @@ from .models import (
 from .shipping import calculate_shipping_fee
 from .yield_model import _build_harvest_history_frame
 from .views import calculate_growth_days
-from .sensor_simulation import create_simulated_sensor_reading
+from .sensor_simulation import (
+    create_simulated_sensor_reading,
+    ensure_dashboard_sensor_reading,
+)
 
 
 class LoginAuthenticationTests(TestCase):
@@ -619,6 +623,99 @@ class SensorSimulationTests(TestCase):
         self.assertLessEqual(float(reading.humidity), 90)
         self.assertGreaterEqual(reading.air_quality_ppm, 300)
         self.assertLessEqual(reading.air_quality_ppm, 400)
+
+    def test_admin_can_disable_generation_and_it_stops_creating_readings(self):
+        previous_simulated = SensorReading.objects.create(
+            temperature=22.0,
+            humidity=85.0,
+            air_quality_ppm=350,
+            device_id='SIMULATED_ESP32',
+        )
+        admin = get_user_model().objects.create_user(
+            username='simulation-toggle-admin',
+            password='StrongPass123!',
+            is_staff=True,
+        )
+        self.client.force_login(admin)
+
+        response = self.client.post(
+            '/api/sensor-simulation-settings/',
+            data=json.dumps({'action': 'toggle', 'enabled': False}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(create_simulated_sensor_reading(force=True))
+        self.assertEqual(SensorReading.objects.count(), 1)
+        self.assertFalse(SensorSimulationSettings.load().enabled)
+        self.assertIsNone(ensure_dashboard_sensor_reading())
+
+        self.client.force_login(admin)
+        summary_response = self.client.get('/api/dashboard-summary/')
+        chart_response = self.client.get('/api/sensor-data/')
+        self.assertEqual(summary_response.status_code, 200)
+        self.assertFalse(summary_response.json()['device_statuses']['sensors'])
+        self.assertEqual(summary_response.json()['sensor_data_source'], 'unavailable')
+        self.assertEqual(chart_response.status_code, 200)
+        self.assertEqual(chart_response.json()['temp'], [])
+        self.assertEqual(SensorReading.objects.get().id, previous_simulated.id)
+
+    def test_admin_can_save_apply_and_delete_named_range_presets(self):
+        admin = get_user_model().objects.create_user(
+            username='simulation-preset-admin',
+            password='StrongPass123!',
+            is_staff=True,
+        )
+        self.client.force_login(admin)
+        preset_payload = {
+            'action': 'add_preset',
+            'name': 'Warm Room',
+            'temperature_min': 20,
+            'temperature_max': 24,
+            'humidity_min': 80,
+            'humidity_max': 90,
+            'air_quality_min': 300,
+            'air_quality_max': 400,
+        }
+
+        add_response = self.client.post(
+            '/api/sensor-simulation-settings/',
+            data=json.dumps(preset_payload),
+            content_type='application/json',
+        )
+
+        self.assertEqual(add_response.status_code, 200)
+        preset = add_response.json()['preset']
+        self.assertEqual(preset['name'], 'Warm Room')
+
+        apply_response = self.client.post(
+            '/api/sensor-simulation-settings/',
+            data=json.dumps({
+                'action': 'apply_preset',
+                'preset_id': preset['id'],
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(apply_response.status_code, 200)
+        simulation_settings = SensorSimulationSettings.load()
+        self.assertEqual(simulation_settings.temperature_min, Decimal('20.0'))
+        self.assertEqual(simulation_settings.temperature_max, Decimal('24.0'))
+        self.assertEqual(simulation_settings.humidity_min, Decimal('80.0'))
+        self.assertEqual(simulation_settings.humidity_max, Decimal('90.0'))
+        self.assertEqual(simulation_settings.air_quality_min, 300)
+        self.assertEqual(simulation_settings.air_quality_max, 400)
+
+        delete_response = self.client.post(
+            '/api/sensor-simulation-settings/',
+            data=json.dumps({
+                'action': 'delete_preset',
+                'preset_id': preset['id'],
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(delete_response.status_code, 200)
+        self.assertEqual(SensorSimulationPreset.objects.count(), 0)
 
     def test_simulation_range_endpoint_rejects_invalid_ranges(self):
         admin = get_user_model().objects.create_user(

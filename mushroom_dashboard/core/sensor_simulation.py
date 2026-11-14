@@ -14,13 +14,16 @@ REAL_SENSOR_TIMEOUT = timedelta(minutes=5)
 
 def create_simulated_sensor_reading(force=False):
     """Create one gradual simulated reading when real sensor data is stale."""
+    simulation_settings = SensorSimulationSettings.load()
+    if not simulation_settings.enabled:
+        return None
+
     now = timezone.now()
     if not force and SensorReading.objects.exclude(
         device_id=SIMULATED_DEVICE_ID
     ).filter(timestamp__gte=now - REAL_SENSOR_TIMEOUT).exists():
         return None
 
-    simulation_settings = SensorSimulationSettings.load()
     temperature_min = float(simulation_settings.temperature_min)
     temperature_max = float(simulation_settings.temperature_max)
     humidity_min = float(simulation_settings.humidity_min)
@@ -80,4 +83,8 @@ def create_simulated_sensor_reading(force=False):
 def ensure_dashboard_sensor_reading():
     """Return the latest reading, creating a fallback if physical sensors are stale."""
     create_simulated_sensor_reading()
+    if not SensorSimulationSettings.load().enabled:
+        return SensorReading.objects.exclude(
+            device_id=SIMULATED_DEVICE_ID
+        ).first()
     return SensorReading.objects.first()

@@ -23,6 +23,10 @@ class Command(BaseCommand):
         while True:
             try:
                 reading = create_simulated_sensor_reading(force=True)
+                if reading is None:
+                    self.stdout.write(self.style.WARNING('Sensor simulation is disabled.'))
+                    time.sleep(10)
+                    continue
                 
                 self.stdout.write(
                     f"Saved new reading: {reading.temperature}°C, "

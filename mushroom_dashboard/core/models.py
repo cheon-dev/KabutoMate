@@ -244,6 +244,7 @@ class SensorReading(models.Model):
 
 
 class SensorSimulationSettings(models.Model):
+    enabled = models.BooleanField(default=True)
     temperature_min = models.DecimalField(max_digits=4, decimal_places=1, default=20.0)
     temperature_max = models.DecimalField(max_digits=4, decimal_places=1, default=24.0)
     humidity_min = models.DecimalField(max_digits=4, decimal_places=1, default=80.0)
@@ -259,6 +260,20 @@ class SensorSimulationSettings(models.Model):
     def load(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class SensorSimulationPreset(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    temperature_min = models.DecimalField(max_digits=4, decimal_places=1)
+    temperature_max = models.DecimalField(max_digits=4, decimal_places=1)
+    humidity_min = models.DecimalField(max_digits=4, decimal_places=1)
+    humidity_max = models.DecimalField(max_digits=4, decimal_places=1)
+    air_quality_min = models.PositiveIntegerField()
+    air_quality_max = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name', 'id']
 
 
 class WaterRefillStatus(models.Model):

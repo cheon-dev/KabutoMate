@@ -99,8 +99,10 @@ status `Simulated`. Real sensor readings take precedence as soon as they resume.
 On the Environmental Control page, tap the page title five times within two
 seconds to open the simulated sensor range settings. Configure temperature,
 humidity, and air-quality minimums and maximums there; simulated readings stay
-inside those ranges. Run `python manage.py migrate` once after updating the
-application to create the settings table.
+inside those ranges. Use the toggle to stop or resume generated readings. Name
+the current range and add it as a quick-select button; saved buttons can apply
+or remove a range preset. Run `python manage.py migrate` once after updating
+the application to create the settings and preset tables.
 
 The optional `python manage.py run_simulator` command is still available for
 continuous simulated data independent of dashboard visits.

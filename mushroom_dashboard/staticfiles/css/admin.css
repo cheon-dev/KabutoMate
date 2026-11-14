@@ -346,6 +346,10 @@ body {
     font-size: 0.8rem;
 }
 
+.sidebar.collapsed .sidebar-brand-row .sidebar-notification-link {
+    display: none;
+}
+
 .sidebar.collapsed .sidebar-brand-row .sidebar-toggle {
     box-shadow: none;
 }

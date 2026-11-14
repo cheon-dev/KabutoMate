@@ -1445,6 +1445,81 @@ header h1::before {
         display: block;
         height: auto;
     }
+
+    .sidebar .sidebar-brand-row {
+        grid-template-columns: 48px minmax(0, 1fr) 36px;
+        gap: 10px;
+        margin: 0 0 24px;
+        padding: 0 0 20px;
+    }
+
+    .sidebar .sidebar-brand-row .sidebar-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+    }
+
+    .sidebar .sidebar-brand-row .sidebar-logo .logo {
+        width: 48px;
+        height: 48px;
+        margin: 0;
+        border-radius: 12px;
+        flex: none;
+    }
+
+    .sidebar .sidebar-brand-row .sidebar-logo .logo img {
+        width: 36px;
+        height: 36px;
+    }
+
+    .sidebar .sidebar-brand-row .sidebar-logo span {
+        display: block;
+        width: auto;
+        opacity: 1;
+        overflow: visible;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+    }
+
+    .sidebar .sidebar-brand-row .sidebar-notification-link {
+        display: flex;
+        width: 36px;
+        height: 36px;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row .sidebar-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row .sidebar-logo .logo {
+        width: 48px;
+        height: 48px;
+        margin: 0;
+        border-radius: 12px;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row .sidebar-logo .logo img {
+        width: 36px;
+        height: 36px;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row .sidebar-logo span {
+        display: block;
+        width: auto;
+        opacity: 1;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row .sidebar-notification-link {
+        display: flex;
+        width: 36px;
+        height: 36px;
+    }
     
     /* Reset sidebar collapsed state on mobile */
     body.sidebar-collapsed .main-content {
@@ -1453,7 +1528,7 @@ header h1::before {
     
     .sidebar {
         transform: translateX(-100%);
-        width: 300px;
+        width: min(280px, calc(100vw - 48px));
         z-index: 9999;
         padding-top: 80px;
         padding-bottom: 30px;
@@ -1466,30 +1541,11 @@ header h1::before {
     }
     
     .sidebar.collapsed {
-        width: 300px;
+        width: min(280px, calc(100vw - 48px));
     }
 
     .sidebar.collapsed .sidebar-brand-row {
-        grid-template-columns: 36px minmax(0, 1fr) 36px;
-        gap: 8px;
-        margin: 0 0 24px;
-        padding: 0 0 20px;
-    }
-
-    .sidebar.collapsed .sidebar-brand-row .sidebar-logo .logo {
-        width: 64px;
-        height: 64px;
-        margin: 0 auto 8px;
-    }
-
-    .sidebar.collapsed .sidebar-brand-row .sidebar-logo .logo img {
-        width: 48px;
-        height: 48px;
-    }
-
-    .sidebar.collapsed .sidebar-brand-row .sidebar-notification-link {
-        width: 36px;
-        height: 36px;
+        grid-template-columns: 48px minmax(0, 1fr) 36px;
     }
     
     .sidebar.collapsed .sidebar-logo span,

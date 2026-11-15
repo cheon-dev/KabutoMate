@@ -1,0 +1,64 @@
+{% comment %}Shared admin sidebar. Pins the sidebar theme colors so page-level :root overrides can't recolor it.{% endcomment %}
+<style>
+    .sidebar, .mobile-menu-toggle, .mobile-overlay {
+        --primary-dark: #0c4b33;
+        --primary: #14785a;
+        --primary-light: #1a9d70;
+        --accent: #22c55e;
+        --accent-light: #4ade80;
+    }
+</style>
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu">
+        <i class="fa-solid fa-bars" id="menuIcon"></i>
+    </button>
+
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" id="mobileOverlay" style="pointer-events: none;"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        {% include 'includes/admin_sidebar_brand.html' %}
+
+        <nav class="sidebar-nav">
+            <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" data-tooltip="Dashboard">
+                <i class="fa-solid fa-gauge-high icon"></i> <span>Dashboard</span>
+            </a>
+            <a href="{% url 'environment' %}" class="{% if request.resolver_match.url_name == 'environment' %}active{% endif %}" data-tooltip="Environmental Control">
+                <i class="fa-solid fa-leaf icon"></i> <span>Environmental Control</span>
+            </a>
+            <a href="{% url 'production' %}" class="{% if request.resolver_match.url_name == 'production' %}active{% endif %}" data-tooltip="Production Records">
+                <i class="fa-solid fa-clipboard-list icon"></i> <span>Production Records</span>
+            </a>
+            <a href="{% url 'inventory' %}" class="{% if request.resolver_match.url_name == 'inventory' %}active{% endif %}" data-tooltip="Inventory and Sales">
+                <i class="fa-solid fa-boxes-stacked icon"></i> <span>Inventory and Sales</span>
+            </a>
+            <a href="{% url 'cooked_products' %}" class="{% if request.resolver_match.url_name == 'cooked_products' %}active{% endif %}" data-tooltip="Cooked Products">
+                <i class="fa-solid fa-utensils icon"></i> <span>Cooked Products</span>
+            </a>
+            <a href="{% url 'pos_system' %}" class="{% if request.resolver_match.url_name == 'pos_system' %}active{% endif %}" data-tooltip="Point of Sale">
+                <i class="fa-solid fa-cash-register icon"></i> <span>Point of Sale</span>
+            </a>
+            <a href="{% url 'manage_orders' %}" class="{% if request.resolver_match.url_name == 'manage_orders' %}active{% endif %}" data-tooltip="Manage Orders">
+                <i class="fa-solid fa-list-check icon"></i> <span>Manage Orders</span>
+            </a>
+            <a href="{% url 'analytics' %}" class="{% if request.resolver_match.url_name == 'analytics' %}active{% endif %}" data-tooltip="Analytics">
+                <i class="fa-solid fa-chart-line icon"></i> <span>Analytics</span>
+            </a>
+            <a href="{% url 'weather' %}" class="{% if request.resolver_match.url_name == 'weather' %}active{% endif %}" data-tooltip="Weather">
+                <i class="fa-solid fa-cloud-sun icon"></i> <span>Weather</span>
+            </a>
+            <a href="{% url 'store_settings' %}" class="{% if request.resolver_match.url_name == 'store_settings' %}active{% endif %}" data-tooltip="Store Settings">
+                <i class="fa-solid fa-store icon"></i> <span>Store Settings</span>
+            </a>
+            <a href="{% url 'sales_report' %}" class="{% if request.resolver_match.url_name == 'sales_report' %}active{% endif %}" data-tooltip="Sales Report">
+                <i class="fa-solid fa-file-invoice-dollar icon"></i> <span>Sales Report</span>
+            </a>
+            <a href="{% url 'profile' %}" class="{% if request.resolver_match.url_name == 'profile' %}active{% endif %}" data-tooltip="Profile">
+                <i class="fa-solid fa-user icon"></i> <span>Profile</span>
+            </a>
+            <a href="{% url 'logout' %}" data-tooltip="Logout">
+                <i class="fa-solid fa-right-from-bracket icon"></i> <span>Logout</span>
+            </a>
+        </nav>
+    </aside>

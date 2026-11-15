@@ -1,0 +1,57 @@
+{% load static %}
+<script>
+(function () {
+    var mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    var mobileOverlay = document.getElementById('mobileOverlay');
+    var sidebar = document.querySelector('.sidebar');
+    var menuIcon = document.getElementById('menuIcon');
+    if (!sidebar) return;
+
+    function closeMobileMenu() {
+        sidebar.classList.remove('active');
+        if (mobileOverlay) { mobileOverlay.classList.remove('active'); mobileOverlay.style.pointerEvents = 'none'; }
+        if (menuIcon) { menuIcon.classList.remove('fa-times'); menuIcon.classList.add('fa-bars'); }
+        document.body.style.overflow = '';
+    }
+
+    function toggleMobileMenu(e) {
+        if (e) e.stopPropagation();
+        sidebar.classList.toggle('active');
+        if (mobileOverlay) mobileOverlay.classList.toggle('active');
+        var open = sidebar.classList.contains('active');
+        if (mobileOverlay) mobileOverlay.style.pointerEvents = open ? 'auto' : 'none';
+        if (menuIcon) {
+            menuIcon.classList.toggle('fa-times', open);
+            menuIcon.classList.toggle('fa-bars', !open);
+        }
+        document.body.style.overflow = open ? 'hidden' : '';
+    }
+
+    if (mobileMenuToggle) mobileMenuToggle.addEventListener('click', toggleMobileMenu);
+    if (mobileOverlay) mobileOverlay.addEventListener('click', function (e) { e.stopPropagation(); closeMobileMenu(); });
+
+    document.querySelectorAll('.sidebar-nav a').forEach(function (link) {
+        link.addEventListener('click', function () {
+            if (window.innerWidth <= 768 && sidebar.classList.contains('active')) closeMobileMenu();
+        });
+    });
+
+    window.addEventListener('resize', function () { if (window.innerWidth > 768) closeMobileMenu(); });
+
+    var sidebarToggle = document.getElementById('sidebarToggle');
+    if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth > 768) {
+        sidebar.classList.add('collapsed');
+        document.body.classList.add('sidebar-collapsed');
+    }
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', function () {
+            if (window.innerWidth > 768) {
+                sidebar.classList.toggle('collapsed');
+                document.body.classList.toggle('sidebar-collapsed');
+                localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+            }
+        });
+    }
+})();
+</script>
+<script src="{% static 'js/sidebar-tooltip.js' %}"></script>

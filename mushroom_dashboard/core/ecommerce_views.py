@@ -1097,7 +1097,8 @@ def update_order_status(request, order_id):
     if request.method == 'POST':
         order = get_object_or_404(Order, id=order_id)
         
-        already_paid = order.is_paid or order.payment_status == 'PAID'
+        # The Payment badge shown in the list (payment_status) decides whether it counts as paid.
+        already_paid = order.payment_status == 'PAID'
 
         # Cancelled orders are locked. Delivered orders stay locked once paid,
         # but while still unpaid the payment status can be updated.

@@ -699,7 +699,7 @@
                                 </div>
                             </td>
                             <td>
-                                {% if order.status == 'CANCELLED' or order.status == 'DELIVERED' and order.is_paid or order.status == 'DELIVERED' and order.payment_status == 'PAID' %}
+                                {% if order.status == 'CANCELLED' or order.status == 'DELIVERED' and order.payment_status == 'PAID' %}
                                 <button class="action-btn" style="opacity: 0.5; cursor: not-allowed;" disabled title="Order {{ order.status|lower }} - no further actions">
                                     Manage
                                 </button>
@@ -1116,8 +1116,8 @@
                                     <div>
                                         <label style="display:block; font-size:0.7rem; font-weight:800; margin-bottom:5px;">Payment Status</label>
                                         <select name="is_paid" class="filter-select">
-                                            <option value="false" ${!order.is_paid ? 'selected' : ''}>Pending</option>
-                                            <option value="true" ${order.is_paid ? 'selected' : ''}>Paid</option>
+                                            <option value="false" ${order.payment_status !== 'PAID' ? 'selected' : ''}>Pending</option>
+                                            <option value="true" ${order.payment_status === 'PAID' ? 'selected' : ''}>Paid</option>
                                         </select>
                                     </div>
                                 </div>

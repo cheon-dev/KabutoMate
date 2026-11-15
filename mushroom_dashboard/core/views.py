@@ -2081,17 +2081,61 @@ def analytics_api(request):
 @login_required(login_url='login')
 @require_http_methods(["GET", "PUT"])
 def profile_api(request):
+    import re
     user = request.user
+    is_admin_user = user.is_superuser or user.is_staff or getattr(getattr(user, 'profile', None), 'is_admin', False)
+
+    def get_profile():
+        profile = getattr(user, 'profile', None)
+        if profile is None:
+            profile = UserProfile.objects.create(user=user, role='ADMIN' if is_admin_user else 'CUSTOMER')
+        return profile
+
     if request.method == 'GET':
-        return JsonResponse({'full_name': user.get_full_name(), 'email': user.email, 'username': user.username})
+        payload = {
+            'full_name': user.get_full_name(),
+            'email': user.email,
+            'username': user.username,
+            'phone': get_profile().phone or '',
+        }
+        if is_admin_user:
+            payload['farm_name'] = StoreSettings.load().store_name
+        return JsonResponse(payload)
     elif request.method == 'PUT':
         try:
             data = json.loads(request.body)
+
+            phone = None
+            if 'phone' in data:
+                phone = re.sub(r'\s+', ' ', str(data.get('phone') or '')).strip()
+                if phone and not re.fullmatch(r'\+?[0-9][0-9 ()\-]{6,19}', phone):
+                    return JsonResponse({'success': False, 'error': 'Enter a valid phone number (digits only, e.g. 09123456789).'}, status=400)
+
+            farm_name = None
+            if is_admin_user and 'farm_name' in data:
+                farm_name = str(data.get('farm_name') or '').strip()
+                if not farm_name:
+                    return JsonResponse({'success': False, 'error': 'Farm name cannot be empty.'}, status=400)
+                if len(farm_name) > 200:
+                    return JsonResponse({'success': False, 'error': 'Farm name is too long (200 characters max).'}, status=400)
+
             full_name = data.get('full_name', '').split(' ', 1)
             user.first_name = full_name[0]
             user.last_name = full_name[1] if len(full_name) > 1 else ''
             user.email = data.get('email', user.email)
             user.save()
+
+            if phone is not None:
+                profile = get_profile()
+                profile.phone = phone
+                profile.save(update_fields=['phone'])
+
+            if farm_name is not None:
+                store = StoreSettings.load()
+                if store.store_name != farm_name:
+                    store.store_name = farm_name
+                    store.save(update_fields=['store_name'])
+
             return JsonResponse({'success': True, 'message': 'Profile updated successfully'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=400)

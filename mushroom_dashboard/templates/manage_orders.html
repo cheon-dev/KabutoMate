@@ -599,6 +599,8 @@
     <div class="container">
         <div class="page-header">
             <h1>Order Management</h1>
+            {% url 'orders_export_pdf' as orders_pdf_link %}{% url 'orders_export_csv' as orders_csv_link %}
+            {% include 'includes/export_buttons.html' with pdf_url=orders_pdf_link csv_url=orders_csv_link qs_status=status_filter qs_search=search_query %}
         </div>
 
         <div class="stats-grid">

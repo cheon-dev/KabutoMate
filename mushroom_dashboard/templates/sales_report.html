@@ -481,6 +481,10 @@
                 <button type="button" class="btn btn-export" id="openExportPreviewBtn">
                     <i class="fa-solid fa-file-pdf"></i> Export PDF
                 </button>
+                {% url 'sales_report_export_csv' as sales_csv_link %}
+                <a class="btn" style="background:#16a34a;color:#fff;text-decoration:none;" href="{{ sales_csv_link }}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">
+                    <i class="fa-solid fa-file-csv"></i> Convert to CSV
+                </a>
             </div>
         </div>
 

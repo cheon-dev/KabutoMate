@@ -825,9 +825,13 @@
     <main class="main-content">
         <header class="main-header">
             <h1>Production Records</h1>
-            <button id="addRecordBtn" class="btn-add">
-                <i class="fa-solid fa-plus"></i> Add Record
-            </button>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+                {% url 'production_export_pdf' as prod_pdf_link %}{% url 'production_export_csv' as prod_csv_link %}
+                {% include 'includes/export_buttons.html' with pdf_url=prod_pdf_link csv_url=prod_csv_link inline=True %}
+                <button id="addRecordBtn" class="btn-add">
+                    <i class="fa-solid fa-plus"></i> Add Record
+                </button>
+            </div>
         </header>
 
         <div id="addRecordModal" class="modal">

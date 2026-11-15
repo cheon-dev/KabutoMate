@@ -1,0 +1,70 @@
+{% comment %}
+Shared "Export PDF" / "Convert to CSV" buttons for admin pages.
+Params (all optional - a button only shows when its URL is given):
+  pdf_url, csv_url   download endpoints
+  qs_status, qs_search   current Manage Orders filters to carry into the export
+  days_select        show a "last 24 hours / 7 days / 30 days" picker (Environmental Control)
+  inline             drop the top margin when the buttons sit beside other header items
+{% endcomment %}
+<style>
+    .export-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+    .export-actions.is-inline { margin-top: 0; }
+    .export-btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 10px 16px; border-radius: 12px; border: 1px solid transparent;
+        background: #fff; font-family: inherit; font-size: .9rem; font-weight: 700; line-height: 1;
+        text-decoration: none; cursor: pointer; white-space: nowrap;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, .06); transition: background .2s, transform .1s, box-shadow .2s;
+    }
+    .export-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15, 23, 42, .1); }
+    .export-btn.pdf { color: #b91c1c; border-color: #fecaca; }
+    .export-btn.pdf:hover { background: #fef2f2; }
+    .export-btn.csv { color: #15803d; border-color: #bbf7d0; }
+    .export-btn.csv:hover { background: #f0fdf4; }
+    .export-days {
+        padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff;
+        color: #334155; font-family: inherit; font-size: .88rem; font-weight: 600;
+    }
+    @media (max-width: 600px) {
+        .export-actions { width: 100%; }
+        .export-actions .export-btn, .export-actions .export-days { flex: 1 1 auto; justify-content: center; }
+    }
+</style>
+<div class="export-actions{% if inline %} is-inline{% endif %}" data-export-actions>
+    {% if days_select %}
+    <select class="export-days" data-export-days aria-label="Report period">
+        <option value="1">Last 24 hours</option>
+        <option value="7" selected>Last 7 days</option>
+        <option value="30">Last 30 days</option>
+    </select>
+    {% endif %}
+    {% if pdf_url %}
+    <a class="export-btn pdf" data-export-link href="{{ pdf_url }}{% if qs_status or qs_search %}?status={{ qs_status|urlencode }}&amp;search={{ qs_search|urlencode }}{% endif %}">
+        <i class="fa-solid fa-file-pdf"></i> Export PDF
+    </a>
+    {% endif %}
+    {% if csv_url %}
+    <a class="export-btn csv" data-export-link href="{{ csv_url }}{% if qs_status or qs_search %}?status={{ qs_status|urlencode }}&amp;search={{ qs_search|urlencode }}{% endif %}">
+        <i class="fa-solid fa-file-csv"></i> Convert to CSV
+    </a>
+    {% endif %}
+</div>
+{% if days_select %}
+<script>
+(function () {
+    var box = document.currentScript.previousElementSibling;
+    if (!box) return;
+    var select = box.querySelector('[data-export-days]');
+    var links = box.querySelectorAll('[data-export-link]');
+    links.forEach(function (a) { a.dataset.base = a.getAttribute('href'); });
+    function sync() {
+        links.forEach(function (a) {
+            var base = a.dataset.base;
+            a.setAttribute('href', base + (base.indexOf('?') > -1 ? '&' : '?') + 'days=' + select.value);
+        });
+    }
+    select.addEventListener('change', sync);
+    sync();
+})();
+</script>
+{% endif %}

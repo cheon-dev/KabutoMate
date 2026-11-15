@@ -578,6 +578,8 @@
     <main class="main-content">
         <header class="main-header">
             <h1>Analytics</h1>
+            {% url 'analytics_export_pdf' as analytics_pdf_link %}
+            {% include 'includes/export_buttons.html' with pdf_url=analytics_pdf_link %}
         </header>
 
         <div class="card-grid">

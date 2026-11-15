@@ -924,6 +924,8 @@
         <div class="main-header">
             <h1>Cooked Products</h1>
             <p class="subtitle">Manage ready-to-eat mushroom products for your shop</p>
+            {% url 'cooked_export_pdf' as cooked_pdf_link %}{% url 'cooked_export_csv' as cooked_csv_link %}
+            {% include 'includes/export_buttons.html' with pdf_url=cooked_pdf_link csv_url=cooked_csv_link %}
         </div>
         
         <div class="card-grid">

@@ -3,6 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import reverse_lazy
 from . import views
 from . import ecommerce_views
+from . import export_views
 from . import sensor_api
 from . import water_refill_api
 
@@ -41,7 +42,19 @@ urlpatterns = [
     path('cooked-products/', views.cooked_products_view, name='cooked_products'),
     path('analytics/', views.analytics_view, name='analytics'),
     path('sales-report/', views.sales_report_view, name='sales_report'),
-    path('sales-report/export/', views.sales_report_export, name='sales_report_export'),
+    path('sales-report/export/', export_views.sales_report_export, name='sales_report_export'),
+    path('sales-report/export/csv/', export_views.sales_report_export_csv, name='sales_report_export_csv'),
+    path('analytics/export/pdf/', export_views.analytics_export_pdf, name='analytics_export_pdf'),
+    path('production/export/pdf/', export_views.production_export_pdf, name='production_export_pdf'),
+    path('production/export/csv/', export_views.production_export_csv, name='production_export_csv'),
+    path('inventory/export/pdf/', export_views.inventory_export_pdf, name='inventory_export_pdf'),
+    path('inventory/export/csv/', export_views.inventory_export_csv, name='inventory_export_csv'),
+    path('cooked-products/export/pdf/', export_views.cooked_export_pdf, name='cooked_export_pdf'),
+    path('cooked-products/export/csv/', export_views.cooked_export_csv, name='cooked_export_csv'),
+    path('environment/export/pdf/', export_views.environment_export_pdf, name='environment_export_pdf'),
+    path('environment/export/csv/', export_views.environment_export_csv, name='environment_export_csv'),
+    path('orders/export/pdf/', export_views.orders_export_pdf, name='orders_export_pdf'),
+    path('orders/export/csv/', export_views.orders_export_csv, name='orders_export_csv'),
     path('weather/', views.weather_view, name='weather'),
     path('notifications/', views.notifications_view, name='notifications'),
     path('profile/', views.profile_view, name='profile'),

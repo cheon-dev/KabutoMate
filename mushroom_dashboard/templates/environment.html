@@ -894,9 +894,9 @@
     </aside>
 
     <main class="main-content">
-        <header class="main-header">
+        <header class="main-header header-with-tools">
             <h1 id="environment-control-title">Environmental Control</h1>
-            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+            <div class="header-tools">
                 {% url 'environment_export_pdf' as env_pdf_link %}{% url 'environment_export_csv' as env_csv_link %}
                 {% include 'includes/export_buttons.html' with pdf_url=env_pdf_link csv_url=env_csv_link days_select=True inline=True %}
                 <button id="emergency-stop-btn" class="btn-emergency">

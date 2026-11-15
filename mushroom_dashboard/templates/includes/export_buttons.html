@@ -29,6 +29,22 @@ Params (all optional - a button only shows when its URL is given):
         .export-actions { width: 100%; }
         .export-actions .export-btn, .export-actions .export-days { flex: 1 1 auto; justify-content: center; }
     }
+
+    /* Header that holds the export buttons next to another action (Add Record / Emergency Stop) */
+    .header-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+    @media (max-width: 768px) {
+        .main-header.header-with-tools { flex-direction: column; align-items: stretch; gap: 14px; }
+        .header-with-tools h1 { font-size: 1.75rem; }
+        .header-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+        .header-tools .export-actions { display: contents; }
+        .header-tools .export-days { grid-column: 1 / -1; width: 100%; box-sizing: border-box; }
+        .header-tools .export-btn { justify-content: center; padding: 12px 10px; font-size: .88rem; }
+        .header-tools .btn-add,
+        .header-tools .btn-emergency {
+            grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; box-sizing: border-box; padding: 12px 16px; border-radius: 12px; font-size: .95rem;
+        }
+    }
 </style>
 <div class="export-actions{% if inline %} is-inline{% endif %}" data-export-actions>
     {% if days_select %}

@@ -1824,3 +1824,52 @@ header h1::before {
         box-shadow: none;
     }
 }
+
+/* ---- Logout link: red in every admin sidebar so it reads as a sign-out action ---- */
+.sidebar-nav a#logout-link,
+.sidebar-nav a[data-tooltip="Logout"] {
+    color: #fca5a5;
+}
+
+.sidebar-nav a#logout-link i,
+.sidebar-nav a[data-tooltip="Logout"] i {
+    color: #f87171;
+}
+
+.sidebar-nav a#logout-link::before,
+.sidebar-nav a[data-tooltip="Logout"]::before {
+    background: #ef4444;
+}
+
+.sidebar-nav a#logout-link:hover,
+.sidebar-nav a[data-tooltip="Logout"]:hover {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.28) 0%, rgba(255, 255, 255, 0.05) 100%);
+    color: #ffffff;
+}
+
+.sidebar-nav a#logout-link:hover i,
+.sidebar-nav a[data-tooltip="Logout"]:hover i {
+    color: #fecaca;
+}
+
+/* Collapsed sidebar: red icon tile */
+.sidebar.collapsed .sidebar-nav a#logout-link i,
+.sidebar.collapsed .sidebar-nav a[data-tooltip="Logout"] i {
+    color: #ffffff !important;
+    background: #dc2626 !important;
+}
+
+.sidebar.collapsed .sidebar-nav a#logout-link:hover i,
+.sidebar.collapsed .sidebar-nav a[data-tooltip="Logout"]:hover i {
+    color: #ffffff !important;
+    background: #b91c1c !important;
+}
+
+/* Mobile drawer: keep the red outline on the Logout row */
+@media (max-width: 992px) {
+    .sidebar-nav a#logout-link,
+    .sidebar-nav a[data-tooltip="Logout"] {
+        background: rgba(239, 68, 68, 0.14);
+        border: 1px solid rgba(248, 113, 113, 0.45);
+    }
+}

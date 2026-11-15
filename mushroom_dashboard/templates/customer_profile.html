@@ -72,21 +72,6 @@
         }
         .nav-links a:hover { color: var(--primary); }
 
-        .mobile-profile-logout {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            border: 1px solid #fecaca;
-            border-radius: 999px;
-            padding: 0.7rem 1.2rem;
-            background: #fff;
-            color: #dc2626;
-            font: inherit;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
         /* --- Main Container --- */
         .container {
             max-width: 1000px;
@@ -1361,13 +1346,6 @@
             }
         }
 
-        @media (max-width: 767px) {
-            .mobile-profile-logout {
-                display: inline-flex;
-                width: 100%;
-                min-height: 44px;
-            }
-        }
     </style>
     <link rel="stylesheet" href="{% static 'css/customer-responsive.css' %}">
     <link rel="stylesheet" href="{% static 'css/address-selector.css' %}">
@@ -1418,9 +1396,6 @@
                     {% endif %}
                 </div>
             </div>
-            <button type="button" class="mobile-profile-logout" id="mobile-logout-link">
-                <i class="fa-solid fa-right-from-bracket"></i> Logout
-            </button>
         </div>
 
         <div class="card">
@@ -1827,12 +1802,11 @@
     <script>
         // Logout confirmation
         const logoutLink = document.getElementById('logout-link');
-        const mobileLogoutLink = document.getElementById('mobile-logout-link');
         const logoutModal = document.getElementById('logoutModal');
         const cancelLogout = document.getElementById('cancelLogout');
         const confirmLogout = document.getElementById('confirmLogout');
         
-        [logoutLink, mobileLogoutLink].filter(Boolean).forEach(logoutTrigger => {
+        [logoutLink].filter(Boolean).forEach(logoutTrigger => {
             logoutTrigger.addEventListener('click', function(e) {
                 e.preventDefault();
                 logoutModal.classList.add('show');

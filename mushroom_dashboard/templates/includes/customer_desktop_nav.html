@@ -51,6 +51,8 @@
         max-width: none;
         object-fit: contain;
     }
+    /* Icon-only logout in the header (phones only; desktop uses the nav link) */
+    .customer-shared-navbar .customer-header-logout { display: none; }
     .customer-shared-navbar .brand-name {
         min-width: 0;
         overflow: hidden;
@@ -127,6 +129,23 @@
         }
         .customer-shared-navbar .logo-circle img { width: 22px !important; height: 22px !important; }
         .customer-shared-navbar .brand-name { font-size: 1.1rem !important; }
+        .customer-shared-navbar .customer-header-logout {
+            display: inline-flex;
+            order: 2;
+            flex: 0 0 36px;
+            width: 36px;
+            height: 36px;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #fecaca;
+            border-radius: 10px;
+            background: #fff;
+            color: #dc2626;
+            font-size: 1rem;
+            text-decoration: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .customer-shared-navbar .customer-header-logout:active { background: #fef2f2; }
     }
 </style>
 <nav class="navbar customer-shared-navbar">
@@ -176,4 +195,22 @@
         <a href="{% url 'login' %}"><i class="fa-solid fa-right-to-bracket"></i><span>Login</span></a>
         {% endif %}
     </div>
+
+    {% if user.is_authenticated %}
+    <a href="{% url 'logout' %}" class="customer-header-logout" id="customerHeaderLogout" aria-label="Log out" title="Log out">
+        <i class="fa-solid fa-right-from-bracket"></i>
+    </a>
+    <script>
+    (function () {
+        var btn = document.getElementById('customerHeaderLogout');
+        if (!btn) return;
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            var modal = document.getElementById('logoutModal');
+            if (modal) { modal.classList.add('show'); return; }
+            if (confirm('Are you sure you want to log out?')) window.location.href = btn.href;
+        });
+    })();
+    </script>
+    {% endif %}
 </nav>

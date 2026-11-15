@@ -1097,11 +1097,31 @@ def update_order_status(request, order_id):
     if request.method == 'POST':
         order = get_object_or_404(Order, id=order_id)
         
-        # Prevent changes to cancelled or delivered orders
-        if order.status in ['CANCELLED', 'DELIVERED']:
+        already_paid = order.is_paid or order.payment_status == 'PAID'
+
+        # Cancelled orders are locked. Delivered orders stay locked once paid,
+        # but while still unpaid the payment status can be updated.
+        if order.status == 'CANCELLED' or (order.status == 'DELIVERED' and already_paid):
             messages.error(request, f'Cannot modify order {order.order_number} - order is already {order.status.lower()}')
             return redirect('manage_orders')
-        
+
+        def apply_payment_flag(paid):
+            """Keep is_paid and the visible payment_status in sync."""
+            order.is_paid = paid
+            if paid:
+                order.payment_status = 'PAID'
+            elif order.payment_status == 'PAID':
+                order.payment_status = 'UNPAID' if order.payment_method == 'COD' else 'PENDING'
+
+        if order.status == 'DELIVERED':
+            # Payment-only update: status and delivery tracking are not touched.
+            raw_paid = request.POST.get('is_paid')
+            if raw_paid is not None:
+                apply_payment_flag(raw_paid in ('true', 'True', '1'))
+                order.save(update_fields=['is_paid', 'payment_status', 'updated_at'])
+                messages.success(request, f'Payment for order {order.order_number} updated successfully')
+            return redirect('manage_orders')
+
         old_status = order.status  # Store old status for comparison
         new_status = request.POST.get('status')
         is_paid = request.POST.get('is_paid')
@@ -1128,7 +1148,7 @@ def update_order_status(request, order_id):
                 status_changed = True
         
         if is_paid is not None:
-            order.is_paid = (is_paid == 'true' or is_paid == 'True' or is_paid == '1')
+            apply_payment_flag(is_paid == 'true' or is_paid == 'True' or is_paid == '1')
 
         location_changed = (
             (order.current_location_status or '') != location_status or

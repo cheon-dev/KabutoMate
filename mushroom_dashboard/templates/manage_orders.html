@@ -699,7 +699,7 @@
                                 </div>
                             </td>
                             <td>
-                                {% if order.status == 'CANCELLED' or order.status == 'DELIVERED' %}
+                                {% if order.status == 'CANCELLED' or order.status == 'DELIVERED' and order.is_paid or order.status == 'DELIVERED' and order.payment_status == 'PAID' %}
                                 <button class="action-btn" style="opacity: 0.5; cursor: not-allowed;" disabled title="Order {{ order.status|lower }} - no further actions">
                                     Manage
                                 </button>
@@ -1155,6 +1155,21 @@
                     
                     document.getElementById('orderDetails').innerHTML = html;
                     document.getElementById('orderModal').classList.add('show');
+
+                    // Delivered but still unpaid: only the payment status can be changed.
+                    if (order.status === 'DELIVERED') {
+                        const statusForm = document.querySelector('#orderDetails .update-status-form form');
+                        if (statusForm) {
+                            statusForm.querySelectorAll('select[name="status"], input[name^="current_"], .action-btn')
+                                .forEach(el => { el.disabled = true; });
+                            const note = document.createElement('p');
+                            note.style.cssText = 'margin:0 0 1rem; padding:10px 12px; border-radius:10px; background:#fffbeb; color:#92400e; font-size:0.8rem; font-weight:600;';
+                            note.textContent = 'This order is already delivered. Only the payment status can be updated.';
+                            statusForm.insertBefore(note, statusForm.firstChild);
+                            const submitBtn = statusForm.querySelector('.submit-btn');
+                            if (submitBtn) submitBtn.textContent = 'Update Payment';
+                        }
+                    }
                     
                     // Initialize delivery map with store and order data
                     const store = data.store;

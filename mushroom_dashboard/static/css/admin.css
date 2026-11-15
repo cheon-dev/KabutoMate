@@ -1795,3 +1795,32 @@ header h1::before {
 .mb-2 { margin-bottom: 16px; }
 .mb-3 { margin-bottom: 24px; }
 .hidden { display: none !important; }
+
+/* Collapsed sidebar (desktop): stack logo and expand arrow in the centre,
+   in line with the nav icons, instead of squeezing them side by side. */
+@media (min-width: 993px) {
+    .sidebar.collapsed .sidebar-brand-row {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin: 0 0 20px;
+        padding: 0 0 16px;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row .sidebar-logo {
+        order: 1;
+        width: auto;
+        margin: 0;
+    }
+
+    .sidebar.collapsed .sidebar-brand-row .sidebar-toggle {
+        order: 2;
+        width: 32px;
+        height: 32px;
+        flex: none;
+        border-radius: 50%;
+        font-size: 0.8rem;
+        box-shadow: none;
+    }
+}

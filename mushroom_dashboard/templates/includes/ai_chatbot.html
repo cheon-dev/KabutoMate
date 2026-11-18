@@ -33,7 +33,33 @@
     .ai-chatbot-launcher:focus-visible { outline: 3px solid rgba(34, 197, 94, .5); outline-offset: 2px; }
     .ai-chatbot-launcher.is-active { transform: scale(.94); animation-play-state: paused; }
 
-    .kabu-svg { width: 100%; height: 100%; overflow: visible; }
+    .kabu-svg { width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+
+    /* Kabu can be dragged anywhere along the screen */
+    .ai-chatbot-launcher {
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+    }
+    .ai-chatbot.is-dragging .ai-chatbot-launcher {
+        cursor: grabbing;
+        animation: none;
+        transform: scale(1.12) rotate(-4deg);
+        filter: drop-shadow(0 16px 18px rgba(17, 57, 42, .38));
+    }
+    .ai-chatbot.is-dragging .kabu-bubble { opacity: 0; visibility: hidden; }
+
+    /* When Kabu sits on the left half, the speech bubble opens to its right */
+    .ai-chatbot.is-left .kabu-bubble {
+        right: auto;
+        left: calc(100% + 2px);
+        border-radius: 16px 16px 16px 4px;
+        transform-origin: left bottom;
+        transform: translateX(-10px) scale(.86);
+    }
+    .ai-chatbot.is-left .kabu-bubble.is-visible { transform: translateX(0) scale(1); }
 
     .kabu-arm {
         transform-origin: 67px 73px;
@@ -114,9 +140,9 @@
     .ai-chatbot-avatar .kabu-svg { display: block; }
 
     .ai-chatbot-panel {
-        position: absolute;
-        right: 0;
-        bottom: 78px;
+        position: fixed;
+        right: 24px;
+        bottom: 102px;
         display: flex;
         flex-direction: column;
         width: min(380px, calc(100vw - 32px));
@@ -305,9 +331,15 @@
         .kabu-bubble { bottom: 14px; font-size: 12.5px; }
 
         .ai-chatbot-panel {
-            right: -2px;
-            bottom: 68px;
+            right: 12px;
+            bottom: 86px;
+            width: min(380px, calc(100vw - 24px));
             height: min(570px, calc(100vh - 130px));
+        }
+
+        body:has(.customer-mobile-nav) .ai-chatbot-panel {
+            bottom: calc(164px + env(safe-area-inset-bottom));
+            height: min(570px, calc(100vh - 200px));
         }
     }
 </style>
@@ -490,7 +522,8 @@
             'Do you have a question?',
             'Need help finding mushrooms? \uD83C\uDF44',
             'Ask me about orders or delivery!',
-            'Tap me to chat!'
+            'Tap me to chat!',
+            'Drag me anywhere you like! \u2728'
         ];
         const DISMISS_KEY = 'kabutomate:kabu-bubble-dismissed';
         let tipIndex = 0;
@@ -530,7 +563,103 @@
         bubble.addEventListener('click', () => { dismissBubble(); setOpen(true); });
         if (!bubbleDismissed) tipTimer = window.setTimeout(showTip, 1800);
 
-        launcher.addEventListener('click', () => { dismissBubble(); setOpen(panel.hidden); });
+        // ---- Drag Kabu anywhere on the screen ----
+        const POSITION_KEY = 'kabutomate:kabu-position';
+        const EDGE = 10;
+        const DRAG_THRESHOLD = 8;
+        let drag = null;
+        let justDragged = false;
+
+        function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
+
+        function dragBounds() {
+            const rect = root.getBoundingClientRect();
+            const nav = document.querySelector('.customer-mobile-nav');
+            const navVisible = nav && window.getComputedStyle(nav).display !== 'none';
+            const bottomGap = navVisible ? 92 : EDGE;
+            return {
+                width: rect.width,
+                minX: EDGE,
+                maxX: Math.max(EDGE, window.innerWidth - rect.width - EDGE),
+                minY: EDGE,
+                maxY: Math.max(EDGE, window.innerHeight - rect.height - bottomGap)
+            };
+        }
+
+        function placeKabu(x, y, animate) {
+            const bounds = dragBounds();
+            root.style.transition = animate
+                ? 'left .3s cubic-bezier(.22, 1, .36, 1), top .3s cubic-bezier(.22, 1, .36, 1)'
+                : 'none';
+            root.style.left = x + 'px';
+            root.style.top = y + 'px';
+            root.style.right = 'auto';
+            root.style.bottom = 'auto';
+            root.classList.toggle('is-left', x + bounds.width / 2 < window.innerWidth / 2);
+        }
+
+        function savePosition(side, yRatio) {
+            try { window.localStorage.setItem(POSITION_KEY, JSON.stringify({ side: side, y: yRatio })); } catch (error) { /* ignore */ }
+        }
+
+        function applySavedPosition(animate) {
+            let saved = null;
+            try { saved = JSON.parse(window.localStorage.getItem(POSITION_KEY) || 'null'); } catch (error) { /* ignore */ }
+            if (!saved || (saved.side !== 'left' && saved.side !== 'right')) return;
+            const bounds = dragBounds();
+            const x = saved.side === 'left' ? bounds.minX : bounds.maxX;
+            const y = bounds.minY + clamp(Number(saved.y) || 0, 0, 1) * (bounds.maxY - bounds.minY);
+            placeKabu(x, y, animate);
+        }
+
+        launcher.addEventListener('pointerdown', (event) => {
+            if (event.pointerType === 'mouse' && event.button !== 0) return;
+            const rect = root.getBoundingClientRect();
+            drag = { id: event.pointerId, startX: event.clientX, startY: event.clientY, originX: rect.left, originY: rect.top, moved: false };
+        });
+
+        launcher.addEventListener('pointermove', (event) => {
+            if (!drag || event.pointerId !== drag.id) return;
+            const dx = event.clientX - drag.startX;
+            const dy = event.clientY - drag.startY;
+            if (!drag.moved) {
+                if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+                drag.moved = true;
+                if (launcher.setPointerCapture) { try { launcher.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ } }
+                root.classList.add('is-dragging');
+            }
+            event.preventDefault();
+            const bounds = dragBounds();
+            placeKabu(clamp(drag.originX + dx, bounds.minX, bounds.maxX), clamp(drag.originY + dy, bounds.minY, bounds.maxY), false);
+        });
+
+        function endDrag(event) {
+            if (!drag || (event && event.pointerId !== drag.id)) return;
+            const moved = drag.moved;
+            drag = null;
+            if (!moved) return;
+            justDragged = true;
+            window.setTimeout(() => { justDragged = false; }, 60);
+            root.classList.remove('is-dragging');
+            const rect = root.getBoundingClientRect();
+            const bounds = dragBounds();
+            const side = rect.left + rect.width / 2 < window.innerWidth / 2 ? 'left' : 'right';
+            const y = clamp(rect.top, bounds.minY, bounds.maxY);
+            placeKabu(side === 'left' ? bounds.minX : bounds.maxX, y, true);
+            savePosition(side, bounds.maxY > bounds.minY ? (y - bounds.minY) / (bounds.maxY - bounds.minY) : 0);
+        }
+
+        launcher.addEventListener('pointerup', endDrag);
+        launcher.addEventListener('pointercancel', endDrag);
+        window.addEventListener('resize', () => applySavedPosition(false));
+        window.addEventListener('orientationchange', () => applySavedPosition(false));
+        applySavedPosition(false);
+
+        launcher.addEventListener('click', () => {
+            if (justDragged) return;
+            dismissBubble();
+            setOpen(panel.hidden);
+        });
         closeButton.addEventListener('click', () => setOpen(false));
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && !panel.hidden) setOpen(false);

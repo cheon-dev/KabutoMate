@@ -7,7 +7,9 @@ so the normal grid layout is untouched.
     .table-record { display: contents; }
 
     @media (max-width: 768px) {
-        .table-scroll-wrapper { overflow-x: visible !important; }
+        .main-content { padding-left: 16px !important; padding-right: 16px !important; }
+        .list-card-header { padding: 16px 14px !important; }
+        .table-scroll-wrapper { overflow-x: visible !important; padding: 14px 14px 4px !important; }
         .table-grid {
             display: block !important;
             grid-template-columns: none !important;
@@ -38,7 +40,7 @@ so the normal grid layout is untouched.
             background: transparent !important;
             font-size: .95rem;
             text-align: right;
-            overflow-wrap: anywhere;
+            overflow-wrap: break-word;
         }
         .table-record > .table-row::before {
             content: attr(data-label);
@@ -62,19 +64,36 @@ so the normal grid layout is untouched.
         .table-record > .table-row[data-role="title"]::before { display: none; }
         /* Last cell = actions */
         .table-record > .table-row.table-actions {
-            flex-wrap: wrap;
+            display: flex !important;
+            flex-wrap: nowrap;
             justify-content: stretch;
             gap: 8px;
             padding: 14px 0 0 !important;
             border-bottom: 0 !important;
+            overflow-wrap: normal;
+            word-break: normal;
         }
         .table-record > .table-row.table-actions::before { display: none; }
         .table-record > .table-row.table-actions a,
         .table-record > .table-row.table-actions button {
-            flex: 1 1 auto;
+            display: inline-flex !important;
+            flex: 1 1 0 !important;
+            align-items: center;
             justify-content: center;
+            gap: 6px;
+            width: auto !important;
+            min-width: 0 !important;
+            min-height: 44px !important;
             margin: 0 !important;
+            padding: 10px 6px !important;
+            font-size: .8rem !important;
             text-align: center;
+            white-space: nowrap;
+            overflow-wrap: normal;
+            word-break: normal;
+        }
+        .table-record > .table-row.table-actions a.btn-edit {
+            flex: 0 0 48px !important;
         }
         .table-record > .table-row:last-child { border-bottom: 0 !important; }
     }

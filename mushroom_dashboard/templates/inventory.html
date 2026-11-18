@@ -356,6 +356,33 @@
             color: white;
         }
         
+
+        /* Archive / Restore actions */
+        .btn-archive, .btn-restore {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            margin: 0 4px;
+            transition: all 0.3s;
+        }
+        .btn-archive { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+        .btn-archive:hover { background: #ffedd5; transform: translateY(-1px); }
+        .btn-restore { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; }
+        .btn-restore:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); color: #fff; }
+        .btn-archived-toggle {
+            display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px;
+            border: 1px solid #fed7aa; border-radius: 12px; background: #fff; color: #c2410c;
+            font: inherit; font-size: .9rem; font-weight: 700; cursor: pointer;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+        }
+        .btn-archived-toggle.is-on { background: #fff7ed; }
+
         .btn-publish, .btn-unpublish {
             display: inline-flex;
             align-items: center;
@@ -1107,6 +1134,9 @@
                 <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
                     {% url 'inventory_export_csv' as inv_csv_link %}
                     {% include 'includes/export_buttons.html' with csv_url=inv_csv_link inline=True %}
+                    <button id="toggleArchivedBtn" class="btn-archived-toggle" type="button">
+                        <i class="fa-solid fa-box-archive"></i> <span>Archived</span>
+                    </button>
                     <button id="addStockBtn" class="btn-add">
                         <i class="fa-solid fa-plus"></i> Add Stock
                     </button>
@@ -1266,9 +1296,24 @@
                 }
             }
 
+            let showArchived = false;
+            const toggleArchivedBtn = document.getElementById('toggleArchivedBtn');
+            if (toggleArchivedBtn) {
+                toggleArchivedBtn.addEventListener('click', function() {
+                    showArchived = !showArchived;
+                    this.classList.toggle('is-on', showArchived);
+                    this.querySelector('span').textContent = showArchived ? 'Back to Inventory' : 'Archived';
+                    const heading = document.querySelector('.list-card-header h2');
+                    if (heading) heading.textContent = showArchived ? 'Archived Products' : 'Current Inventory';
+                    const addBtn = document.getElementById('addStockBtn');
+                    if (addBtn) addBtn.style.display = showArchived ? 'none' : '';
+                    loadInventory();
+                });
+            }
+
             async function loadInventory() {
                 try {
-                    const response = await fetch('/api/inventory/');
+                    const response = await fetch('/api/inventory/' + (showArchived ? '?archived=1' : ''));
                     allInventoryItems = await response.json(); // Store all items for pagination
                     currentProducts = allInventoryItems; // Keep global reference
                     invCurrentPage = 1;
@@ -1336,10 +1381,12 @@
                         ? `<a class="btn-unpublish" data-id="${product.id}" title="Unpublish from Shop"><i class="fa-solid fa-eye-slash"></i> Unpublish</a>`
                         : `<a class="btn-publish" data-id="${product.id}" title="Publish to Shop"><i class="fa-solid fa-store"></i> Publish</a>`;
                     
-                    actionsRow.innerHTML = `
+                    actionsRow.innerHTML = showArchived
+                        ? `<a class="btn-restore" data-id="${product.id}" title="Restore product"><i class="fa-solid fa-rotate-left"></i> Restore</a>`
+                        : `
                         ${publishButton}
                         <a class="btn-edit" data-id="${product.id}" title="Edit"><i class="fa-solid fa-pencil"></i></a>
-                        <a class="btn-delete" data-id="${product.id}" title="Delete"><i class="fa-solid fa-trash"></i></a>
+                        <a class="btn-archive" data-id="${product.id}" title="Archive product"><i class="fa-solid fa-box-archive"></i> Archive</a>
                     `;
                     inventoryTableGrid.appendChild(actionsRow);
                 });
@@ -1573,25 +1620,33 @@
                 }
             });
 
-            // --- 4. Handle "Edit" and "Delete" Clicks ---
+            // --- 4. Handle "Edit" and "Archive" Clicks ---
             inventoryTableGrid.addEventListener('click', async (event) => {
                 const editBtn = event.target.closest('.btn-edit');
-                const deleteBtn = event.target.closest('.btn-delete');
-                
-                // --- Handle DELETE ---
-                if (deleteBtn) {
-                    const productId = deleteBtn.dataset.id;
-                    if (await showConfirm('Are you sure you want to delete this product?')) {
+                const archiveBtn = event.target.closest('.btn-archive');
+                const restoreBtn = event.target.closest('.btn-restore');
+
+                // --- Handle ARCHIVE / RESTORE ---
+                if (archiveBtn || restoreBtn) {
+                    const productId = (archiveBtn || restoreBtn).dataset.id;
+                    const archiving = !!archiveBtn;
+                    const question = archiving
+                        ? 'Archive this product? It will be hidden from the shop, POS and inventory, but its sales history is kept. You can restore it anytime from Archived.'
+                        : 'Restore this product? It will come back unpublished, so publish it when you are ready.';
+                    if (await showConfirm(question)) {
                         try {
-                            await fetch(`/api/inventory/${productId}/`, {
-                                method: 'DELETE',
-                                headers: { 'X-CSRFToken': csrfToken }
+                            const response = await fetch(`/api/inventory/${productId}/archive/`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                                body: JSON.stringify({ archived: archiving })
                             });
-                            showToast('Product deleted successfully.', 'success');
-                            reloadAllData(); // Refresh data
+                            const result = await response.json();
+                            if (!response.ok || !result.success) throw new Error(result.error || 'Request failed');
+                            showToast(archiving ? 'Product archived.' : 'Product restored.', 'success');
+                            reloadAllData();
                         } catch (error) {
-                            console.error('Failed to delete:', error);
-                            showToast('Unable to delete the product. Please try again.', 'error');
+                            console.error('Archive failed:', error);
+                            showToast(archiving ? 'Unable to archive the product. Please try again.' : 'Unable to restore the product. Please try again.', 'error');
                         }
                     }
                 }

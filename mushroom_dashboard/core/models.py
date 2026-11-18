@@ -132,6 +132,7 @@ class Product(models.Model):
     unit = models.CharField(max_length=10, choices=UNIT_CHOICES, default='kg', help_text="Unit of measurement for pricing and quantity")
     description = models.TextField(blank=True, help_text="Product description for e-commerce")
     is_active = models.BooleanField(default=True, help_text="Published - visible for sale in e-commerce")
+    is_archived = models.BooleanField(default=False, help_text="Archived - hidden from inventory, shop and POS but kept for sales history")
     product_type = models.CharField(max_length=20, choices=PRODUCT_TYPE_CHOICES, default='fresh', help_text="Type of product")
     
     # Nutrition Facts fields

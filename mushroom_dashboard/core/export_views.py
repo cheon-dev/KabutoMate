@@ -264,7 +264,7 @@ def production_export_csv(request):
 # Inventory and Sales
 # ==========================================================================
 def _inventory_products():
-    return Product.objects.all().order_by('name', 'id')
+    return Product.objects.filter(is_archived=False).order_by('name', 'id')
 
 
 @admin_required
@@ -327,7 +327,7 @@ def inventory_export_csv(request):
 # Cooked products
 # ==========================================================================
 def _cooked_products():
-    return Product.objects.filter(product_type='cooked').order_by('name', 'id')
+    return Product.objects.filter(product_type='cooked', is_archived=False).order_by('name', 'id')
 
 
 @admin_required

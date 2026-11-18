@@ -133,6 +133,7 @@ urlpatterns = [
     
     path('api/inventory/', views.inventory_api, name='inventory-api'),
     path('api/inventory/<int:pk>/', views.inventory_api_detail, name='inventory-api-detail'),
+    path('api/inventory/<int:pk>/archive/', views.product_archive, name='product-archive'),
     path('api/product/<int:pk>/toggle-publish/', views.toggle_product_publish, name='toggle-product-publish'),
     
     path('api/sales/', views.sales_api, name='sales-api'),

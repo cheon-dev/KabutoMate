@@ -1452,7 +1452,8 @@ def inventory_api(request):
     
     # Filter by product_type if provided
     product_type_filter = request.GET.get('product_type')
-    products = Product.objects.prefetch_related('images').all()
+    show_archived = request.GET.get('archived') in ('1', 'true', 'True')
+    products = Product.objects.prefetch_related('images').filter(is_archived=show_archived)
     if product_type_filter:
         products = products.filter(product_type=product_type_filter)
     
@@ -1468,7 +1469,7 @@ def inventory_api(request):
     
     product_list = [{'id': p.id, 'name': p.name, 'batch_id': p.batch_id, 'stock_kg': p.stock_kg, 
                      'price_per_kg': str(p.price_per_kg), 'description': p.description, 
-                     'is_active': p.is_active, 'product_type': p.product_type, 'unit': p.unit,
+                     'is_active': p.is_active, 'is_archived': p.is_archived, 'product_type': p.product_type, 'unit': p.unit,
                      'unit_label': p.get_unit_display(),
                      'image_url': get_product_image_url(p),
                      'serving_size': p.serving_size or '',
@@ -1559,8 +1560,31 @@ def inventory_api_detail(request, pk):
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
     
     elif request.method == 'DELETE':
-        product.delete()
-        return JsonResponse({'success': True, 'message': 'Product deleted'})
+        # Products are archived instead of deleted so sales, orders and reviews stay intact.
+        product.is_archived = True
+        product.is_active = False
+        product.save(update_fields=['is_archived', 'is_active'])
+        return JsonResponse({'success': True, 'message': 'Product archived'})
+
+@admin_required
+def product_archive(request, pk):
+    """Archive or restore a product. Archived products are unpublished and hidden from admin lists."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST method required'}, status=405)
+    try:
+        product = Product.objects.get(pk=pk)
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
+    try:
+        data = json.loads(request.body or '{}')
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+    archived = bool(data.get('archived', True))
+    product.is_archived = archived
+    product.is_active = False  # archived -> unpublished; restoring leaves it unpublished until re-published
+    product.save(update_fields=['is_archived', 'is_active'])
+    return JsonResponse({'success': True, 'archived': archived,
+                         'message': 'Product archived' if archived else 'Product restored (unpublished)'})
 
 @admin_required
 def toggle_product_publish(request, pk):
@@ -1570,6 +1594,8 @@ def toggle_product_publish(request, pk):
     
     try:
         product = Product.objects.get(pk=pk)
+        if product.is_archived:
+            return JsonResponse({'success': False, 'error': 'Restore this product from Archived before publishing it.'}, status=400)
         data = json.loads(request.body)
         is_active = data.get('is_active')
         
@@ -1631,7 +1657,7 @@ def sales_api(request):
 
 @login_required(login_url='login')
 def summary_api(request):
-    inventory_summary = Product.objects.aggregate(total_stock=Coalesce(Sum('stock_kg'), Decimal('0.0'), output_field=DecimalField()), low_stock_items=Coalesce(Count('id', filter=Q(stock_kg__lt=10)), 0))
+    inventory_summary = Product.objects.filter(is_archived=False).aggregate(total_stock=Coalesce(Sum('stock_kg'), Decimal('0.0'), output_field=DecimalField()), low_stock_items=Coalesce(Count('id', filter=Q(stock_kg__lt=10)), 0))
     sales_summary = Sale.objects.aggregate(total_revenue=Coalesce(Sum('total_price'), Decimal('0.0'), output_field=DecimalField()), total_sales=Coalesce(Count('id'), 0))
     return JsonResponse({'total_stock': inventory_summary['total_stock'], 'low_stock_items': inventory_summary['low_stock_items'], 'total_revenue': sales_summary['total_revenue'], 'total_sales': sales_summary['total_sales'],})
 
@@ -1685,7 +1711,7 @@ def production_api(request):
         }
         for batch in batches
     ]
-    products = Product.objects.filter(product_type='fresh')
+    products = Product.objects.filter(product_type='fresh', is_archived=False)
     product_list = [{'id': p.id, 'name': p.name} for p in products]
     
     return JsonResponse({

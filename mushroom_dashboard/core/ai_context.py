@@ -50,7 +50,7 @@ def _sale_queryset():
 
 
 def _catalog_context(is_admin):
-    products = Product.objects.annotate(
+    products = Product.objects.filter(is_archived=False).annotate(
         ai_review_average=Avg('reviews__rating'),
         ai_review_count=Count('reviews'),
     )
@@ -217,18 +217,18 @@ def _customer_context(user):
 
 def _admin_context():
     lines = []
-    products = list(Product.objects.order_by('stock_kg', 'name')[:10])
-    total_stock = Product.objects.aggregate(total=Sum('stock_kg'))['total'] or Decimal('0.0')
+    products = list(Product.objects.filter(is_archived=False).order_by('stock_kg', 'name')[:10])
+    total_stock = Product.objects.filter(is_archived=False).aggregate(total=Sum('stock_kg'))['total'] or Decimal('0.0')
     inventory_value = sum(
-        (product.stock_kg * product.price_per_kg for product in Product.objects.all()),
+        (product.stock_kg * product.price_per_kg for product in Product.objects.filter(is_archived=False)),
         Decimal('0.00'),
     )
     lines.extend([
         'ADMIN INVENTORY SUMMARY:',
         f'- Total stock recorded: {total_stock}',
         f'- Inventory value at listed prices: {_money(inventory_value)}',
-        f'- Low-stock products (below 10): {Product.objects.filter(stock_kg__lt=10).count()}',
-        f'- Out-of-stock products: {Product.objects.filter(stock_kg__lte=0).count()}',
+        f'- Low-stock products (below 10): {Product.objects.filter(is_archived=False, stock_kg__lt=10).count()}',
+        f'- Out-of-stock products: {Product.objects.filter(is_archived=False, stock_kg__lte=0).count()}',
         'Lowest-stock products:',
     ])
     for product in products:

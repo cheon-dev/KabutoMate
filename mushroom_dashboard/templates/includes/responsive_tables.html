@@ -65,9 +65,11 @@ so the normal grid layout is untouched.
         /* Last cell = actions */
         .table-record > .table-row.table-actions {
             display: flex !important;
-            flex-wrap: nowrap;
-            justify-content: stretch;
-            gap: 8px;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: stretch !important;
+            justify-content: stretch !important;
+            gap: 8px !important;
             padding: 14px 0 0 !important;
             border-bottom: 0 !important;
             overflow-wrap: normal;
@@ -80,13 +82,14 @@ so the normal grid layout is untouched.
             flex: 1 1 0 !important;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 5px;
             width: auto !important;
             min-width: 0 !important;
+            max-width: none !important;
             min-height: 44px !important;
             margin: 0 !important;
-            padding: 10px 6px !important;
-            font-size: .8rem !important;
+            padding: 10px 4px !important;
+            font-size: .78rem !important;
             text-align: center;
             white-space: nowrap;
             overflow-wrap: normal;
@@ -94,6 +97,7 @@ so the normal grid layout is untouched.
         }
         .table-record > .table-row.table-actions a.btn-edit {
             flex: 0 0 48px !important;
+            max-width: 48px !important;
         }
         .table-record > .table-row:last-child { border-bottom: 0 !important; }
     }

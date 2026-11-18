@@ -52,7 +52,8 @@
         object-fit: contain;
     }
     /* Icon-only logout in the header (phones only; desktop uses the nav link) */
-    .customer-shared-navbar .customer-header-logout { display: none; }
+    .customer-shared-navbar .customer-header-logout,
+    .customer-shared-navbar .customer-header-support { display: none; }
     .customer-shared-navbar .brand-name {
         min-width: 0;
         overflow: hidden;
@@ -146,6 +147,42 @@
             -webkit-tap-highlight-color: transparent;
         }
         .customer-shared-navbar .customer-header-logout:active { background: #fef2f2; }
+        .customer-shared-navbar .customer-header-support {
+            position: relative;
+            display: inline-flex;
+            order: 2;
+            flex: 0 0 36px;
+            width: 36px;
+            height: 36px;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #bbf7d0;
+            border-radius: 10px;
+            background: #fff;
+            color: #0c4b33;
+            font-size: 1rem;
+            text-decoration: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .customer-shared-navbar .customer-header-support:active { background: #f0fdf4; }
+        .customer-shared-navbar .customer-header-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            display: inline-flex;
+            min-width: 17px;
+            height: 17px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+            border: 2px solid #fff;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #fff;
+            font-size: .61rem;
+            font-weight: 800;
+            line-height: 1;
+        }
     }
 </style>
 <nav class="navbar customer-shared-navbar">
@@ -195,6 +232,13 @@
         <a href="{% url 'login' %}"><i class="fa-solid fa-right-to-bracket"></i><span>Login</span></a>
         {% endif %}
     </div>
+
+    {% if customer_nav_visible %}
+    <a href="{% if user.is_authenticated %}{% url 'shop' %}#support{% else %}{% url 'login' %}?next={% url 'shop' %}%23support{% endif %}" class="customer-header-support" data-support-trigger aria-label="Support" title="Support">
+        <i class="fa-solid fa-headset"></i>
+        {% if customer_unread_support_count %}<b class="customer-header-badge customer-mobile-support-badge">{{ customer_unread_support_count }}</b>{% endif %}
+    </a>
+    {% endif %}
 
     {% if user.is_authenticated %}
     <a href="{% url 'logout' %}" class="customer-header-logout" id="customerHeaderLogout" aria-label="Log out" title="Log out">

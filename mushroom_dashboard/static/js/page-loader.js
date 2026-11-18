@@ -32,6 +32,8 @@
     }
 
     function showLoader() {
+        // Pages with the admin sidebar get the sidebar-style skeleton.
+        document.documentElement.classList.toggle('page-loader-admin', !!document.querySelector('.sidebar'));
         document.documentElement.classList.add('page-loading-pending');
     }
 

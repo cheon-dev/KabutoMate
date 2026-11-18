@@ -1,17 +1,14 @@
+/* Page loader: a skeleton screen that shimmers while the next page loads. */
 .page-loading-overlay {
     position: fixed;
     inset: 0;
     z-index: 5000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-    background: rgba(248, 250, 251, 0.82);
+    overflow: hidden;
+    background: #f6f8f7;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity 180ms ease, visibility 180ms ease;
-    backdrop-filter: blur(3px);
+    transition: opacity 160ms ease, visibility 160ms ease;
 }
 
 /* Give each full page navigation a consistent, lightweight entrance. */
@@ -20,12 +17,8 @@ body {
 }
 
 @keyframes page-content-enter {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 html.page-loading-pending {
@@ -38,64 +31,134 @@ html.page-loading-pending .page-loading-overlay {
     pointer-events: auto;
 }
 
-.page-loading-card {
-    display: inline-flex;
+.page-skeleton-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* ---- Shimmer blocks ---- */
+.page-loading-overlay .sk-block {
+    display: block;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #e6ebe8 0%, #f4f7f5 45%, #e6ebe8 90%);
+    background-size: 220% 100%;
+    animation: page-skeleton-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes page-skeleton-shimmer {
+    from { background-position: 120% 0; }
+    to { background-position: -100% 0; }
+}
+
+.skeleton-layout { display: none; width: 100%; height: 100%; }
+.skeleton-layout--store { display: flex; flex-direction: column; }
+html.page-loader-admin .skeleton-layout--store { display: none; }
+html.page-loader-admin .skeleton-layout--admin { display: flex; }
+
+/* ---- Storefront skeleton ---- */
+.sk-topbar {
+    display: flex;
     align-items: center;
-    gap: 0.8rem;
-    min-width: min(100%, 13rem);
-    padding: 0.8rem 1rem;
-    border: 1px solid rgba(12, 75, 51, 0.12);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.96);
-    box-shadow: 0 10px 30px rgba(12, 75, 51, 0.12);
-    color: #0c4b33;
-    font: 600 0.9rem/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    animation: page-loader-card-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    gap: 12px;
+    padding: 14px 4%;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+}
+.sk-spacer { flex: 1; }
+.sk-logo { width: 38px; height: 38px; border-radius: 12px !important; }
+.sk-brand { width: 130px; height: 18px; }
+.sk-icon { width: 36px; height: 36px; border-radius: 10px !important; }
+
+.sk-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 18px 4%;
+    box-sizing: border-box;
+}
+.sk-search { width: 100%; height: 46px; border-radius: 999px !important; }
+.sk-chips { display: flex; gap: 10px; overflow: hidden; }
+.sk-chip { flex: 0 0 90px; height: 38px; border-radius: 999px !important; }
+.sk-chip--wide { flex-basis: 130px; }
+.sk-heading { width: 55%; max-width: 360px; height: 26px; }
+.sk-heading--page { width: 40%; max-width: 280px; height: 30px; }
+.sk-line { width: 80%; height: 14px; }
+.sk-line--short { width: 50%; }
+.sk-line--title { width: 30%; height: 18px; }
+
+.sk-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+.sk-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+}
+.sk-card-img { width: 100%; height: 120px; border-radius: 14px !important; }
+.sk-card--extra { display: none; }
+
+@media (min-width: 768px) {
+    .sk-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+    .sk-card--extra { display: flex; }
+    .sk-card-img { height: 170px; }
 }
 
-.page-loading-spinner {
-    width: 1.25rem;
-    height: 1.25rem;
-    flex: 0 0 1.25rem;
-    border: 2px solid rgba(20, 120, 90, 0.18);
-    border-top-color: #22c55e;
-    border-radius: 50%;
-    animation: page-loader-spin 700ms linear infinite;
+/* ---- Admin skeleton ---- */
+.skeleton-layout--admin { gap: 0; }
+.sk-sidebar {
+    display: none;
+    flex: 0 0 260px;
+    flex-direction: column;
+    gap: 14px;
+    padding: 24px 20px;
+    background: #0c4b33;
 }
-
-@keyframes page-loader-spin {
-    to { transform: rotate(360deg); }
+.sk-sidebar .sk-block { background: linear-gradient(90deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.22) 45%, rgba(255,255,255,.10) 90%); background-size: 220% 100%; }
+.sk-side-logo { width: 150px; height: 40px; margin-bottom: 14px; }
+.sk-side-item { width: 100%; height: 38px; }
+.sk-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+    padding: 72px 18px 18px;
+    box-sizing: border-box;
 }
+.sk-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.sk-stat { height: 96px; border-radius: 18px !important; }
+.sk-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+}
+.sk-row { width: 100%; height: 44px; }
 
-@keyframes page-loader-card-enter {
-    from {
-        opacity: 0;
-        transform: translateY(8px) scale(0.97);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+@media (min-width: 993px) {
+    .sk-sidebar { display: flex; }
+    .sk-main { padding: 36px 40px; }
+    .sk-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    body,
-    .page-loading-card {
-        animation: none;
-    }
-
-    .page-loading-overlay {
-        transition-duration: 0ms;
-    }
-
-    .page-loading-spinner {
-        animation-duration: 1400ms;
-    }
-}
-
-@media (max-width: 480px) {
-    .page-loading-card {
-        min-width: 0;
-        max-width: calc(100vw - 2rem);
-    }
+    body { animation: none; }
+    .page-loading-overlay { transition-duration: 0ms; }
+    .page-loading-overlay .sk-block { animation: none; }
 }

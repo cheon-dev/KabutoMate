@@ -220,6 +220,30 @@
 
         /* ── PRODUCT GRID ── */
         .content { min-width: 0; }
+
+        /* Search: once something matches, drop the filters and best sellers so
+           the results sit directly under the category pills. */
+        .search-results-bar {
+            display: none; align-items: center; justify-content: space-between; gap: 12px;
+            margin: 0 0 1rem; padding: 0.7rem 1rem; border-radius: 14px;
+            background: #ecfdf5; color: var(--primary); font-weight: 700; font-size: 0.9rem;
+        }
+        .search-results-bar button {
+            border: 0; background: #fff; color: var(--primary); font: inherit; font-weight: 700;
+            padding: 0.4rem 0.9rem; border-radius: 999px; cursor: pointer; box-shadow: 0 1px 3px rgba(15,23,42,.1);
+        }
+        .search-empty {
+            display: none; margin: 0 0 1.5rem; padding: 1.5rem 1rem; text-align: center;
+            border: 1.5px dashed #cbd5e1; border-radius: 16px; background: #fff; color: var(--text-muted);
+        }
+        .search-empty strong { display: block; margin-bottom: 4px; color: var(--text-main); font-size: 1.05rem; }
+        body.search-has-results .search-results-bar { display: flex; }
+        body.search-no-results .search-empty { display: block; }
+        body.search-has-results .filter-panel,
+        body.search-has-results .best-sellers-section,
+        body.search-has-results .load-more-container { display: none !important; }
+        body.search-has-results .main-container { grid-template-columns: 1fr !important; gap: 0; }
+        body.search-has-results .page-wrapper { padding-top: 1.25rem; }
         .best-sellers-section {
             margin-bottom: 2rem;
             background: linear-gradient(135deg, rgba(12,75,51,0.04), rgba(212,242,107,0.14));
@@ -856,6 +880,15 @@
                 </section>
                 {% endif %}
 
+                <div class="search-results-bar" id="searchResultsBar" role="status" aria-live="polite">
+                    <span id="searchResultsText"></span>
+                    <button type="button" id="clearSearchBtn">Clear search</button>
+                </div>
+                <div class="search-empty" id="searchEmpty" role="status" aria-live="polite">
+                    <strong>No products match your search</strong>
+                    <span>Try a different word, or check the best sellers below.</span>
+                </div>
+
                 <!-- Skeleton -->
                 <div class="products-grid" id="skeletonGrid" style="display:none;">
                     {% for i in "123456" %}
@@ -1310,7 +1343,8 @@
             }
 
             function filterAndSort() {
-                const searchTerm = (searchInput ? searchInput.value : (searchInputMobile ? searchInputMobile.value : '')).toLowerCase();
+                const rawSearch = (searchInput ? searchInput.value : (searchInputMobile ? searchInputMobile.value : '')).trim().toLowerCase();
+                const searchTerms = rawSearch.split(/\s+/).filter(Boolean);
                 const selectedCategory = categoryFilter ? categoryFilter.value.toLowerCase() : '';
                 const selectedProductType = productTypeFilter ? productTypeFilter.value : '';
                 const minPrice = minPriceInput ? parseFloat(minPriceInput.value) : 0;
@@ -1321,7 +1355,7 @@
                     const name = p.dataset.name || '';
                     const price = parseFloat(p.dataset.price) || 0;
                     const productType = p.dataset.productType || 'fresh';
-                    if (searchTerm && !name.includes(searchTerm)) return false;
+                    if (searchTerms.length && !searchTerms.every(term => name.includes(term))) return false;
                     if (selectedCategory && !name.includes(selectedCategory)) return false;
                     if (selectedProductType && productType !== selectedProductType) return false;
                     if (price < minPrice || price > maxPrice) return false;
@@ -1343,9 +1377,32 @@
 
                 products.forEach(p => p.style.display = 'none');
                 visibleProducts.forEach(p => { p.style.display = 'flex'; productsGrid.appendChild(p); });
+
+                // Search state: hide filters + best sellers while there are matches.
+                const searching = searchTerms.length > 0;
+                const hasMatches = visibleProducts.length > 0;
+                document.body.classList.toggle('search-has-results', searching && hasMatches);
+                document.body.classList.toggle('search-no-results', searching && !hasMatches);
+                const resultsText = document.getElementById('searchResultsText');
+                if (resultsText) {
+                    resultsText.textContent = visibleProducts.length + (visibleProducts.length === 1 ? ' result' : ' results') + ' for \u201c' + searchTerms.join(' ') + '\u201d';
+                }
             }
 
-            if (searchInput) searchInput.addEventListener('input', filterAndSort);
+            const clearSearchBtn = document.getElementById('clearSearchBtn');
+            if (clearSearchBtn) {
+                clearSearchBtn.addEventListener('click', function() {
+                    if (searchInput) searchInput.value = '';
+                    if (searchInputMobile) searchInputMobile.value = '';
+                    filterAndSort();
+                    if (searchInput) searchInput.focus();
+                });
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener('input', filterAndSort);
+                searchInput.addEventListener('search', filterAndSort);
+            }
             // Mirror mobile search into the same filter
             if (searchInputMobile) {
                 searchInputMobile.addEventListener('input', function() {

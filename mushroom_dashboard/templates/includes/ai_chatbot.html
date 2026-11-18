@@ -75,7 +75,7 @@
         gap: 6px;
         width: max-content;
         max-width: min(210px, calc(100vw - 112px));
-        padding: 9px 10px 9px 13px;
+        padding: 9px 13px;
         border: 1px solid rgba(31, 107, 79, .16);
         border-radius: 16px 16px 4px 16px;
         background: #fff;
@@ -100,20 +100,6 @@
         visibility: visible;
         pointer-events: auto;
         transform: translateX(0) scale(1);
-    }
-
-    .kabu-bubble-close {
-        flex: 0 0 auto;
-        width: 20px;
-        height: 20px;
-        padding: 0;
-        border: 0;
-        border-radius: 50%;
-        background: #eef4f0;
-        color: #5b6f65;
-        font-size: 11px;
-        line-height: 1;
-        cursor: pointer;
     }
 
     .ai-chatbot-header-main { display: flex; align-items: center; gap: 10px; }
@@ -329,7 +315,6 @@
 <div class="ai-chatbot" data-ai-chatbot>
     <div class="kabu-bubble" id="kabuBubble" role="status" aria-live="polite" hidden>
         <span class="kabu-bubble-text"></span>
-        <button class="kabu-bubble-close" type="button" aria-label="Dismiss message">&#10005;</button>
     </div>
 
     <button class="ai-chatbot-launcher" type="button" aria-label="Chat with Kabu" title="Chat with Kabu" aria-expanded="false" aria-controls="ai-chatbot-panel">
@@ -500,7 +485,6 @@
         // ---- Kabu's speech bubble ----
         const bubble = root.querySelector('.kabu-bubble');
         const bubbleText = bubble.querySelector('.kabu-bubble-text');
-        const bubbleClose = bubble.querySelector('.kabu-bubble-close');
         const tips = [
             'Hi, I\u2019m Kabu! \uD83D\uDC4B',
             'Do you have a question?',
@@ -543,7 +527,6 @@
             stopTips();
         }
 
-        bubbleClose.addEventListener('click', (event) => { event.stopPropagation(); dismissBubble(); });
         bubble.addEventListener('click', () => { dismissBubble(); setOpen(true); });
         if (!bubbleDismissed) tipTimer = window.setTimeout(showTip, 1800);
 

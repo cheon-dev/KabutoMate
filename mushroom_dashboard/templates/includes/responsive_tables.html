@@ -1,0 +1,127 @@
+{% comment %}
+Turns the admin "table-grid" tables into stacked cards on phones, so nothing needs a sideways swipe.
+Cells are grouped per record after each render; on desktop the wrapper uses display: contents,
+so the normal grid layout is untouched.
+{% endcomment %}
+<style>
+    .table-record { display: contents; }
+
+    @media (max-width: 768px) {
+        .table-scroll-wrapper { overflow-x: visible !important; }
+        .table-grid {
+            display: block !important;
+            grid-template-columns: none !important;
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        .table-grid > .table-header { display: none !important; }
+
+        .table-record {
+            display: flex;
+            flex-direction: column;
+            margin: 0 0 14px;
+            padding: 6px 16px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, .05);
+        }
+        .table-record > .table-row {
+            display: flex !important;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            min-height: 0 !important;
+            padding: 10px 0 !important;
+            border: 0 !important;
+            border-bottom: 1px dashed #e8edf2 !important;
+            background: transparent !important;
+            font-size: .95rem;
+            text-align: right;
+            overflow-wrap: anywhere;
+        }
+        .table-record > .table-row::before {
+            content: attr(data-label);
+            flex: 0 0 auto;
+            max-width: 46%;
+            color: #64748b;
+            font-size: .7rem;
+            font-weight: 800;
+            letter-spacing: .06em;
+            text-align: left;
+            text-transform: uppercase;
+        }
+        /* First cell = card title */
+        .table-record > .table-row[data-role="title"] {
+            justify-content: flex-start;
+            padding-top: 14px !important;
+            font-size: 1.02rem;
+            font-weight: 800;
+            text-align: left;
+        }
+        .table-record > .table-row[data-role="title"]::before { display: none; }
+        /* Last cell = actions */
+        .table-record > .table-row.table-actions {
+            flex-wrap: wrap;
+            justify-content: stretch;
+            gap: 8px;
+            padding: 14px 0 0 !important;
+            border-bottom: 0 !important;
+        }
+        .table-record > .table-row.table-actions::before { display: none; }
+        .table-record > .table-row.table-actions a,
+        .table-record > .table-row.table-actions button {
+            flex: 1 1 auto;
+            justify-content: center;
+            margin: 0 !important;
+            text-align: center;
+        }
+        .table-record > .table-row:last-child { border-bottom: 0 !important; }
+    }
+</style>
+<script>
+(function () {
+    function group(grid) {
+        var headers = Array.prototype.filter.call(grid.children, function (c) { return c.classList.contains('table-header'); });
+        var n = headers.length;
+        if (!n) return;
+        var labels = headers.map(function (h) { return h.textContent.trim(); });
+        var buffer = [];
+
+        function flush() {
+            if (buffer.length === n) {
+                var record = document.createElement('div');
+                record.className = 'table-record';
+                grid.insertBefore(record, buffer[0]);
+                buffer.forEach(function (cell, i) {
+                    cell.setAttribute('data-label', labels[i]);
+                    if (i === 0) cell.setAttribute('data-role', 'title');
+                    record.appendChild(cell);
+                });
+            }
+            buffer = [];
+        }
+
+        Array.prototype.slice.call(grid.children).forEach(function (child) {
+            if (child.classList.contains('table-header') || child.classList.contains('table-record')) { flush(); return; }
+            if (child.style && child.style.gridColumn) { flush(); return; } // full-width empty-state rows
+            buffer.push(child);
+            if (buffer.length === n) flush();
+        });
+        flush();
+    }
+
+    function init() {
+        document.querySelectorAll('.table-grid').forEach(function (grid) {
+            var scheduled = 0;
+            group(grid);
+            new MutationObserver(function () {
+                if (scheduled) return;
+                scheduled = window.requestAnimationFrame(function () { scheduled = 0; group(grid); });
+            }).observe(grid, { childList: true });
+        });
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>

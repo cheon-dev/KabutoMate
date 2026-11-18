@@ -1131,7 +1131,7 @@
         <div class="list-card">
             <div class="list-card-header">
                 <h2>Current Inventory</h2>
-                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+                <div class="header-tools">
                     {% url 'inventory_export_csv' as inv_csv_link %}
                     {% include 'includes/export_buttons.html' with csv_url=inv_csv_link inline=True %}
                     <button id="toggleArchivedBtn" class="btn-archived-toggle" type="button">
@@ -1969,6 +1969,7 @@
     </script>
 
     <script src="{% static 'js/sidebar-tooltip.js' %}"></script>
+    {% include 'includes/responsive_tables.html' %}
     {% include 'includes/cookie_consent.html' %}
 </body>
 </html>

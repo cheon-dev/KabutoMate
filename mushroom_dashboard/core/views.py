@@ -27,6 +27,7 @@ from functools import wraps
 from urllib.parse import urlparse
 from django.contrib.auth import views as auth_views
 from .yield_model import calculate_predicted_yield as calculate_history_predicted_yield
+from .harvest_weight_model import HarvestWeightModelError, predict_harvest_weight_grams
 from .philippine_locations import get_locations
 from .shipping import calculate_shipping_fee
 from .sensor_api import MANUAL_WATCH_SECONDS, RELAY_POLL_FAST_MS
@@ -119,6 +120,12 @@ def calculate_predicted_yield(product_id=None, start_date=None, cost=None):
         return None
 
     return round(float(predicted), 2)
+
+
+def predict_production_batch_weight(growing_days):
+    weight_grams = predict_harvest_weight_grams(growing_days)
+    weight_kg = (Decimal(str(weight_grams)) / Decimal('1000')).quantize(Decimal('0.01'))
+    return weight_grams, weight_kg
 
 
 def calculate_growth_days(start_date=None, harvest_date=None):
@@ -1678,10 +1685,8 @@ def production_api(request):
             if product.product_type != 'fresh':
                 return JsonResponse({'success': False, 'error': 'Only fresh products can be used for production batches.'}, status=400)
 
-            predicted = calculate_predicted_yield(
-                product_id=product_id,
-                start_date=data.get('start_date'),
-                cost=data.get('cost')
+            predicted_grams, predicted_kg = predict_production_batch_weight(
+                data.get('growing_days')
             )
 
             ProductionBatch.objects.create(
@@ -1690,9 +1695,16 @@ def production_api(request):
                 start_date=data.get('start_date'),
                 status=data.get('status'),
                 cost=data.get('cost') or None,
-                predicted_yield_kg=predicted
+                predicted_yield_kg=predicted_kg
             )
-            return JsonResponse({'success': True, 'message': 'Batch added', 'predicted_yield': predicted})
+            return JsonResponse({
+                'success': True,
+                'message': 'Batch added',
+                'predicted_yield': float(predicted_kg),
+                'predicted_yield_g': predicted_grams,
+            })
+        except (FileNotFoundError, HarvestWeightModelError) as exc:
+            return JsonResponse({'success': False, 'error': str(exc)}, status=503)
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
     
@@ -1725,24 +1737,20 @@ def production_api(request):
 def production_predict_api(request):
     try:
         data = json.loads(request.body)
-        growth_days = calculate_growth_days(data.get('start_date'))
-        predicted = calculate_predicted_yield(
-            product_id=data.get('product_id'),
-            start_date=data.get('start_date'),
-            cost=data.get('cost')
+        predicted_grams, predicted_kg = predict_production_batch_weight(
+            data.get('growing_days')
         )
         response = {
             'success': True,
-            'predicted_yield': predicted,
-            'growth_days': growth_days,
+            'predicted_yield': float(predicted_kg),
+            'predicted_yield_g': predicted_grams,
+            'growth_days': data.get('growing_days'),
         }
-        if predicted is None:
-            response['debug'] = {
-                'product_id': data.get('product_id'),
-                'start_date': data.get('start_date'),
-                'cost': data.get('cost'),
-            }
         return JsonResponse(response)
+    except (FileNotFoundError, HarvestWeightModelError) as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=503)
+    except ValueError as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=400)
     except Exception as e:
         return JsonResponse({
             'success': False,

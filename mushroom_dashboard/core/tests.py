@@ -792,6 +792,67 @@ class GrowthDayTests(TestCase):
         self.assertEqual(batch.yield_kg, Decimal('0.675'))
 
 
+class HarvestWeightProductionApiTests(TestCase):
+    def setUp(self):
+        user = get_user_model().objects.create_user(
+            username='harvest-model-admin',
+            password='StrongPass123!',
+            is_staff=True,
+        )
+        self.client.force_login(user)
+        self.product = Product.objects.create(
+            name='Model Test Oyster Mushroom',
+            stock_kg=Decimal('12.0'),
+            price_per_kg=Decimal('180.00'),
+            product_type='fresh',
+        )
+
+    @patch('core.views.predict_harvest_weight_grams', return_value=802.9)
+    def test_prediction_api_returns_model_weight_and_kg(self, predict_weight):
+        response = self.client.post(
+            '/api/production/predict/',
+            data=json.dumps({'growing_days': 3}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['predicted_yield_g'], 802.9)
+        self.assertEqual(response.json()['predicted_yield'], 0.8)
+        predict_weight.assert_called_once_with(3)
+
+    @patch('core.views.predict_harvest_weight_grams', return_value=802.9)
+    def test_new_batch_saves_model_estimate_in_kg(self, predict_weight):
+        response = self.client.post(
+            '/api/production/',
+            data=json.dumps({
+                'product_id': self.product.pk,
+                'start_date': '2026-11-19',
+                'growing_days': 3,
+                'status': 'GROWING',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        batch = ProductionBatch.objects.get()
+        self.assertEqual(batch.predicted_yield_kg, Decimal('0.80'))
+        predict_weight.assert_called_once_with(3)
+
+    @patch(
+        'core.views.predict_harvest_weight_grams',
+        side_effect=ValueError('Growing days must be within the model range [2, 4].'),
+    )
+    def test_prediction_api_returns_model_range_error(self, predict_weight):
+        response = self.client.post(
+            '/api/production/predict/',
+            data=json.dumps({'growing_days': 5}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('model range', response.json()['error'])
+
+
 @override_settings(SENSOR_PROCESSING_ENABLED=True, ESP32_API_KEY='')
 class ManualRelayControlTests(TestCase):
     """The ESP32 learns its next poll delay from /api/relay-command/."""

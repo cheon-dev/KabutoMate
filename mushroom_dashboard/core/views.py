@@ -122,10 +122,36 @@ def calculate_predicted_yield(product_id=None, start_date=None, cost=None):
     return round(float(predicted), 2)
 
 
-def predict_production_batch_weight(growing_days):
-    weight_grams = predict_harvest_weight_grams(growing_days)
+class ProductionPredictionUnavailable(RuntimeError):
+    pass
+
+
+def predict_production_batch_weight(growing_days, sensor_reading_id=None):
+    readings = SensorReading.objects.filter(air_quality_ppm__isnull=False)
+    if sensor_reading_id is not None:
+        latest_reading = readings.filter(pk=sensor_reading_id).first()
+        if latest_reading is None:
+            raise ProductionPredictionUnavailable(
+                'The selected MQ-135 reading is no longer available. Recalculate the prediction.'
+            )
+    else:
+        latest_reading = readings.order_by('-timestamp').first()
+
+    if latest_reading is None:
+        raise ProductionPredictionUnavailable(
+            'No MQ-135 air-quality reading is available for the production prediction.'
+        )
+
+    model_inputs: dict[str, float | int | str] = {
+        'humidity_pct': float(latest_reading.humidity),
+        'temperature_c': float(latest_reading.temperature),
+        'air_quality_ppm': float(latest_reading.air_quality_ppm),
+    }
+    weight_grams = predict_harvest_weight_grams(growing_days, **model_inputs)
     weight_kg = (Decimal(str(weight_grams)) / Decimal('1000')).quantize(Decimal('0.01'))
-    return weight_grams, weight_kg
+    model_inputs['sensor_reading_id'] = latest_reading.pk
+    model_inputs['sensor_timestamp'] = latest_reading.timestamp.isoformat()
+    return weight_grams, weight_kg, model_inputs
 
 
 def calculate_growth_days(start_date=None, harvest_date=None):
@@ -1685,8 +1711,9 @@ def production_api(request):
             if product.product_type != 'fresh':
                 return JsonResponse({'success': False, 'error': 'Only fresh products can be used for production batches.'}, status=400)
 
-            predicted_grams, predicted_kg = predict_production_batch_weight(
-                data.get('growing_days')
+            predicted_grams, predicted_kg, model_inputs = predict_production_batch_weight(
+                data.get('growing_days'),
+                data.get('sensor_reading_id'),
             )
 
             ProductionBatch.objects.create(
@@ -1702,8 +1729,13 @@ def production_api(request):
                 'message': 'Batch added',
                 'predicted_yield': float(predicted_kg),
                 'predicted_yield_g': predicted_grams,
+                'model_inputs': model_inputs,
             })
-        except (FileNotFoundError, HarvestWeightModelError) as exc:
+        except (
+            FileNotFoundError,
+            HarvestWeightModelError,
+            ProductionPredictionUnavailable,
+        ) as exc:
             return JsonResponse({'success': False, 'error': str(exc)}, status=503)
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
@@ -1737,7 +1769,7 @@ def production_api(request):
 def production_predict_api(request):
     try:
         data = json.loads(request.body)
-        predicted_grams, predicted_kg = predict_production_batch_weight(
+        predicted_grams, predicted_kg, model_inputs = predict_production_batch_weight(
             data.get('growing_days')
         )
         response = {
@@ -1745,9 +1777,14 @@ def production_predict_api(request):
             'predicted_yield': float(predicted_kg),
             'predicted_yield_g': predicted_grams,
             'growth_days': data.get('growing_days'),
+            'model_inputs': model_inputs,
         }
         return JsonResponse(response)
-    except (FileNotFoundError, HarvestWeightModelError) as exc:
+    except (
+        FileNotFoundError,
+        HarvestWeightModelError,
+        ProductionPredictionUnavailable,
+    ) as exc:
         return JsonResponse({'success': False, 'error': str(exc)}, status=503)
     except ValueError as exc:
         return JsonResponse({'success': False, 'error': str(exc)}, status=400)

@@ -295,18 +295,20 @@ Random Forest produced the lower MSE, RMSE, and MAE, so it was selected. Both R�
 
 ### Active production estimate flow
 
-1. **Offline training.** Run all cells in `predictive_maintenance_training.ipynb` using the Kabutomate harvest dataset.
-2. **Model artifact.** The notebook saves `predictive_harvest_weight_model.pkl` in the Django project root. Its input is `Growing_Days`; its output is `Weight_g`.
-3. **Loader and validation.** `core/harvest_weight_model.py` loads the artifact, checks its feature/target schema, and refuses predictions outside the model's observed growing-day range.
-4. **API view.** `core/views.py` uses the model for `POST /api/production/predict/` and new production batches.
-5. **Frontend.** `templates/production.html` asks for 2, 3, or 4 expected growing days and displays the prediction in grams. The batch record stores the equivalent in kilograms.
+1. **Offline training.** Run all cells in `predictive_maintenance_training.ipynb` using the v3 Kabutomate harvest dataset.
+2. **Model artifact.** The notebook saves `predictive_harvest_weight_v3_model.pkl` in the Django project root. Its inputs are `Growing_Days`, `Humidity_pct`, `Temperature_C`, and `Air_Quality_CO2_ppm`; its output is `Weight_g`.
+3. **Loader and validation.** `core/harvest_weight_model.py` loads the v3 artifact, checks its feature/target schema, and refuses inputs outside the observed range for any model feature.
+4. **API view.** `core/views.py` uses the selected growing days and the latest sensor reading with MQ-135 data for `POST /api/production/predict/` and new production batches.
+5. **Frontend.** `templates/production.html` asks for 2, 3, or 4 expected growing days, displays the sensor values used with the prediction in grams, and saves the equivalent in kilograms.
+
+The website's `SensorReading.air_quality_ppm` value is provided by the MQ-135. The production predictor maps it to the dataset's `Air_Quality_CO2_ppm` feature as requested; it is an MQ-135 air-quality reading, not a true CO₂ measurement. Predictions are unavailable when there is no recorded MQ-135 reading.
 
 The separate historical model (`mushroom_yield_model.pkl`, trained with `python manage.py train_yield_model`) is no longer used for new production-page estimates.
 
 ### Relevant code path
 
 ```text
-predictive_harvest_weight_model.pkl
+predictive_harvest_weight_v3_model.pkl
         ↓
 core/harvest_weight_model.py :: load_harvest_weight_model()
         ↓
@@ -314,20 +316,14 @@ core/harvest_weight_model.py :: predict_harvest_weight_grams()
         ↓
 core/views.py :: production_predict_api()
         ↓
-POST /api/production/predict/ (Growing_Days)
+POST /api/production/predict/ (Growing_Days + latest sensor conditions)
         ↓
 templates/production.html (JavaScript fetch)
         ↓
 Predicted weight displayed in grams; saved in kilograms
 ```
 
-### Retraining the deployed model
-
-```bash
-python manage.py train_yield_model
-```
-
-To update the model used by the production page, rerun the notebook and ensure the generated `predictive_harvest_weight_model.pkl` is present in the Django project root before starting or deploying the website. `python manage.py train_yield_model` still trains the separate historical model and does not replace the production-page estimator.
+The management command `python manage.py train_yield_model` continues to train the separate historical model and does not replace either artifact.
 
 ---
 

@@ -806,6 +806,11 @@ class HarvestWeightProductionApiTests(TestCase):
             price_per_kg=Decimal('180.00'),
             product_type='fresh',
         )
+        self.sensor_reading = SensorReading.objects.create(
+            temperature=Decimal('24.5'),
+            humidity=Decimal('90.2'),
+            air_quality_ppm=760,
+        )
 
     @patch('core.views.predict_harvest_weight_grams', return_value=802.9)
     def test_prediction_api_returns_model_weight_and_kg(self, predict_weight):
@@ -818,7 +823,19 @@ class HarvestWeightProductionApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['predicted_yield_g'], 802.9)
         self.assertEqual(response.json()['predicted_yield'], 0.8)
-        predict_weight.assert_called_once_with(3)
+        self.assertEqual(response.json()['model_inputs']['humidity_pct'], 90.2)
+        self.assertEqual(response.json()['model_inputs']['temperature_c'], 24.5)
+        self.assertEqual(response.json()['model_inputs']['air_quality_ppm'], 760.0)
+        self.assertEqual(
+            response.json()['model_inputs']['sensor_reading_id'],
+            self.sensor_reading.pk,
+        )
+        predict_weight.assert_called_once_with(
+            3,
+            humidity_pct=90.2,
+            temperature_c=24.5,
+            air_quality_ppm=760.0,
+        )
 
     @patch('core.views.predict_harvest_weight_grams', return_value=802.9)
     def test_new_batch_saves_model_estimate_in_kg(self, predict_weight):
@@ -828,6 +845,7 @@ class HarvestWeightProductionApiTests(TestCase):
                 'product_id': self.product.pk,
                 'start_date': '2026-11-19',
                 'growing_days': 3,
+                'sensor_reading_id': self.sensor_reading.pk,
                 'status': 'GROWING',
             }),
             content_type='application/json',
@@ -836,7 +854,26 @@ class HarvestWeightProductionApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         batch = ProductionBatch.objects.get()
         self.assertEqual(batch.predicted_yield_kg, Decimal('0.80'))
-        predict_weight.assert_called_once_with(3)
+        predict_weight.assert_called_once_with(
+            3,
+            humidity_pct=90.2,
+            temperature_c=24.5,
+            air_quality_ppm=760.0,
+        )
+
+    @patch('core.views.predict_harvest_weight_grams')
+    def test_prediction_api_requires_an_mq135_reading(self, predict_weight):
+        self.sensor_reading.delete()
+
+        response = self.client.post(
+            '/api/production/predict/',
+            data=json.dumps({'growing_days': 3}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('MQ-135', response.json()['error'])
+        predict_weight.assert_not_called()
 
     @patch(
         'core.views.predict_harvest_weight_grams',
@@ -851,6 +888,12 @@ class HarvestWeightProductionApiTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn('model range', response.json()['error'])
+        predict_weight.assert_called_once_with(
+            5,
+            humidity_pct=90.2,
+            temperature_c=24.5,
+            air_quality_ppm=760.0,
+        )
 
 
 @override_settings(SENSOR_PROCESSING_ENABLED=True, ESP32_API_KEY='')

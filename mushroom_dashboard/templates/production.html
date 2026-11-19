@@ -868,6 +868,7 @@
                     <div class="form-group">
                         <label for="predicted_yield_display">Predicted Weight</label>
                         <input type="text" id="predicted_yield_display" readonly value="Select growing days">
+                        <small id="prediction_inputs_display" style="color:#64748b; margin-top:6px;">The prediction also uses the latest temperature, humidity, and MQ-135 air-quality reading.</small>
                     </div>
                     <div class="form-group">
                         <label for="status">Status</label>
@@ -1042,6 +1043,8 @@
         const addStartDateInput = document.getElementById('start_date');
         const growingDaysInput = document.getElementById('growing_days');
         const predictedYieldDisplay = document.getElementById('predicted_yield_display');
+        const predictionInputsDisplay = document.getElementById('prediction_inputs_display');
+        let predictionSensorReadingId = null;
         
         const editModal = document.getElementById('editRecordModal');
         const editRecordForm = document.getElementById('editRecordForm');
@@ -1228,6 +1231,8 @@
         async function refreshPredictedYield() {
             if (!growingDaysInput.value) {
                 predictedYieldDisplay.value = 'Select growing days';
+                predictionInputsDisplay.textContent = 'The prediction also uses the latest temperature, humidity, and MQ-135 air-quality reading.';
+                predictionSensorReadingId = null;
                 return;
             }
 
@@ -1243,12 +1248,25 @@
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();
-                predictedYieldDisplay.value = result.success
-                    ? `${Number(result.predicted_yield_g).toFixed(1)} g`
-                    : (result.error || '-');
+                if (result.success) {
+                    predictedYieldDisplay.value = `${Number(result.predicted_yield_g).toFixed(1)} g`;
+                    const inputs = result.model_inputs;
+                    predictionSensorReadingId = inputs.sensor_reading_id;
+                    predictionInputsDisplay.textContent =
+                        `Using latest sensor reading: ${Number(inputs.humidity_pct).toFixed(1)}% humidity, ` +
+                        `${Number(inputs.temperature_c).toFixed(1)}°C, ` +
+                        `${Number(inputs.air_quality_ppm).toFixed(1)} ppm MQ-135 air quality ` +
+                        `(recorded ${new Date(inputs.sensor_timestamp).toLocaleString()}).`;
+                } else {
+                    predictedYieldDisplay.value = result.error || '-';
+                    predictionInputsDisplay.textContent = result.error || 'Unable to read current sensor values.';
+                    predictionSensorReadingId = null;
+                }
             } catch (error) {
                 console.error('Failed to update predicted yield:', error);
                 predictedYieldDisplay.value = '-';
+                predictionInputsDisplay.textContent = 'Unable to read current sensor values.';
+                predictionSensorReadingId = null;
             }
         }
 
@@ -1281,6 +1299,7 @@
                 product_id: formData.get('product_id'),
                 start_date: formData.get('start_date'),
                 growing_days: formData.get('growing_days'),
+                sensor_reading_id: predictionSensorReadingId,
                 status: formData.get('status'),
                 cost: formData.get('cost') || null
             };

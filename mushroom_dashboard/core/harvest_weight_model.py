@@ -6,8 +6,13 @@ import pandas as pd
 from django.conf import settings
 
 
-MODEL_FILENAME = 'predictive_harvest_weight_model.pkl'
-FEATURES = ['Growing_Days']
+MODEL_FILENAME = 'predictive_harvest_weight_v3_model.pkl'
+FEATURES = [
+    'Growing_Days',
+    'Humidity_pct',
+    'Temperature_C',
+    'Air_Quality_CO2_ppm',
+]
 TARGET = 'Weight_g'
 
 
@@ -44,38 +49,59 @@ def load_harvest_weight_model():
     if not isinstance(training_data, dict) or not callable(getattr(artifact.get('model'), 'predict', None)):
         raise HarvestWeightModelError('Harvest weight model artifact is incomplete.')
 
-    try:
-        minimum_days = float(training_data['growing_days_min'])
-        maximum_days = float(training_data['growing_days_max'])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise HarvestWeightModelError('Harvest weight model has no valid growing-day range.') from exc
+    feature_ranges = training_data.get('feature_ranges')
+    if not isinstance(feature_ranges, dict):
+        raise HarvestWeightModelError('Harvest weight model has no valid feature ranges.')
 
-    if not np.isfinite([minimum_days, maximum_days]).all() or minimum_days > maximum_days:
-        raise HarvestWeightModelError('Harvest weight model has an invalid growing-day range.')
+    for feature in FEATURES:
+        try:
+            bounds = feature_ranges[feature]
+            if not isinstance(bounds, (list, tuple)) or len(bounds) != 2:
+                raise ValueError
+            minimum, maximum = (float(bound) for bound in bounds)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise HarvestWeightModelError(
+                f'Harvest weight model has no valid range for {feature}.'
+            ) from exc
+
+        if not np.isfinite([minimum, maximum]).all() or minimum > maximum:
+            raise HarvestWeightModelError(
+                f'Harvest weight model has an invalid range for {feature}.'
+            )
 
     return artifact
 
 
-def predict_harvest_weight_grams(growing_days):
-    try:
-        days = float(growing_days)
-    except (TypeError, ValueError) as exc:
-        raise ValueError('Enter a valid number of growing days.') from exc
-
-    if not np.isfinite(days):
-        raise ValueError('Growing days must be a finite number.')
+def predict_harvest_weight_grams(
+    growing_days,
+    humidity_pct,
+    temperature_c,
+    air_quality_ppm,
+):
+    raw_values = [growing_days, humidity_pct, temperature_c, air_quality_ppm]
+    input_values = {}
+    for feature, raw_value in zip(FEATURES, raw_values):
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f'{feature} must be a valid number.') from exc
+        if not np.isfinite(value):
+            raise ValueError(f'{feature} must be a finite number.')
+        input_values[feature] = value
 
     artifact = load_harvest_weight_model()
-    training_data = artifact['training_data']
-    minimum_days = float(training_data['growing_days_min'])
-    maximum_days = float(training_data['growing_days_max'])
-    if days < minimum_days or days > maximum_days:
-        raise ValueError(
-            f'Growing days must be within the model range '
-            f'[{minimum_days:g}, {maximum_days:g}].'
-        )
+    feature_ranges = artifact['training_data']['feature_ranges']
+    for feature, value in input_values.items():
+        minimum, maximum = (float(bound) for bound in feature_ranges[feature])
+        if value < minimum or value > maximum:
+            raise ValueError(
+                f'{feature} must be within the observed range '
+                f'[{minimum:g}, {maximum:g}].'
+            )
 
-    prediction = artifact['model'].predict(pd.DataFrame({FEATURES[0]: [days]}))
+    prediction = artifact['model'].predict(
+        pd.DataFrame([input_values], columns=FEATURES)
+    )
     weight_grams = float(prediction[0])
     if not np.isfinite(weight_grams) or weight_grams <= 0:
         raise HarvestWeightModelError('The harvest weight model returned an invalid prediction.')

@@ -997,8 +997,10 @@
             
             // Close button
             const closeBtn = document.createElement('button');
-            closeBtn.innerHTML = '<i class="fa-solid fa-times"></i>';
-            closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.2);color:white;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:1.2rem;';
+            closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            closeBtn.className = 'ui-close-btn ui-close-btn--on-dark';
+            closeBtn.setAttribute('aria-label', 'Close');
+            closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;';
             closeBtn.onclick = () => viewer.remove();
             viewer.appendChild(closeBtn);
             

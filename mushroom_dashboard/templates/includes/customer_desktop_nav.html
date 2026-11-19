@@ -51,6 +51,55 @@
         max-width: none;
         object-fit: contain;
     }
+    /* ---- Unified close (X) button for modals and dialogs ---- */
+    #customerServiceClose,
+    .close-review-modal,
+    .ui-close-btn {
+        display: inline-flex !important;
+        flex: 0 0 40px !important;
+        align-items: center;
+        justify-content: center;
+        align-self: center;
+        box-sizing: border-box;
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 50% !important;
+        background: #f1f5f9 !important;
+        color: #475569 !important;
+        font-size: 1.05rem !important;
+        font-weight: 700;
+        line-height: 1 !important;
+        text-decoration: none;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: background .2s ease, color .2s ease, transform .25s ease, box-shadow .2s ease;
+    }
+    #customerServiceClose:hover,
+    .close-review-modal:hover,
+    .ui-close-btn:hover { background: #e2e8f0 !important; color: #0f172a !important; transform: rotate(90deg); }
+    #customerServiceClose:active,
+    .close-review-modal:active,
+    .ui-close-btn:active { transform: rotate(90deg) scale(.9); }
+    #customerServiceClose:focus-visible,
+    .close-review-modal:focus-visible,
+    .ui-close-btn:focus-visible { outline: 3px solid rgba(34, 197, 94, .5); outline-offset: 2px; }
+    .close-review-modal { font-size: 1.6rem !important; font-weight: 400; padding-bottom: 2px !important; }
+
+    /* On dark headers / photo overlays */
+    #customerServiceClose,
+    .ui-close-btn--on-dark {
+        background: rgba(255, 255, 255, .18) !important;
+        color: #fff !important;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
+    }
+    #customerServiceClose:hover,
+    .ui-close-btn--on-dark:hover { background: rgba(255, 255, 255, .32) !important; color: #fff !important; }
+    .ui-close-btn--on-dark { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+
     /* Icon-only logout in the header (phones only; desktop uses the nav link) */
     .customer-shared-navbar .customer-header-logout,
     .customer-shared-navbar .customer-header-support { display: none; }

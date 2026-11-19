@@ -999,7 +999,7 @@
         <div class="logout-modal-content" style="max-width:600px; text-align:left;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h3 style="font-size:1.5rem; font-weight:800; color:var(--text-main);">Write a Review</h3>
-                <button onclick="closeReviewModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--text-muted);"><i class="fa-solid fa-times"></i></button>
+                <button type="button" class="ui-close-btn" onclick="closeReviewModal()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="reviewForm">
                 <input type="hidden" id="reviewProductId" name="product_id">

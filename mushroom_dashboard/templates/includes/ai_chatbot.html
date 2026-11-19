@@ -51,6 +51,72 @@
     }
     .ai-chatbot.is-dragging .kabu-bubble { opacity: 0; visibility: hidden; }
 
+    /* Minimize / maximize */
+    .kabu-minimize {
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .26);
+        color: #475569;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform .15s ease, background .2s ease;
+    }
+    .kabu-minimize:hover { background: #f1f5f9; transform: scale(1.1); }
+    .kabu-minimize:active { transform: scale(.92); }
+    .kabu-minimize svg { width: 12px; height: 12px; }
+    .ai-chatbot.is-dragging .kabu-minimize { opacity: 0; }
+
+    .kabu-mini {
+        position: relative;
+        display: none;
+        width: 52px;
+        height: 52px;
+        padding: 5px;
+        border: 2px solid #bbf7d0;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 8px 20px rgba(17, 57, 42, .28);
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform .18s ease;
+    }
+    .kabu-mini:hover { transform: scale(1.08); }
+    .kabu-mini .kabu-svg { display: block; }
+    .kabu-mini-plus {
+        position: absolute;
+        right: -3px;
+        bottom: -3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        background: #0c4b33;
+        color: #fff;
+    }
+    .kabu-mini-plus svg { width: 10px; height: 10px; }
+    .ai-chatbot.is-minimized .ai-chatbot-launcher,
+    .ai-chatbot.is-minimized .kabu-minimize,
+    .ai-chatbot.is-minimized .kabu-bubble { display: none !important; }
+    .ai-chatbot.is-minimized .kabu-mini { display: inline-block; }
+    .ai-chatbot.is-dragging .kabu-mini { cursor: grabbing; transform: scale(1.12); }
+
     /* When Kabu sits on the left half, the speech bubble opens to its right */
     .ai-chatbot.is-left .kabu-bubble {
         right: auto;
@@ -193,13 +259,30 @@
     }
 
     .ai-chatbot-close {
+        display: inline-flex;
+        flex: 0 0 38px;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        min-height: 38px;
+        padding: 0;
         border: 0;
-        background: transparent;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .18);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
         color: #fff;
         cursor: pointer;
-        font-size: 20px;
+        font-size: 16px;
         line-height: 1;
+        -webkit-tap-highlight-color: transparent;
+        transition: background .2s ease, transform .25s ease;
     }
+    .ai-chatbot-close:hover { background: rgba(255, 255, 255, .32); transform: rotate(90deg); }
+    .ai-chatbot-close:active { transform: rotate(90deg) scale(.9); }
+    .ai-chatbot-close:focus-visible { outline: 3px solid rgba(255, 255, 255, .6); outline-offset: 2px; }
 
     .ai-chatbot-messages {
         display: flex;
@@ -385,6 +468,47 @@
         </svg>
     </button>
 
+    <button class="kabu-minimize" type="button" aria-label="Minimize Kabu" title="Minimize Kabu">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 6h8"/></svg>
+    </button>
+
+    <button class="kabu-mini" type="button" aria-label="Show Kabu" title="Show Kabu">
+        <svg class="kabu-svg" viewBox="4 6 92 88" aria-hidden="true" focusable="false">
+            <ellipse cx="50" cy="95" rx="26" ry="3.5" fill="rgba(15,23,42,.16)"/>
+            <path d="M33 73 Q25 76 23 84" stroke="#e8cf9c" stroke-width="9" stroke-linecap="round" fill="none"/>
+            <path d="M33 73 Q25 76 23 84" stroke="#fff1d6" stroke-width="6.6" stroke-linecap="round" fill="none"/>
+            <path d="M32 52 H68 V80 Q68 92 50 92 Q32 92 32 80 Z" fill="#fff1d6" stroke="#e8cf9c" stroke-width="1.6" stroke-linejoin="round"/>
+            <g>
+                <ellipse cx="42" cy="70" rx="5.4" ry="6.4" fill="#fff"/>
+                <ellipse cx="58" cy="70" rx="5.4" ry="6.4" fill="#fff"/>
+                <circle cx="42.6" cy="71" r="3.5" fill="#1f2937"/>
+                <circle cx="58.6" cy="71" r="3.5" fill="#1f2937"/>
+                <circle cx="43.8" cy="69.4" r="1.2" fill="#fff"/>
+                <circle cx="59.8" cy="69.4" r="1.2" fill="#fff"/>
+            </g>
+            <ellipse cx="36" cy="78" rx="3.6" ry="2.2" fill="#ff9aa2" opacity=".55"/>
+            <ellipse cx="64" cy="78" rx="3.6" ry="2.2" fill="#ff9aa2" opacity=".55"/>
+            <path d="M43.5 79 Q50 86.5 56.5 79" stroke="#7c2d12" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+            <path d="M8 56 C8 22 28 10 50 10 C72 10 92 22 92 56 C92 60 88 62 84 62 H16 C12 62 8 60 8 56 Z" fill="#e63b2e"/>
+            <path d="M14 40 C16 26 28 17 40 15" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none" opacity=".3"/>
+            <circle cx="30" cy="36" r="6" fill="#fff"/>
+            <circle cx="53" cy="26" r="5" fill="#fff"/>
+            <circle cx="72" cy="38" r="6.5" fill="#fff"/>
+            <circle cx="44" cy="50" r="3.5" fill="#fff"/>
+            <circle cx="83" cy="53" r="3" fill="#fff"/>
+            <circle cx="17" cy="53" r="2.8" fill="#fff"/>
+            <g>
+                <path d="M67 73 Q80 72 85 57" stroke="#e8cf9c" stroke-width="9" stroke-linecap="round" fill="none"/>
+                <path d="M67 73 Q80 72 85 57" stroke="#fff1d6" stroke-width="6.6" stroke-linecap="round" fill="none"/>
+                <circle cx="85.5" cy="52.5" r="6.2" fill="#fff1d6" stroke="#e8cf9c" stroke-width="1.6"/>
+                <circle cx="81" cy="46.8" r="2.3" fill="#fff1d6" stroke="#e8cf9c" stroke-width="1.2"/>
+                <circle cx="86" cy="45.6" r="2.3" fill="#fff1d6" stroke="#e8cf9c" stroke-width="1.2"/>
+                <circle cx="90.6" cy="47.6" r="2.3" fill="#fff1d6" stroke="#e8cf9c" stroke-width="1.2"/>
+            </g>
+        </svg>
+        <span class="kabu-mini-plus"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 2v8M2 6h8"/></svg></span>
+    </button>
+
     <section class="ai-chatbot-panel" id="ai-chatbot-panel" hidden aria-hidden="true" aria-label="Kabu, your KabutoMate assistant">
         <header class="ai-chatbot-header">
             <div class="ai-chatbot-header-main">
@@ -428,7 +552,7 @@
                     <p class="ai-chatbot-subtitle">Your friendly mushroom buddy</p>
                 </div>
             </div>
-            <button class="ai-chatbot-close" type="button" aria-label="Close Kabu chat">&#10005;</button>
+            <button class="ai-chatbot-close" type="button" aria-label="Close Kabu chat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12"/></svg></button>
         </header>
         <div class="ai-chatbot-messages" aria-live="polite">
             <div class="ai-chatbot-message assistant">Hi! I'm Kabu 🍄 Ask me about products, orders, delivery, or anything around KabutoMate.</div>
@@ -465,6 +589,8 @@
             }
 
             if (open) {
+                hideBubble();
+                if (tipTimer) { window.clearTimeout(tipTimer); tipTimer = null; }
                 panel.hidden = false;
                 panel.setAttribute('aria-hidden', 'false');
                 launcher.classList.add('is-active');
@@ -476,6 +602,7 @@
                 closeTimer = window.setTimeout(() => {
                     panel.hidden = true;
                     closeTimer = null;
+                    scheduleTip(1500); // Kabu says something again shortly after the chat closes
                 }, PANEL_TRANSITION_MS);
             }
 
@@ -517,6 +644,8 @@
         // ---- Kabu's speech bubble ----
         const bubble = root.querySelector('.kabu-bubble');
         const bubbleText = bubble.querySelector('.kabu-bubble-text');
+        const mini = root.querySelector('.kabu-mini');
+        const minimizeButton = root.querySelector('.kabu-minimize');
         const tips = [
             'Hi, I\u2019m Kabu! \uD83D\uDC4B',
             'Do you have a question?',
@@ -525,50 +654,78 @@
             'Tap me to chat!',
             'Drag me anywhere you like! \u2728'
         ];
-        const DISMISS_KEY = 'kabutomate:kabu-bubble-dismissed';
+        const FIRST_TIP_DELAY_MS = 1200;
+        const TIP_VISIBLE_MS = 6500;
+        const TIP_GAP_MS = 4500;
+        const RETRY_MS = 1500;
         let tipIndex = 0;
+        let tipsShown = 0;
         let tipTimer = null;
-        let bubbleDismissed = false;
-        try { bubbleDismissed = window.sessionStorage.getItem(DISMISS_KEY) === '1'; } catch (error) { /* ignore */ }
+        let hideTimer = null;
+        let nextTipOverride = null;
 
-        function stopTips() {
-            if (tipTimer) { window.clearTimeout(tipTimer); tipTimer = null; }
+        function isMinimized() { return root.classList.contains('is-minimized'); }
+        function isDragging() { return root.classList.contains('is-dragging'); }
+        function canShowTip() { return panel.hidden && !isMinimized() && !isDragging() && !document.hidden; }
+
+        function hideBubble() {
             bubble.classList.remove('is-visible');
-            window.setTimeout(() => { if (!bubble.classList.contains('is-visible')) bubble.hidden = true; }, 280);
+            if (hideTimer) window.clearTimeout(hideTimer);
+            hideTimer = window.setTimeout(() => { if (!bubble.classList.contains('is-visible')) bubble.hidden = true; }, 280);
         }
 
-        function showTip() {
-            if (bubbleDismissed || !panel.hidden) return;
+        function scheduleTip(delay) {
+            if (tipTimer) window.clearTimeout(tipTimer);
+            tipTimer = window.setTimeout(tipTick, delay);
+        }
+
+        // Runs on every page: shows each tip once per page view, pauses while the
+        // chat is open / Kabu is dragged / minimized, and resumes by itself.
+        function tipTick() {
+            if (!canShowTip()) { hideBubble(); scheduleTip(RETRY_MS); return; }
+            if (!nextTipOverride && tipsShown >= tips.length) return;
+            if (hideTimer) { window.clearTimeout(hideTimer); hideTimer = null; }
             bubble.hidden = false;
-            bubbleText.textContent = tips[tipIndex % tips.length];
-            tipIndex += 1;
+            if (nextTipOverride) { bubbleText.textContent = nextTipOverride; nextTipOverride = null; }
+            else { bubbleText.textContent = tips[tipIndex % tips.length]; tipIndex += 1; tipsShown += 1; }
             window.requestAnimationFrame(() => bubble.classList.add('is-visible'));
-            tipTimer = window.setTimeout(hideTip, 5200);
-        }
-
-        function hideTip() {
-            bubble.classList.remove('is-visible');
             tipTimer = window.setTimeout(() => {
-                if (!bubble.classList.contains('is-visible')) bubble.hidden = true;
-                showTip();
-            }, 3800);
+                hideBubble();
+                scheduleTip(TIP_GAP_MS);
+            }, TIP_VISIBLE_MS);
         }
 
-        function dismissBubble() {
-            bubbleDismissed = true;
-            try { window.sessionStorage.setItem(DISMISS_KEY, '1'); } catch (error) { /* ignore */ }
-            stopTips();
+        bubble.addEventListener('click', () => { setOpen(true); });
+        scheduleTip(FIRST_TIP_DELAY_MS);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden && !tipTimer) scheduleTip(RETRY_MS); });
+
+        // ---- Minimize / maximize ----
+        const MINIMIZED_KEY = 'kabutomate:kabu-minimized';
+
+        function setMinimized(minimized, persist) {
+            if (minimized && !panel.hidden) setOpen(false);
+            root.classList.toggle('is-minimized', minimized);
+            if (minimized) {
+                hideBubble();
+            } else {
+                nextTipOverride = 'I\u2019m back! Need anything? \uD83C\uDF44';
+                scheduleTip(500);
+            }
+            if (persist) {
+                try { window.localStorage.setItem(MINIMIZED_KEY, minimized ? '1' : '0'); } catch (error) { /* ignore */ }
+            }
+            applySavedPosition(false);
         }
 
-        bubble.addEventListener('click', () => { dismissBubble(); setOpen(true); });
-        if (!bubbleDismissed) tipTimer = window.setTimeout(showTip, 1800);
+        minimizeButton.addEventListener('click', (event) => { event.stopPropagation(); setMinimized(true, true); });
+        mini.addEventListener('click', () => { if (!justDragged) setMinimized(false, true); });
 
         // ---- Drag Kabu anywhere on the screen ----
         const POSITION_KEY = 'kabutomate:kabu-position';
         const EDGE = 10;
         const DRAG_THRESHOLD = 8;
         let drag = null;
-        let justDragged = false;
+        let justDragged = false; // declared before use by minimize/maximize handlers
 
         function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
 
@@ -612,26 +769,26 @@
             placeKabu(x, y, animate);
         }
 
-        launcher.addEventListener('pointerdown', (event) => {
+        [launcher, mini].forEach((dragTarget) => dragTarget.addEventListener('pointerdown', (event) => {
             if (event.pointerType === 'mouse' && event.button !== 0) return;
             const rect = root.getBoundingClientRect();
             drag = { id: event.pointerId, startX: event.clientX, startY: event.clientY, originX: rect.left, originY: rect.top, moved: false };
-        });
+        }));
 
-        launcher.addEventListener('pointermove', (event) => {
+        [launcher, mini].forEach((dragTarget) => dragTarget.addEventListener('pointermove', (event) => {
             if (!drag || event.pointerId !== drag.id) return;
             const dx = event.clientX - drag.startX;
             const dy = event.clientY - drag.startY;
             if (!drag.moved) {
                 if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
                 drag.moved = true;
-                if (launcher.setPointerCapture) { try { launcher.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ } }
+                if (event.currentTarget.setPointerCapture) { try { event.currentTarget.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ } }
                 root.classList.add('is-dragging');
             }
             event.preventDefault();
             const bounds = dragBounds();
             placeKabu(clamp(drag.originX + dx, bounds.minX, bounds.maxX), clamp(drag.originY + dy, bounds.minY, bounds.maxY), false);
-        });
+        }));
 
         function endDrag(event) {
             if (!drag || (event && event.pointerId !== drag.id)) return;
@@ -641,6 +798,7 @@
             justDragged = true;
             window.setTimeout(() => { justDragged = false; }, 60);
             root.classList.remove('is-dragging');
+            scheduleTip(2500);
             const rect = root.getBoundingClientRect();
             const bounds = dragBounds();
             const side = rect.left + rect.width / 2 < window.innerWidth / 2 ? 'left' : 'right';
@@ -649,15 +807,19 @@
             savePosition(side, bounds.maxY > bounds.minY ? (y - bounds.minY) / (bounds.maxY - bounds.minY) : 0);
         }
 
-        launcher.addEventListener('pointerup', endDrag);
-        launcher.addEventListener('pointercancel', endDrag);
+        [launcher, mini].forEach((dragTarget) => {
+            dragTarget.addEventListener('pointerup', endDrag);
+            dragTarget.addEventListener('pointercancel', endDrag);
+        });
         window.addEventListener('resize', () => applySavedPosition(false));
         window.addEventListener('orientationchange', () => applySavedPosition(false));
+        let startMinimized = false;
+        try { startMinimized = window.localStorage.getItem(MINIMIZED_KEY) === '1'; } catch (error) { /* ignore */ }
+        if (startMinimized) root.classList.add('is-minimized');
         applySavedPosition(false);
 
         launcher.addEventListener('click', () => {
             if (justDragged) return;
-            dismissBubble();
             setOpen(panel.hidden);
         });
         closeButton.addEventListener('click', () => setOpen(false));

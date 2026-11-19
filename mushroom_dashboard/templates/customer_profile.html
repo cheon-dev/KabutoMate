@@ -1600,7 +1600,7 @@
         <div class="review-modal-content">
             <div class="review-modal-header">
                 <h2>Write a Review</h2>
-                <span class="close-review-modal">&times;</span>
+                <button type="button" class="close-review-modal" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div class="review-modal-body">
@@ -1661,7 +1661,7 @@
         <div class="review-modal-content">
             <div class="review-modal-header">
                 <h2><i class="fa-solid fa-user-pen"></i> Edit Profile Information</h2>
-                <span class="close-review-modal" id="closeEditModal">&times;</span>
+                <button type="button" class="close-review-modal" id="closeEditModal" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="review-modal-body">
                 <form id="editProfileForm">
@@ -1740,7 +1740,7 @@
         <div class="review-modal-content">
             <div class="review-modal-header">
                 <h2><i class="fa-solid fa-location-dot"></i> <span id="addressModalTitle">Add Delivery Address</span></h2>
-                <span class="close-review-modal" id="closeAddressModal">&times;</span>
+                <button type="button" class="close-review-modal" id="closeAddressModal" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="review-modal-body">
                 <form id="addressForm">
@@ -2480,8 +2480,10 @@
             
             // Close button
             const closeBtn = document.createElement('button');
-            closeBtn.innerHTML = '<i class="fa-solid fa-times"></i>';
-            closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.2);color:white;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:1.2rem;';
+            closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            closeBtn.className = 'ui-close-btn ui-close-btn--on-dark';
+            closeBtn.setAttribute('aria-label', 'Close');
+            closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;';
             closeBtn.onclick = () => viewer.remove();
             viewer.appendChild(closeBtn);
             

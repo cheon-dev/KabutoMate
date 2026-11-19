@@ -54,19 +54,24 @@
     /* Minimize / maximize */
     .kabu-minimize {
         position: absolute;
-        top: -2px;
-        left: -2px;
+        top: -3px;
+        left: -3px;
         z-index: 2;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 26px;
-        height: 26px;
+        box-sizing: border-box;
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
+        min-height: 20px;
+        max-width: 20px;
+        max-height: 20px;
         padding: 0;
         border: 0;
         border-radius: 50%;
         background: #fff;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, .26);
+        box-shadow: 0 1px 6px rgba(15, 23, 42, .28);
         color: #475569;
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
@@ -74,15 +79,18 @@
     }
     .kabu-minimize:hover { background: #f1f5f9; transform: scale(1.1); }
     .kabu-minimize:active { transform: scale(.92); }
-    .kabu-minimize svg { width: 12px; height: 12px; }
+    .kabu-minimize svg { width: 9px; height: 9px; }
     .ai-chatbot.is-dragging .kabu-minimize { opacity: 0; }
 
     .kabu-mini {
         position: relative;
         display: none;
-        width: 52px;
-        height: 52px;
-        padding: 5px;
+        box-sizing: border-box;
+        width: 58px;
+        height: 58px;
+        min-width: 58px;
+        min-height: 58px;
+        padding: 4px;
         border: 2px solid #bbf7d0;
         border-radius: 50%;
         background: #fff;
@@ -95,11 +103,24 @@
         transition: transform .18s ease;
     }
     .kabu-mini:hover { transform: scale(1.08); }
-    .kabu-mini .kabu-svg { display: block; }
+    .kabu-mini-face {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        border-radius: 50%;
+    }
+    .kabu-mini .kabu-svg {
+        display: block;
+        transform: translateX(-9px) rotate(-8deg);
+        transform-origin: center;
+    }
+    /* Docked on the left edge: lean the other way */
+    .ai-chatbot.is-left .kabu-mini .kabu-svg { transform: translateX(9px) rotate(8deg); }
     .kabu-mini-plus {
         position: absolute;
-        right: -3px;
-        bottom: -3px;
+        left: -4px;
+        bottom: -2px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -114,8 +135,15 @@
     .ai-chatbot.is-minimized .ai-chatbot-launcher,
     .ai-chatbot.is-minimized .kabu-minimize,
     .ai-chatbot.is-minimized .kabu-bubble { display: none !important; }
-    .ai-chatbot.is-minimized .kabu-mini { display: inline-block; }
-    .ai-chatbot.is-dragging .kabu-mini { cursor: grabbing; transform: scale(1.12); }
+    .ai-chatbot.is-minimized .kabu-mini {
+        display: inline-block;
+        animation: kabu-peek-right 2.8s ease-in-out infinite;
+    }
+    .ai-chatbot.is-minimized.is-left .kabu-mini { animation-name: kabu-peek-left; }
+    .ai-chatbot.is-minimized.is-left .kabu-mini-plus { left: auto; right: -4px; }
+    @keyframes kabu-peek-right { 0%, 100% { translate: 0 0; } 50% { translate: -5px 0; } }
+    @keyframes kabu-peek-left { 0%, 100% { translate: 0 0; } 50% { translate: 5px 0; } }
+    .ai-chatbot.is-dragging .kabu-mini { cursor: grabbing; animation: none; }
 
     /* When Kabu sits on the left half, the speech bubble opens to its right */
     .ai-chatbot.is-left .kabu-bubble {
@@ -387,6 +415,7 @@
 
     @media (prefers-reduced-motion: reduce) {
         .ai-chatbot-launcher,
+        .kabu-mini,
         .kabu-arm,
         .kabu-eyes,
         .ai-chatbot-panel,
@@ -473,7 +502,7 @@
     </button>
 
     <button class="kabu-mini" type="button" aria-label="Show Kabu" title="Show Kabu">
-        <svg class="kabu-svg" viewBox="4 6 92 88" aria-hidden="true" focusable="false">
+        <span class="kabu-mini-face"><svg class="kabu-svg" viewBox="4 6 92 88" aria-hidden="true" focusable="false">
             <ellipse cx="50" cy="95" rx="26" ry="3.5" fill="rgba(15,23,42,.16)"/>
             <path d="M33 73 Q25 76 23 84" stroke="#e8cf9c" stroke-width="9" stroke-linecap="round" fill="none"/>
             <path d="M33 73 Q25 76 23 84" stroke="#fff1d6" stroke-width="6.6" stroke-linecap="round" fill="none"/>
@@ -505,7 +534,7 @@
                 <circle cx="86" cy="45.6" r="2.3" fill="#fff1d6" stroke="#e8cf9c" stroke-width="1.2"/>
                 <circle cx="90.6" cy="47.6" r="2.3" fill="#fff1d6" stroke="#e8cf9c" stroke-width="1.2"/>
             </g>
-        </svg>
+        </svg></span>
         <span class="kabu-mini-plus"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 2v8M2 6h8"/></svg></span>
     </button>
 
@@ -704,6 +733,7 @@
 
         function setMinimized(minimized, persist) {
             if (minimized && !panel.hidden) setOpen(false);
+            if (minimized) ensureSavedPosition(); // measure before the box shrinks
             root.classList.toggle('is-minimized', minimized);
             if (minimized) {
                 hideBubble();
@@ -714,7 +744,7 @@
             if (persist) {
                 try { window.localStorage.setItem(MINIMIZED_KEY, minimized ? '1' : '0'); } catch (error) { /* ignore */ }
             }
-            applySavedPosition(false);
+            applySavedPosition(true);
         }
 
         minimizeButton.addEventListener('click', (event) => { event.stopPropagation(); setMinimized(true, true); });
@@ -729,15 +759,19 @@
 
         function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
 
+        const PEEK_HIDDEN = 0.45; // share of the minimized Kabu that tucks off-screen
+
         function dragBounds() {
             const rect = root.getBoundingClientRect();
             const nav = document.querySelector('.customer-mobile-nav');
             const navVisible = nav && window.getComputedStyle(nav).display !== 'none';
             const bottomGap = navVisible ? 92 : EDGE;
+            const hidden = isMinimized() ? Math.round(rect.width * PEEK_HIDDEN) : 0;
             return {
                 width: rect.width,
-                minX: EDGE,
-                maxX: Math.max(EDGE, window.innerWidth - rect.width - EDGE),
+                hidden: hidden,
+                minX: isMinimized() ? -hidden : EDGE,
+                maxX: isMinimized() ? window.innerWidth - rect.width + hidden : Math.max(EDGE, window.innerWidth - rect.width - EDGE),
                 minY: EDGE,
                 maxY: Math.max(EDGE, window.innerHeight - rect.height - bottomGap)
             };
@@ -759,12 +793,26 @@
             try { window.localStorage.setItem(POSITION_KEY, JSON.stringify({ side: side, y: yRatio })); } catch (error) { /* ignore */ }
         }
 
+        function dockX(side, bounds) {
+            return side === 'left' ? bounds.minX : bounds.maxX;
+        }
+
+        // Make sure a side/height is stored so a minimized Kabu knows which edge to tuck into.
+        function ensureSavedPosition() {
+            try { if (window.localStorage.getItem(POSITION_KEY)) return; } catch (error) { return; }
+            const rect = root.getBoundingClientRect();
+            const bounds = dragBounds();
+            const side = rect.left + rect.width / 2 < window.innerWidth / 2 ? 'left' : 'right';
+            const span = bounds.maxY - bounds.minY;
+            savePosition(side, span > 0 ? clamp((rect.top - bounds.minY) / span, 0, 1) : 0);
+        }
+
         function applySavedPosition(animate) {
             let saved = null;
             try { saved = JSON.parse(window.localStorage.getItem(POSITION_KEY) || 'null'); } catch (error) { /* ignore */ }
             if (!saved || (saved.side !== 'left' && saved.side !== 'right')) return;
             const bounds = dragBounds();
-            const x = saved.side === 'left' ? bounds.minX : bounds.maxX;
+            const x = dockX(saved.side, bounds);
             const y = bounds.minY + clamp(Number(saved.y) || 0, 0, 1) * (bounds.maxY - bounds.minY);
             placeKabu(x, y, animate);
         }
@@ -803,7 +851,7 @@
             const bounds = dragBounds();
             const side = rect.left + rect.width / 2 < window.innerWidth / 2 ? 'left' : 'right';
             const y = clamp(rect.top, bounds.minY, bounds.maxY);
-            placeKabu(side === 'left' ? bounds.minX : bounds.maxX, y, true);
+            placeKabu(dockX(side, bounds), y, true);
             savePosition(side, bounds.maxY > bounds.minY ? (y - bounds.minY) / (bounds.maxY - bounds.minY) : 0);
         }
 
@@ -815,7 +863,7 @@
         window.addEventListener('orientationchange', () => applySavedPosition(false));
         let startMinimized = false;
         try { startMinimized = window.localStorage.getItem(MINIMIZED_KEY) === '1'; } catch (error) { /* ignore */ }
-        if (startMinimized) root.classList.add('is-minimized');
+        if (startMinimized) { ensureSavedPosition(); root.classList.add('is-minimized'); }
         applySavedPosition(false);
 
         launcher.addEventListener('click', () => {

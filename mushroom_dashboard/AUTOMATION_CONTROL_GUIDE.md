@@ -58,6 +58,21 @@ Each device (fan, humidifier, heater) can operate in two modes:
 5. ESP32 controls relays based on response
 ```
 
+### Simulated Readings
+
+When the dashboard runs without physical sensors, the simulator stores readings
+under the `SIMULATED_ESP32` device ID. Those readings go through the same
+automation engine (`core/automation.py`) as live ESP32 readings, so automatic
+fan, humidifier, and grow-light control keeps working during demos:
+
+- Simulated readings only drive automation after the live sensor has been quiet
+  for 15 minutes. The ESP32 uploads once every 10 minutes, so a normal gap
+  between uploads can never let simulation and hardware fight over the relays.
+- Automatic mode applies normally; devices in manual mode are left alone.
+- Automation log entries are prefixed with `Auto (simulated):` so the history
+  shows which changes came from demo data.
+- With simulation disabled, no simulated readings are created or applied.
+
 ## API Endpoints
 
 ### 1. Automation Decision (Main Endpoint)

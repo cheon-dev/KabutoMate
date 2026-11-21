@@ -12,6 +12,7 @@ from decimal import Decimal
 from datetime import timedelta
 import hmac
 import json
+from .automation import apply_automation_decisions
 from .models import EnvironmentSettings, SensorReading, Notification
 from .notification_service import evaluate_environment_notifications
 
@@ -429,8 +430,8 @@ def get_automation_decision(request):
         auth_error = _device_key_error(request)
         if auth_error:
             return auth_error
-        from .models import EnvironmentSettings, SensorReading, AutomationLog
-        
+        from .models import EnvironmentSettings, SensorReading
+
         settings = EnvironmentSettings.load()
         
         # Get sensor readings - either from POST body or from database
@@ -471,118 +472,19 @@ def get_automation_decision(request):
                     'message': 'No sensor data available. Send sensor readings via POST or wait for ESP32 data.'
                 }, status=400)
         
-        # Get automation decisions
-        decisions = settings.get_automation_decision(temperature, humidity, air_quality_ppm)
-        
-        # Build response for each control
-        controls_response = {}
-        state_changed = False
-        
-        # --- Fan Control ---
-        if settings.fan_auto:
-            fan_should_be_on = decisions['fan_should_be_on']
-            if fan_should_be_on is not None and fan_should_be_on != settings.fan_on:
-                # State change needed - update settings
-                settings.fan_on = fan_should_be_on
-                state_changed = True
-                
-                # Log the automation action
-                action = 'VENTILATION_ON' if fan_should_be_on else 'VENTILATION_OFF'
-                AutomationLog.objects.create(
-                    action=action,
-                    reason=f"Auto: {'; '.join([r for r in decisions['reasons'] if 'Temperature' in r or 'Humidity' in r or 'Air quality' in r][:2]) or 'Threshold check'}",
-                    temperature_before=temperature,
-                    humidity_before=humidity,
-                    co2_before=air_quality_ppm or 0,
-                    confidence=100.0
-                )
-            
-            controls_response['fan'] = {
-                'should_be_on': fan_should_be_on if fan_should_be_on is not None else settings.fan_on,
-                'current_state': settings.fan_on,
-                'mode': 'automatic',
-                'reason': next((r for r in decisions['reasons'] if 'fan' in r.lower() or 'temperature' in r.lower() or 'humidity' in r.lower() and 'exceeds' in r.lower()), 'Within normal range')
-            }
-        else:
-            # Manual mode - just return current switch state
-            controls_response['fan'] = {
-                'should_be_on': settings.fan_on,
-                'current_state': settings.fan_on,
-                'mode': 'manual',
-                'reason': 'Manual control - dashboard switch state'
-            }
-        
-        # --- Humidifier Control ---
-        if settings.humidifier_auto:
-            hum_should_be_on = decisions['humidifier_should_be_on']
-            if hum_should_be_on is not None and hum_should_be_on != settings.humidifier_on:
-                settings.humidifier_on = hum_should_be_on
-                state_changed = True
-                
-                action = 'HUMIDIFIER_ON' if hum_should_be_on else 'HUMIDIFIER_OFF'
-                AutomationLog.objects.create(
-                    action=action,
-                    reason=f"Auto: {'; '.join([r for r in decisions['reasons'] if 'umidity' in r][:1]) or 'Threshold check'}",
-                    temperature_before=temperature,
-                    humidity_before=humidity,
-                    co2_before=air_quality_ppm or 0,
-                    confidence=100.0
-                )
-            
-            controls_response['humidifier'] = {
-                'should_be_on': hum_should_be_on if hum_should_be_on is not None else settings.humidifier_on,
-                'current_state': settings.humidifier_on,
-                'mode': 'automatic',
-                'reason': next((r for r in decisions['reasons'] if 'umidity' in r), 'Within target range')
-            }
-        else:
-            controls_response['humidifier'] = {
-                'should_be_on': settings.humidifier_on,
-                'current_state': settings.humidifier_on,
-                'mode': 'manual',
-                'reason': 'Manual control - dashboard switch state'
-            }
-        
-        # --- Grow Light Control (Lux-based) ---
-        if settings.lights_auto:
-            # Map UI value (0-100%) to an ambient lux target (100-1000 lux).
-            target_lux = 100.0 + (max(0.0, min(float(settings.lights_value), 100.0)) / 100.0) * 900.0
-            lux_hysteresis = 50.0
-            lights_should_be_on = settings.lights_on
+        # Apply the shared engine so live and simulated readings produce the
+        # same relay decisions and automation log entries.
+        automation = apply_automation_decisions(
+            temperature,
+            humidity,
+            air_quality_ppm,
+            light_lux=light_lux,
+            source='device',
+            settings=settings,
+        )
+        decisions = automation['decisions']
+        controls_response = automation['controls']
 
-            if light_lux is None:
-                lights_reason = 'Automatic mode enabled, waiting for BH1750 lux data'
-            elif light_lux < (target_lux - lux_hysteresis):
-                lights_should_be_on = True
-                lights_reason = f'Light level {light_lux:.1f} lux is below target {target_lux:.0f} lux'
-            elif light_lux > (target_lux + lux_hysteresis):
-                lights_should_be_on = False
-                lights_reason = f'Light level {light_lux:.1f} lux is above target {target_lux:.0f} lux'
-            else:
-                lights_reason = f'Light level {light_lux:.1f} lux is within hysteresis around target {target_lux:.0f} lux'
-
-            if lights_should_be_on != settings.lights_on:
-                settings.lights_on = lights_should_be_on
-                state_changed = True
-
-            controls_response['lights'] = {
-                'should_be_on': lights_should_be_on,
-                'current_state': settings.lights_on,
-                'mode': 'automatic',
-                'reason': lights_reason
-            }
-        else:
-            controls_response['lights'] = {
-                'should_be_on': settings.lights_on,
-                'current_state': settings.lights_on,
-                'mode': 'manual',
-                'reason': 'Manual control - dashboard switch state'
-            }
-        
-        # Save settings if any state changed
-        if state_changed:
-            settings.save()
-        
         return JsonResponse({
             'status': 'success',
             'controls': controls_response,

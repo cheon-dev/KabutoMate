@@ -13,6 +13,7 @@ from django.utils import timezone
 from .ai_service import ask_gemini
 from .ai_context import build_ai_context
 from .models import (
+    AutomationLog,
     EnvironmentSettings,
     Notification,
     Order,
@@ -487,12 +488,16 @@ class SensorSimulationTests(TestCase):
         side_effect=KeyboardInterrupt,
     )
     @patch(
+        'core.sensor_simulation.SIMULATION_INTERVAL',
+        new=timedelta(hours=1),
+    )
+    @patch(
         'core.sensor_simulation.random.uniform',
-        side_effect=[0.1, 0.4],
+        return_value=0,
     )
     @patch(
         'core.sensor_simulation.random.randint',
-        side_effect=[5, 100],
+        return_value=0,
     )
     def test_simulator_provides_gradual_data_to_dashboard(
         self, _randint, _uniform, _sleep
@@ -741,6 +746,167 @@ class SensorSimulationTests(TestCase):
         self.assertIn('Minimum temperature', response.json()['error'])
 
 
+class SimulatedAutomationTests(TestCase):
+    def _simulated_reading(self, temperature, humidity, air_quality):
+        SensorSimulationSettings.objects.create(
+            temperature_min=temperature,
+            temperature_max=temperature,
+            humidity_min=humidity,
+            humidity_max=humidity,
+            air_quality_min=air_quality,
+            air_quality_max=air_quality,
+        )
+        with patch(
+            'core.sensor_simulation.random.uniform', return_value=0
+        ), patch(
+            'core.sensor_simulation.random.randint', return_value=0
+        ):
+            return create_simulated_sensor_reading(force=True)
+
+    def test_simulated_reading_drives_automatic_devices(self):
+        settings_obj = EnvironmentSettings.load()
+        settings_obj.fan_auto = True
+        settings_obj.fan_on = False
+        settings_obj.humidifier_auto = True
+        settings_obj.humidifier_on = False
+        settings_obj.save()
+
+        reading = self._simulated_reading(
+            temperature=Decimal('32.0'),
+            humidity=Decimal('88.0'),
+            air_quality=300,
+        )
+
+        self.assertIsNotNone(reading)
+        settings_obj.refresh_from_db()
+        self.assertTrue(settings_obj.fan_on)
+        self.assertFalse(settings_obj.humidifier_on)
+        log = AutomationLog.objects.get(action='VENTILATION_ON')
+        self.assertIn('Auto (simulated)', log.reason)
+        self.assertEqual(float(log.temperature_before), 32.0)
+
+    def test_simulated_reading_turns_devices_off_after_recovery(self):
+        settings_obj = EnvironmentSettings.load()
+        settings_obj.fan_auto = True
+        settings_obj.fan_on = True
+        settings_obj.humidifier_auto = True
+        settings_obj.humidifier_on = True
+        settings_obj.save()
+
+        self._simulated_reading(
+            temperature=Decimal('20.0'),
+            humidity=Decimal('88.0'),
+            air_quality=300,
+        )
+
+        settings_obj.refresh_from_db()
+        self.assertFalse(settings_obj.fan_on)
+        self.assertFalse(settings_obj.humidifier_on)
+        self.assertTrue(
+            AutomationLog.objects.filter(action='VENTILATION_OFF').exists()
+        )
+        self.assertTrue(
+            AutomationLog.objects.filter(action='HUMIDIFIER_OFF').exists()
+        )
+
+    def test_simulated_reading_skips_automation_when_live_data_is_fresh(self):
+        SensorReading.objects.create(
+            temperature=17.0,
+            humidity=85.0,
+            air_quality_ppm=300,
+            device_id='ESP32_LIVE',
+        )
+        settings_obj = EnvironmentSettings.load()
+        settings_obj.fan_auto = True
+        settings_obj.fan_on = False
+        settings_obj.humidifier_auto = False
+        settings_obj.save()
+
+        reading = self._simulated_reading(
+            temperature=Decimal('32.0'),
+            humidity=Decimal('88.0'),
+            air_quality=300,
+        )
+
+        self.assertIsNotNone(reading)
+        settings_obj.refresh_from_db()
+        self.assertFalse(settings_obj.fan_on)
+        self.assertEqual(AutomationLog.objects.count(), 0)
+
+    def test_simulated_reading_waits_out_esp32_upload_gap(self):
+        live = SensorReading.objects.create(
+            temperature=17.0,
+            humidity=85.0,
+            air_quality_ppm=300,
+            device_id='ESP32_LIVE',
+        )
+        # The firmware uploads every 10 minutes; a gap inside that window must
+        # not hand relay control to simulated data.
+        SensorReading.objects.filter(pk=live.pk).update(
+            timestamp=timezone.now() - timedelta(minutes=8)
+        )
+        settings_obj = EnvironmentSettings.load()
+        settings_obj.fan_auto = True
+        settings_obj.fan_on = False
+        settings_obj.save()
+
+        self._simulated_reading(
+            temperature=Decimal('32.0'),
+            humidity=Decimal('88.0'),
+            air_quality=300,
+        )
+
+        settings_obj.refresh_from_db()
+        self.assertFalse(settings_obj.fan_on)
+        self.assertEqual(AutomationLog.objects.count(), 0)
+
+    def test_simulated_reading_takes_over_after_live_sensor_stops(self):
+        live = SensorReading.objects.create(
+            temperature=17.0,
+            humidity=85.0,
+            air_quality_ppm=300,
+            device_id='ESP32_LIVE',
+        )
+        SensorReading.objects.filter(pk=live.pk).update(
+            timestamp=timezone.now() - timedelta(minutes=20)
+        )
+        settings_obj = EnvironmentSettings.load()
+        settings_obj.fan_auto = True
+        settings_obj.fan_on = False
+        settings_obj.save()
+
+        self._simulated_reading(
+            temperature=Decimal('32.0'),
+            humidity=Decimal('88.0'),
+            air_quality=300,
+        )
+
+        settings_obj.refresh_from_db()
+        self.assertTrue(settings_obj.fan_on)
+        self.assertTrue(
+            AutomationLog.objects.filter(action='VENTILATION_ON').exists()
+        )
+
+    def test_simulated_reading_does_not_override_manual_mode(self):
+        settings_obj = EnvironmentSettings.load()
+        settings_obj.fan_auto = False
+        settings_obj.fan_on = False
+        settings_obj.humidifier_auto = False
+        settings_obj.humidifier_on = True
+        settings_obj.save()
+
+        self._simulated_reading(
+            temperature=Decimal('35.0'),
+            humidity=Decimal('60.0'),
+            air_quality=900,
+        )
+
+        settings_obj.refresh_from_db()
+        self.assertFalse(settings_obj.fan_on)
+        self.assertTrue(settings_obj.humidifier_on)
+        self.assertEqual(AutomationLog.objects.count(), 0)
+
+
 class YieldTrainingSampleTests(TestCase):
     def test_gram_samples_are_converted_to_kg_for_training(self):
         product = Product.objects.create(
@@ -897,6 +1063,40 @@ class HarvestWeightProductionApiTests(TestCase):
 
 
 @override_settings(SENSOR_PROCESSING_ENABLED=True, ESP32_API_KEY='')
+class AutomationDecisionApiTests(TestCase):
+    @override_settings(
+        SENSOR_PROCESSING_ENABLED=True,
+        ESP32_API_KEY='',
+    )
+    def test_live_reading_still_drives_auto_devices(self):
+        settings_obj = EnvironmentSettings.load()
+        settings_obj.fan_auto = True
+        settings_obj.fan_on = False
+        settings_obj.humidifier_auto = True
+        settings_obj.humidifier_on = False
+        settings_obj.save()
+
+        response = self.client.post(
+            '/api/automation-decision/',
+            data=json.dumps({
+                'temperature': 32,
+                'humidity': 88,
+                'air_quality_ppm': 300,
+                'device_id': 'ESP32_TEST',
+                'save_reading': True,
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['controls']['fan']['should_be_on'])
+        self.assertEqual(response.json()['controls']['fan']['mode'], 'automatic')
+        settings_obj.refresh_from_db()
+        self.assertTrue(settings_obj.fan_on)
+        log = AutomationLog.objects.get(action='VENTILATION_ON')
+        self.assertTrue(log.reason.startswith('Auto: '))
+
+
 class ManualRelayControlTests(TestCase):
     """The ESP32 learns its next poll delay from /api/relay-command/."""
 

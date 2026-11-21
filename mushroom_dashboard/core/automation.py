@@ -5,7 +5,89 @@ Both the ESP32 automation endpoint and the dashboard simulator go through
 grow-light behaviour identical no matter where the measurement came from.
 """
 
-from .models import AutomationLog, EnvironmentSettings
+from datetime import timedelta
+
+from django.utils import timezone
+
+from .models import AutomationLog, EnvironmentSettings, SensorReading
+
+ALERT_READING_MAX_AGE = timedelta(minutes=15)
+
+
+def evaluate_alert_state(
+    temperature,
+    humidity,
+    air_quality_ppm=None,
+    settings=None,
+):
+    """Return the buzzer/dashboard alert state for a set of readings.
+
+    This is a lightweight, side-effect-free check: it never creates
+    notifications or sends email. It only decides whether the current values
+    are outside the same thresholds used by the automation rules.
+    """
+    if settings is None:
+        settings = EnvironmentSettings.load()
+
+    temperature = float(temperature)
+    humidity = float(humidity)
+    reasons = []
+
+    if temperature > float(settings.fan_temp_threshold):
+        reasons.append(
+            f'Temperature {temperature:.1f}°C is above '
+            f'{float(settings.fan_temp_threshold):.1f}°C'
+        )
+    if temperature < float(settings.heater_low_threshold):
+        reasons.append(
+            f'Temperature {temperature:.1f}°C is below '
+            f'{float(settings.heater_low_threshold):.1f}°C'
+        )
+    if humidity > float(settings.humidifier_high_threshold):
+        reasons.append(
+            f'Humidity {humidity:.1f}% is above '
+            f'{float(settings.humidifier_high_threshold):.1f}%'
+        )
+    if humidity < float(settings.humidifier_low_threshold):
+        reasons.append(
+            f'Humidity {humidity:.1f}% is below '
+            f'{float(settings.humidifier_low_threshold):.1f}%'
+        )
+    if (
+        air_quality_ppm is not None
+        and air_quality_ppm > settings.fan_air_quality_threshold
+    ):
+        reasons.append(
+            f'Air quality {air_quality_ppm} ppm is above '
+            f'{settings.fan_air_quality_threshold} ppm'
+        )
+
+    return {'active': bool(reasons), 'reasons': reasons}
+
+
+def alert_state_for_reading(reading, settings=None):
+    """Alert state for a stored reading, ignoring stale readings."""
+    if reading is None:
+        return {'active': False, 'reasons': []}
+    if (
+        reading.timestamp
+        and reading.timestamp < timezone.now() - ALERT_READING_MAX_AGE
+    ):
+        return {'active': False, 'reasons': []}
+    return evaluate_alert_state(
+        reading.temperature,
+        reading.humidity,
+        reading.air_quality_ppm,
+        settings=settings,
+    )
+
+
+def latest_alert_state(settings=None):
+    """Alert state based on the newest stored reading."""
+    return alert_state_for_reading(
+        SensorReading.objects.order_by('-timestamp').first(),
+        settings=settings,
+    )
 
 
 def apply_automation_decisions(

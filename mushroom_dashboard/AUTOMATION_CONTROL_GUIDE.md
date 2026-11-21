@@ -73,6 +73,38 @@ fan, humidifier, and grow-light control keeps working during demos:
   shows which changes came from demo data.
 - With simulation disabled, no simulated readings are created or applied.
 
+### Buzzer Alerts
+
+The active buzzer on GPIO14 and the dashboard's browser beep share one alert
+state, computed by `evaluate_alert_state()` in `core/automation.py`. The alert is
+active when a reading is outside the automation thresholds:
+
+| Measurement | Alert condition |
+|-------------|-----------------|
+| Temperature | Above `fan_temp_threshold` or below `heater_low_threshold` |
+| Humidity | Above `humidifier_high_threshold` or below `humidifier_low_threshold` |
+| Air quality | Above `fan_air_quality_threshold` |
+
+This check has no side effects: it does not create notifications or send email,
+and it works for live and dashboard-generated readings alike. Readings older
+than 15 minutes are ignored so a stale value cannot leave the buzzer sounding
+forever.
+
+- **Hardware:** `/api/automation-decision/` and `/api/relay-command/` both
+  return `"alert": {"active": true, "reasons": [...]}`. The ESP32 sounds three
+  short beeps and repeats at most once per minute while the alert stays active.
+  `/api/relay-command/` is polled even when the ESP32 has no fresh local sensor
+  data, and ensures the dashboard simulator has an up-to-date reading before
+  evaluating the alert. Simulated readings are generated only when simulation
+  is enabled and live readings are stale, so they cannot fight active hardware
+  automation.
+- **Dashboard:** the Dashboard and Environment Control pages play the same
+  three-beep pattern in the browser. Browsers only allow audio after a user
+  interaction, so click or press a key on the page once; a pending alert sounds
+  immediately after that.
+- **Requirement:** the hardware endpoints are disabled unless
+  `SENSOR_PROCESSING_ENABLED=true` is set in the environment or `.env`.
+
 ## API Endpoints
 
 ### 1. Automation Decision (Main Endpoint)
@@ -132,7 +164,11 @@ The ESP32 should call this endpoint every 3-5 seconds.
     },
     "automation_reasons": [
         "Temperature 28.5°C approaching threshold"
-    ]
+    ],
+    "alert": {
+        "active": false,
+        "reasons": []
+    }
 }
 ```
 
@@ -160,6 +196,10 @@ Simplified endpoint for simple microcontrollers that just need ON/OFF states.
         "heater_auto": true,
         "co2_auto": true,
         "lights_auto": false
+    },
+    "alert": {
+        "active": false,
+        "reasons": []
     }
 }
 ```
@@ -248,8 +288,9 @@ GPIO17  ──── Relay 2 (Humidifier) IN
 GPIO18  ──── Relay 3 (Heater) IN
 GPIO19  ──── Relay 4 (CO2) IN
 GPIO21  ──── Relay 5 (Lights) IN
+GPIO14  ──── Active Buzzer (+)
 3.3V    ──── DHT22 VCC, MQ-135 VCC
-GND     ──── All grounds
+GND     ──── All grounds (including buzzer negative)
 5V      ──── Relay Module VCC
 ```
 
@@ -370,6 +411,10 @@ Connect to ESP32 serial monitor (115200 baud) to see:
 | Manual mode not working | Ensure `fan_auto = false` in environment settings |
 | Sensor readings incorrect | Re-calibrate DHT22, check wiring |
 | ESP32 not connecting | Verify WiFi credentials, server URL, firewall |
+| Buzzer not beeping on hardware | Check GPIO14 wiring, set `SENSOR_PROCESSING_ENABLED=true`, and confirm a reading is outside the alert thresholds |
+| Browser beep is silent | Click or press a key on the page first; browsers block audio until a user interaction |
+| Buzzer repeats every minute | Expected while the alert stays active; the alert clears when readings return to normal |
+| Alert never clears | Confirm readings are still arriving; readings older than 15 minutes are ignored |
 
 ## Summary
 

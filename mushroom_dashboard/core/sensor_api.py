@@ -12,9 +12,15 @@ from decimal import Decimal
 from datetime import timedelta
 import hmac
 import json
-from .automation import apply_automation_decisions
+from .automation import (
+    alert_state_for_reading,
+    apply_automation_decisions,
+    evaluate_alert_state,
+    latest_alert_state,
+)
 from .models import EnvironmentSettings, SensorReading, Notification
 from .notification_service import evaluate_environment_notifications
+from .sensor_simulation import ensure_dashboard_sensor_reading
 
 # Relay-command polling. The device reads poll_after_ms from each response, so
 # the interval can change at runtime without reflashing.
@@ -433,6 +439,7 @@ def get_automation_decision(request):
         from .models import EnvironmentSettings, SensorReading
 
         settings = EnvironmentSettings.load()
+        alert_state = {'active': False, 'reasons': []}
         
         # Get sensor readings - either from POST body or from database
         if request.method == 'POST':
@@ -447,6 +454,12 @@ def get_automation_decision(request):
             except (TypeError, ValueError):
                 light_lux = None
             device_id = data.get('device_id', 'ESP32_001')
+            alert_state = evaluate_alert_state(
+                temperature,
+                humidity,
+                air_quality_ppm,
+                settings=settings,
+            )
             
             # Optionally save the reading to database
             if data.get('save_reading', True):
@@ -465,6 +478,10 @@ def get_automation_decision(request):
                 air_quality_ppm = latest_reading.air_quality_ppm
                 # SensorReading model currently does not store light lux.
                 light_lux = None
+                alert_state = alert_state_for_reading(
+                    latest_reading,
+                    settings=settings,
+                )
             else:
                 # No sensor data available
                 return JsonResponse({
@@ -508,7 +525,8 @@ def get_automation_decision(request):
                 'light_intensity': settings.lights_value,
                 'light_target_lux': 100.0 + (max(0.0, min(float(settings.lights_value), 100.0)) / 100.0) * 900.0
             }),
-            'automation_reasons': decisions['reasons']
+            'automation_reasons': decisions['reasons'],
+            'alert': alert_state,
         })
         
     except json.JSONDecodeError:
@@ -553,6 +571,8 @@ def get_relay_command(request):
         watch_active = bool(
             settings.manual_watch_until and settings.manual_watch_until > timezone.now()
         )
+        ensure_dashboard_sensor_reading()
+        alert_state = latest_alert_state(settings=settings)
 
         return JsonResponse({
             'status': 'success',
@@ -563,6 +583,7 @@ def get_relay_command(request):
                 'co2': settings.co2_on,
                 'lights': settings.lights_on
             },
+            'alert': alert_state,
             'target_values': {
                 'fan_target_temp': settings.fan_value,
                 'target_humidity': settings.humidifier_value,

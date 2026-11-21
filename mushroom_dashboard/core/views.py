@@ -32,6 +32,7 @@ from .philippine_locations import get_locations
 from .shipping import calculate_shipping_fee
 from .sensor_api import MANUAL_WATCH_SECONDS, RELAY_POLL_FAST_MS
 from .sensor_simulation import ensure_dashboard_sensor_reading, SIMULATED_DEVICE_ID
+from .automation import alert_state_for_reading
 
 
 # Helper function to merge session cart into user cart
@@ -1369,6 +1370,7 @@ def dashboard_summary_api(request):
     
     # Check environment control systems
     env_settings = EnvironmentSettings.load()
+    alert_state = alert_state_for_reading(latest_sensor, settings=env_settings)
     if env_settings.fan_on:
         devices_online += 1  # Fan/Ventilation
     if env_settings.humidifier_on:
@@ -1411,6 +1413,7 @@ def dashboard_summary_api(request):
         'device_statuses': device_statuses,
         'sensor_data_source': sensor_data_source,
         'alerts': alert_list,
+        'alert': alert_state,
         # Real sensor data from DHT22 + MQ-135
         'temperature': temperature,
         'humidity': humidity,
@@ -2461,7 +2464,9 @@ def environment_api(request):
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
             
     # --- GET Request with Predictive Maintenance ---
+    ensure_dashboard_sensor_reading()
     latest_reading = SensorReading.objects.order_by('-timestamp').first()
+    alert_state = alert_state_for_reading(latest_reading, settings=settings_obj)
     recommendations = []
     
     # Get ML predictions
@@ -2555,7 +2560,8 @@ def environment_api(request):
             'recovery_email_enabled': notification_settings.recovery_email_enabled,
         },
         'recommendations': recommendations,
-        'ml_predictions': predictions  # Include predictions in response
+        'ml_predictions': predictions,  # Include predictions in response
+        'alert': alert_state,
     }
     return JsonResponse(data_to_send)
 

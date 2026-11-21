@@ -819,6 +819,7 @@
     </style>
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
     <script src="{% static 'js/toast-notifications.js' %}"></script>
+    <script src="{% static 'js/alert-buzzer.js' %}"></script>
     {% include 'includes/page_loader_head.html' %}
 </head>
 <body>
@@ -1614,6 +1615,10 @@
             try {
                 const response = await fetch('/api/environment/');
                 const data = await response.json();
+
+                if (window.playEnvironmentalAlert) {
+                    window.playEnvironmentalAlert(data.alert);
+                }
                 
                 const settings = data.settings;
                 const notificationSettings = data.notification_settings || {};
@@ -1647,6 +1652,15 @@
                 recommendations.forEach(rec => {
                     const li = document.createElement('li');
                     li.textContent = rec;
+                    aiList.appendChild(li);
+                });
+
+                const alertReasons = (
+                    data.alert && Array.isArray(data.alert.reasons)
+                ) ? data.alert.reasons : [];
+                alertReasons.forEach(reason => {
+                    const li = document.createElement('li');
+                    li.textContent = `🚨 ${reason}`;
                     aiList.appendChild(li);
                 });
 

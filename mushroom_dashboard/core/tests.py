@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from .ai_service import ask_gemini
 from .ai_context import build_ai_context
+from .automation import latest_alert_state
 from .models import (
     AutomationLog,
     EnvironmentSettings,
@@ -1091,12 +1092,143 @@ class AutomationDecisionApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['controls']['fan']['should_be_on'])
         self.assertEqual(response.json()['controls']['fan']['mode'], 'automatic')
+        self.assertTrue(response.json()['alert']['active'])
         settings_obj.refresh_from_db()
         self.assertTrue(settings_obj.fan_on)
         log = AutomationLog.objects.get(action='VENTILATION_ON')
         self.assertTrue(log.reason.startswith('Auto: '))
 
 
+class EnvironmentalAlertTests(TestCase):
+    def _create_alert_reading(self, device_id='ESP32_ALERT_TEST'):
+        return SensorReading.objects.create(
+            temperature=32.0,
+            humidity=80.0,
+            air_quality_ppm=900,
+            device_id=device_id,
+        )
+
+    def test_alert_state_uses_automation_thresholds(self):
+        self._create_alert_reading()
+
+        alert = latest_alert_state()
+
+        self.assertTrue(alert['active'])
+        self.assertTrue(any('Temperature' in reason for reason in alert['reasons']))
+        self.assertTrue(any('Air quality' in reason for reason in alert['reasons']))
+
+    def test_stale_reading_does_not_keep_buzzer_active(self):
+        reading = self._create_alert_reading()
+        SensorReading.objects.filter(pk=reading.pk).update(
+            timestamp=timezone.now() - timedelta(minutes=20)
+        )
+
+        self.assertFalse(latest_alert_state()['active'])
+
+    @override_settings(SENSOR_PROCESSING_ENABLED=True, ESP32_API_KEY='')
+    def test_relay_command_reports_alert_for_hardware(self):
+        self._create_alert_reading()
+
+        response = self.client.get('/api/relay-command/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['alert']['active'])
+        self.assertTrue(response.json()['alert']['reasons'])
+
+    @override_settings(SENSOR_PROCESSING_ENABLED=True, ESP32_API_KEY='')
+    def test_relay_command_generates_and_reports_simulated_alert_for_hardware(self):
+        SensorSimulationSettings.objects.create(
+            temperature_min=32,
+            temperature_max=32,
+            humidity_min=80,
+            humidity_max=80,
+            air_quality_min=300,
+            air_quality_max=300,
+        )
+
+        response = self.client.get('/api/relay-command/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['alert']['active'])
+        self.assertEqual(
+            SensorReading.objects.get().device_id,
+            'SIMULATED_ESP32',
+        )
+
+    def test_dashboard_summary_reports_alert(self):
+        self._create_alert_reading()
+
+        User = get_user_model()
+        admin = User.objects.create_user(
+            username='alert-admin',
+            password='StrongPass123!',
+            is_staff=True,
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get('/api/dashboard-summary/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['alert']['active'])
+        self.assertTrue(response.json()['alert']['reasons'])
+
+    def test_dashboard_generates_and_reports_simulated_alert(self):
+        SensorSimulationSettings.objects.create(
+            temperature_min=32,
+            temperature_max=32,
+            humidity_min=80,
+            humidity_max=80,
+            air_quality_min=300,
+            air_quality_max=300,
+        )
+
+        User = get_user_model()
+        admin = User.objects.create_user(
+            username='simulated-alert-admin',
+            password='StrongPass123!',
+            is_staff=True,
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get('/api/dashboard-summary/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['sensor_data_source'], 'simulated')
+        self.assertTrue(response.json()['alert']['active'])
+        self.assertEqual(
+            SensorReading.objects.get().device_id,
+            'SIMULATED_ESP32',
+        )
+
+    def test_environment_control_reports_simulated_alert(self):
+        SensorSimulationSettings.objects.create(
+            temperature_min=32,
+            temperature_max=32,
+            humidity_min=80,
+            humidity_max=80,
+            air_quality_min=300,
+            air_quality_max=300,
+        )
+
+        User = get_user_model()
+        admin = User.objects.create_user(
+            username='simulated-environment-alert-admin',
+            password='StrongPass123!',
+            is_staff=True,
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get('/api/environment/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['alert']['active'])
+        self.assertEqual(
+            SensorReading.objects.get().device_id,
+            'SIMULATED_ESP32',
+        )
+
+
+@override_settings(SENSOR_PROCESSING_ENABLED=True, ESP32_API_KEY='')
 class ManualRelayControlTests(TestCase):
     """The ESP32 learns its next poll delay from /api/relay-command/."""
 

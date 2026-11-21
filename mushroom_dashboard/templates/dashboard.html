@@ -158,6 +158,7 @@
     </style>
     <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
     <script src="{% static 'js/toast-notifications.js' %}"></script>
+    <script src="{% static 'js/alert-buzzer.js' %}"></script>
     {% include 'includes/page_loader_head.html' %}
 </head>
 <body>
@@ -546,6 +547,11 @@
                     const response = await fetch('/api/dashboard-summary/');
                     const summary = await response.json();
 
+                    // Sound the same three-beep pattern as the hardware buzzer.
+                    if (window.playEnvironmentalAlert) {
+                        window.playEnvironmentalAlert(summary.alert);
+                    }
+
                     // Update summary cards
                     cardActiveBatches.textContent = summary.active_batches;
                     cardThisMonthYield.innerHTML = `${parseFloat(summary.this_month_yield).toFixed(1)}<span class="unit">kg</span>`;
@@ -636,8 +642,11 @@
                     }
 
                     // Update alerts section
+                    const sensorAlertReasons = (
+                        summary.alert && Array.isArray(summary.alert.reasons)
+                    ) ? summary.alert.reasons : [];
                     alertsSection.innerHTML = ''; // Clear old alerts
-                    if (summary.alerts.length === 0) {
+                    if (summary.alerts.length === 0 && sensorAlertReasons.length === 0) {
                         alertsSection.innerHTML = `
                             <div class="alert alert-success">
                                 <i class="fa-solid fa-circle-check"></i>
@@ -657,6 +666,15 @@
                                 <div class="alert ${alertClass}">
                                     <i class="fa-solid ${iconClass}"></i>
                                     <span>${alert.description}</span>
+                                </div>
+                            `;
+                        });
+
+                        sensorAlertReasons.forEach(reason => {
+                            alertsSection.innerHTML += `
+                                <div class="alert alert-warning">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    <span>${reason}</span>
                                 </div>
                             `;
                         });

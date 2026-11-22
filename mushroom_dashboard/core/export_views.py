@@ -424,8 +424,8 @@ def environment_export_csv(request):
     rows = []
     for r in SensorReading.objects.filter(timestamp__gte=since).order_by('-timestamp')[:20000]:
         d, t = ex.split_datetime(r.timestamp)
-        rows.append([d, t, r.temperature, r.humidity, r.air_quality_ppm, r.co2_ppm, r.device_id])
-    headers = ['Date', 'Time', 'Temperature (C)', 'Humidity (%)', 'Air Quality (ppm)', 'CO2 (ppm)', 'Device']
+        rows.append([d, t, r.temperature, r.humidity, r.air_quality_ppm, r.co2_ppm])
+    headers = ['Date', 'Time', 'Temperature (C)', 'Humidity (%)', 'Air Quality (ppm)', 'CO2 (ppm)']
     return ex.csv_response(f'environment_readings_{days}d_{ex.file_stamp()}.csv', headers, rows)
 
 

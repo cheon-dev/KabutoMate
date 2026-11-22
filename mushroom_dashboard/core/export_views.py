@@ -243,7 +243,7 @@ def production_export_pdf(request):
             'rows': [[r['batch'], r['product'], r['start'] or '-', r['harvest'] or '-',
                       r['growth'] if r['growth'] is not None else '-', r['status'],
                       ex.money(r['cost']) if r['cost'] is not None else '-',
-                      ex.num(r['predicted']), ex.num(r['actual'], 3)] for r in pdf_rows],
+                      ex.num(r['predicted'], 3), ex.num(r['actual'], 3)] for r in pdf_rows],
             'widths': [2.6, 2, 1.5, 1.5, 0.8, 1.2, 1.6, 1.3, 1.3], 'right': {4, 6, 7, 8},
             'empty': 'No production batches recorded yet.',
         }],

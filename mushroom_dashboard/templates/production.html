@@ -1067,7 +1067,7 @@
 
         function formatGrams(value) {
             const grams = kilogramsToGrams(value);
-            return grams === null ? '-' : `${grams.toFixed(0)} g`;
+            return grams === null ? '-' : `${Number(grams.toFixed(1)).toLocaleString('en-US')} g`;
         }
 
         // --- 1. Data Loading Functions ---

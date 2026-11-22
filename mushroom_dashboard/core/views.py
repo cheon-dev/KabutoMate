@@ -149,7 +149,7 @@ def predict_production_batch_weight(growing_days, sensor_reading_id=None):
         'air_quality_ppm': float(latest_reading.air_quality_ppm),
     }
     weight_grams = predict_harvest_weight_grams(growing_days, **model_inputs)
-    weight_kg = (Decimal(str(weight_grams)) / Decimal('1000')).quantize(Decimal('0.01'))
+    weight_kg = (Decimal(str(weight_grams)) / Decimal('1000')).quantize(Decimal('0.0001'))
     model_inputs['sensor_reading_id'] = latest_reading.pk
     model_inputs['sensor_timestamp'] = latest_reading.timestamp.isoformat()
     return weight_grams, weight_kg, model_inputs

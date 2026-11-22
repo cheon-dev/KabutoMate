@@ -406,7 +406,7 @@ class ProductionBatch(models.Model):
     start_date = models.DateField(default=timezone.now)
     harvest_date = models.DateField(null=True, blank=True)
     yield_kg = models.DecimalField(max_digits=5, decimal_places=3, null=True, blank=True)
-    predicted_yield_kg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="ML predicted yield")
+    predicted_yield_kg = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True, help_text="ML predicted yield")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='GROWING')
     
     # --- NEW FIELD ---

@@ -989,7 +989,7 @@ class HarvestWeightProductionApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['predicted_yield_g'], 802.9)
-        self.assertEqual(response.json()['predicted_yield'], 0.8)
+        self.assertEqual(response.json()['predicted_yield'], 0.8029)
         self.assertEqual(response.json()['model_inputs']['humidity_pct'], 90.2)
         self.assertEqual(response.json()['model_inputs']['temperature_c'], 24.5)
         self.assertEqual(response.json()['model_inputs']['air_quality_ppm'], 760.0)
@@ -1020,7 +1020,7 @@ class HarvestWeightProductionApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         batch = ProductionBatch.objects.get()
-        self.assertEqual(batch.predicted_yield_kg, Decimal('0.80'))
+        self.assertEqual(batch.predicted_yield_kg, Decimal('0.8029'))
         predict_weight.assert_called_once_with(
             3,
             humidity_pct=90.2,

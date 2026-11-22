@@ -424,8 +424,10 @@ def environment_export_csv(request):
     rows = []
     for r in SensorReading.objects.filter(timestamp__gte=since).order_by('-timestamp')[:20000]:
         d, t = ex.split_datetime(r.timestamp)
-        rows.append([d, t, r.temperature, r.humidity, r.air_quality_ppm, r.co2_ppm])
-    headers = ['Date', 'Time', 'Temperature (C)', 'Humidity (%)', 'Air Quality (ppm)', 'CO2 (ppm)']
+        # One air-quality column: the MQ-135 reading, falling back to CO2 when that is all a reading has.
+        air = r.air_quality_ppm if r.air_quality_ppm is not None else r.co2_ppm
+        rows.append([d, t, r.temperature, r.humidity, air])
+    headers = ['Date', 'Time', 'Temperature (C)', 'Humidity (%)', 'Air Quality (ppm)']
     return ex.csv_response(f'environment_readings_{days}d_{ex.file_stamp()}.csv', headers, rows)
 
 
